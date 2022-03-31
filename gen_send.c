@@ -4,7 +4,7 @@
 #include "packet.h"
 
 int main() {
-	init();
+	init(TRANS_TYPE_UDP);
 	steer();
 	// copy packet
 	memcpy(sbuf, pkt_template, sizeof(pkt_template));

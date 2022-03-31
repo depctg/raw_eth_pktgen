@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* packets */
 #define PKT_SIZE 60
 #define PKT_SIZE_MAX 1024
@@ -22,5 +26,9 @@
 extern const uint8_t pkt_template[PKT_SIZE];
 
 // You may define more packet related functions here!
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

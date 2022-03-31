@@ -12,7 +12,7 @@ struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *smr, *rmr;
 
-int init() {
+int init(int type) {
 	struct ibv_context *context = NULL;
 	struct ibv_pd *pd;
 
@@ -70,8 +70,8 @@ int init() {
 
 		},
 
-		.qp_type = IBV_QPT_RAW_PACKET,
-
+		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET :
+                           IBV_QPT_RC;
 	};
 
 
@@ -179,6 +179,77 @@ int steer() {
 		exit(1);
 	}
 }
+
+int steer_udp(uint16_t steer_port, uint16_t src_port) {
+
+    uint16_t dst_prt_hi = (steer_port >> 8) & 0x00FF;
+    uint16_t dst_prt_lo = (steer_port << 8) & 0xFF00;
+
+
+    uint16_t src_prt_hi = (src_port >> 8) & 0x00FF;
+    uint16_t src_prt_lo = (src_port << 8) & 0xFF00;
+
+    uint16_t dst_port_big_end = dst_prt_hi | dst_prt_lo;
+    uint16_t src_port_big_end = src_prt_hi | src_prt_lo;
+    // printf("Steering Rule: dst port  %d, %04x\n", steer_port, dst_port_big_end);
+
+
+    /* 13. Create steering rule for recv */
+    struct raw_eth_flow_attr_udp {
+        struct ibv_flow_attr attr;
+        struct ibv_flow_spec_eth spec_eth;
+        struct ibv_flow_spec_tcp_udp spec_udp;
+    } __attribute__((packed)) flow_attr = {
+        .attr = {
+            .comp_mask = 0,
+            .type = IBV_FLOW_ATTR_NORMAL,
+            .size = sizeof(flow_attr),
+            .priority = 0,
+            .num_of_specs = 2,
+            .port = PORT_NUM,
+            .flags = 0,
+        },
+        .spec_eth = {
+            .type   = IBV_FLOW_SPEC_ETH,
+            .size   = sizeof(struct ibv_flow_spec_eth),
+            .val = {
+                .dst_mac = { LOCAL_MAC },
+                .src_mac = {0},
+                .ether_type = 0,
+                .vlan_tag = 0,
+            },
+            .mask = {
+                .dst_mac = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+                .src_mac = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                .ether_type = 0,
+                .vlan_tag = 0,
+            }
+        },
+        .spec_udp = {
+            .type   = IBV_FLOW_SPEC_UDP,
+            .size   = sizeof(struct ibv_flow_spec_tcp_udp),
+            .val = {
+                .dst_port = dst_port_big_end,
+                .src_port = 0
+            },
+            .mask = {
+                .dst_port = 0xFFFF,
+                .src_port = 0
+            }
+        }
+
+    };
+
+    struct ibv_flow *eth_flow;
+    eth_flow = ibv_create_flow(qp, &flow_attr.attr);
+
+    if (!eth_flow) {
+        fprintf(stderr, "Couldn't attach steering flow %s\n", strerror(errno));
+
+        exit(1);
+    }
+}
+
 
 // Send one packet, TODO: batch
 int send(void * buf, size_t size) {

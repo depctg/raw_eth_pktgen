@@ -2,7 +2,7 @@ OBJECTS := common.o packet.o
 TARGETS := gen_send gen_recv
 
 LD       := gcc
-LIBS     := -libverbs
+LIBS     := -libverbs -lnanomsg
 CFLAGS   := -O2 -g -std=c11 -Wall
 
 .PHONY: all clean

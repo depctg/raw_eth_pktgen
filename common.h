@@ -14,6 +14,7 @@ extern "C" {
 
 /* send switch */
 #define SEND_CMPL 1
+#define SEND_INLINE 1
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 2

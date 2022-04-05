@@ -73,7 +73,8 @@ int init(int type, const char * server_url) {
 			.max_inline_data = 512,
 		},
 
-		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC
+		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC,
+        .sq_sig_all = 0
 	};
 
 
@@ -301,17 +302,20 @@ uint64_t send_async(void *buf, size_t size) {
 	sge.length = size;
 	sge.lkey = smr->lkey;
 
-	memset(&wr, 0, sizeof(wr));
-
 	wr.num_sge = 1;
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 
 	/* inline ? */
-	// wr.send_flags = IBV_SEND_INLINE;
-
+	wr.send_flags = 0;
 	wr.wr_id = 0;
+
+#if SEND_INLINE
+    if (likely(size < 512))
+        wr.send_flags |= IBV_SEND_INLINE;
+#endif
+
 #if SEND_CMPL
 	wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
@@ -339,15 +343,16 @@ uint64_t send(void * buf, size_t size) {
 	sge.length = size;
 	sge.lkey = smr->lkey;
 
-	memset(&wr, 0, sizeof(wr));
-
 	wr.num_sge = 1;
 	wr.sg_list = &sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
+	wr.send_flags = 0;
 
-	/* inline ? */
-	// wr.send_flags = IBV_SEND_INLINE;
+#if SEND_INLINE
+    if (likely(size < 512))
+        wr.send_flags |= IBV_SEND_INLINE;
+#endif
 
 	wr.wr_id = 0;
 #if SEND_CMPL
@@ -402,7 +407,7 @@ uint64_t recv(void * buf, size_t size) {
 uint64_t recv_async(void * buf, size_t size) {
 	int ret;
 	struct ibv_sge sge;
-	struct ibv_recv_wr wr, *bad_wr;
+	struct ibv_recv_wr *bad_wr, wr;
 
 	sge.addr = (uintptr_t)buf;
 	sge.length = size;
@@ -428,14 +433,9 @@ int poll(uint64_t wr_id) {
     }
 
 	static struct ibv_wc wc[MAX_POLL];
-    int inflight = post_id - poll_id;
-
-    if (unlikely(inflight > MAX_POLL)) {
-        inflight = MAX_POLL;
-    }
 
 	do {
-        int n = ibv_poll_cq(cq, inflight, wc);
+        int n = ibv_poll_cq(cq, MAX_POLL, wc);
         for (int i = 0; i < n; i++)
             if (wc[i].wr_id > poll_id)
                 poll_id = wc[i].wr_id;

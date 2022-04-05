@@ -64,7 +64,6 @@ int main(int argc, char * argv[]) {
             // not a timeout
             if (wc[i].status == 0 && wc[i].wr_id != 0) {
                 int idx = (poll_recvs++) % max_recvs;
-                // printf("%d %d [%d] processing request %d -> %d\n", post_recvs, poll_recvs, wc[i].wr_id, reqs[idx].index, reqs[idx].size);
 
                 // process request
                 // sleep here to change the latency

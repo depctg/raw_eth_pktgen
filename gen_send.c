@@ -3,93 +3,85 @@
 #include "common.h"
 #include "packet.h"
 
-struct req {
-    enum {
-        REQ_WRITE,
-        REQ_READ,
-    };
-    int index;
-    int elsize;
-};
+#include "app.h"
 
 int main() {
 	init(TRANS_TYPE_UDP);
 	steer();
-	// copy packet
-	memcpy(sbuf, pkt_template, sizeof(pkt_template));
 
-	// send
-	// printf("begin send\n");
-	// send(sbuf, sizeof(pkt_data));
+/* local
+	const int size = 1024;
+	int a[size];
+	int sum = 0;
+	for (int i = 0; i < size; i++) {
+	    sum += a[i];
+	}
+*/
 
-	// recv
-	printf("begin recv\n");
-	recv(rbuf, PKT_SIZE);
+/* remote: unoptimized
+	struct req *reqs = (struct req *)sbuf;
+	size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
+	reqs[0].index = 0;
+	reqs[0].size = sizeof(int);
+	send(&req[0], sizeof(struct req));
 
-	printf("We are done\n");
+	const int size = 1024;
+	int a[size];
+	int sum = 0;
+	for (int i = 0; i < size; i++) {
+	    int ii = i % num_reqs;
+	    // send req
+	    reqs[ii].index = 0;
+	    reqs[ii].size = sizeof(int);
+	    send(&req[ii], sizeof(struct req));
+	    // recv result
+	    recv(&((int *)rbuf)[i], sizeof(int));
+	    // get data from buffer
+	    sum += ((int *)rbuf)[i];
+	}
+*/
 
-	return 0;
+	// remote_optmized
+    int batch_size = sizeof(int) * BATCH_SIZE;
+	struct req *reqs = (struct req *)sbuf;
+    uint64_t wr_id, wr_id_nxt;
 
-        // local
-        const int size = 1024;
-        int a[size];
-        int sum = 0;
-        for (int i = 0; i < size; i++) {
-            sum += a[i];
-        }
+    const int num_buf = 4;
+    int buf_id = 0;
 
-        // remote
-        const int size = 1024;
-        int a[size];
-        int sum = 0;
-        for (int i = 0; i < size; i++) {
-            sum += a[i];
-        }
+    uint64_t sum = 0;
+    uint64_t startNs = getCurNs();
+ 
+    // Send first request
+	reqs[buf_id].index = 0;
+	reqs[buf_id].size = batch_size;
+	send_async(reqs + buf_id, sizeof(struct req));
+	wr_id = recv_async(rbuf, batch_size);
 
-        struct req *reqs = (struct req *)sbuf;
-        size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
-        reqs[0].index = 0;
-        reqs[0].size = sizeof(int);
-        send(&req[0], sizeof(struct req));
+	for (int i = BATCH_SIZE; i < ARRAY_SIZE; i += BATCH_SIZE) {
+        // Send next request
+        int buf_id_nxt = (buf_id + 1) % num_buf;
+        reqs[buf_id_nxt].index = i * sizeof(int);
+        reqs[buf_id_nxt].size = batch_size;
+        send_async(reqs + buf_id_nxt, sizeof(struct req));
+        wr_id_nxt = recv_async((int *)rbuf + buf_id_nxt * BATCH_SIZE, batch_size);
 
-        const int size = 1024;
-        int a[size];
-        int sum = 0;
-        for (int i = 0; i < size; i++) {
-            int ii = i % num_reqs;
-            // send req
-            reqs[ii].index = 0;
-            reqs[ii].size = sizeof(int);
-            send(&req[ii], sizeof(struct req));
-            // recv result
-            recv(&((int *)rbuf)[i], sizeof(int));
-            // get data from buffer
-            sum += ((int *)rbuf)[i];
-        }
+	    // recv result
+	    poll(wr_id);
+        int * arr = (int *)rbuf + buf_id * BATCH_SIZE;
 
-        // remote3 
-        reqs[0].index = 0;
-        reqs[0].size = sizeof(int);
-        send_aync(&req[0], sizeof(struct req));
-        int id = recv_aync(&((int *)rbuf)[i], sizeof(int));
+	    // get data from buffer
+        for (int j = 0; j < BATCH_SIZE; j++)
+            sum += arr[j];
 
-        for (int i = 0; i < size; i++) {
-            int ii = (i + 1) % num_reqs;
-            reqs[ii].index = 0;
-            reqs[ii].size = sizeof(int);
-            send_aync(&req[ii], sizeof(struct req));
-            // send req
-            // recv result
-            poll(id);
-            // get data from buffer
-            sum += ((int *)rbuf)[i];
-        }
+        // prepare for next poll
+        wr_id = wr_id_nxt;
+        buf_id = buf_id_nxt;
+	}
 
-        // remote4
-        reqs[0].index = 0;
-        reqs[0].size = sizeof(int) * 16;
-        send_aync(&req[0], sizeof(struct req));
-        int id = recv_aync(&((int *)rbuf)[i], sizeof(int) * 16);
+    uint64_t endNs = getCurNs();
+
+    printf("SUM %ld, ns: %ld\n", sum, endNs - startNs);
 
 
 

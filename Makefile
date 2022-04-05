@@ -3,7 +3,7 @@ TARGETS := gen_send gen_recv
 
 LD       := gcc
 LIBS     := -libverbs -lnanomsg
-CFLAGS   := -O2 -g -std=c11 -Wall
+CFLAGS   := -O2 -g -std=c11 -Wall -D_POSIX_C_SOURCE=199309L
 
 .PHONY: all clean
 

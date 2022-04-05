@@ -12,6 +12,9 @@ struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *smr, *rmr;
 
+uint64_t post_id = 0;
+uint64_t poll_id = 0;
+
 int init(int type) {
 	struct ibv_context *context = NULL;
 	struct ibv_pd *pd;
@@ -70,8 +73,7 @@ int init(int type) {
 
 		},
 
-		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET :
-                           IBV_QPT_RC;
+		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC
 	};
 
 
@@ -178,6 +180,7 @@ int steer() {
 		fprintf(stderr, "Couldn't attach steering flow\n");
 		exit(1);
 	}
+    return 0;
 }
 
 int steer_udp(uint16_t steer_port, uint16_t src_port) {
@@ -213,7 +216,7 @@ int steer_udp(uint16_t steer_port, uint16_t src_port) {
             .type   = IBV_FLOW_SPEC_ETH,
             .size   = sizeof(struct ibv_flow_spec_eth),
             .val = {
-                .dst_mac = { LOCAL_MAC },
+                .dst_mac = { SRC_MAC },
                 .src_mac = {0},
                 .ether_type = 0,
                 .vlan_tag = 0,
@@ -248,11 +251,48 @@ int steer_udp(uint16_t steer_port, uint16_t src_port) {
 
         exit(1);
     }
+    return 0;
 }
 
+uint64_t send_async(void *buf, size_t size) {
+	int ret;
+	struct ibv_sge sge;
+	struct ibv_send_wr wr, *bad_wr;
+
+	/* Send Packets */
+	/* scatter/gather entry describes location and size of data to send*/
+	sge.addr = (uint64_t)buf;
+	sge.length = size;
+	sge.lkey = smr->lkey;
+
+	memset(&wr, 0, sizeof(wr));
+
+	wr.num_sge = 1;
+	wr.sg_list = &sge;
+	wr.next = NULL;
+	wr.opcode = IBV_WR_SEND;
+
+	/* inline ? */
+	wr.send_flags = IBV_SEND_INLINE;
+
+	wr.wr_id = 0;
+#if SEND_CMPL
+	wr.wr_id = ++post_id;
+	wr.send_flags |= IBV_SEND_SIGNALED;
+#endif
+
+	/* push descriptor to hardware */
+	ret = ibv_post_send(qp, &wr, &bad_wr);
+	if (unlikely(ret < 0)) {
+		fprintf(stderr, "failed in post send\n");
+		exit(1);
+	}
+
+	return post_id;
+}
 
 // Send one packet, TODO: batch
-int send(void * buf, size_t size) {
+uint64_t send(void * buf, size_t size) {
 	int n, ret;
 	struct ibv_sge sge;
 	struct ibv_send_wr wr, *bad_wr;
@@ -276,6 +316,7 @@ int send(void * buf, size_t size) {
 
 	wr.wr_id = 0;
 #if SEND_CMPL
+	wr.wr_id = ++post_id
 	wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 
@@ -300,7 +341,7 @@ int send(void * buf, size_t size) {
 	return 0;
 }
 
-int recv(void * buf, size_t size) {
+uint64_t recv(void * buf, size_t size) {
 	int n, ret;
 	struct ibv_sge sge;
 	struct ibv_recv_wr wr, *bad_wr;
@@ -324,5 +365,50 @@ int recv(void * buf, size_t size) {
 	while ((n = ibv_poll_cq(cq, 1, &wc)) == 0);
 	printf("message received %d\n", n);
 	return 0;
+}
+
+uint64_t recv_async(void * buf, size_t size) {
+	int ret;
+	struct ibv_sge sge;
+	struct ibv_recv_wr wr, *bad_wr;
+
+	sge.addr = (uintptr_t)buf;
+	sge.length = size;
+	sge.lkey = rmr->lkey;
+	 
+	wr.num_sge = 1;
+	wr.sg_list = &sge;
+	wr.next = NULL;
+
+	wr.wr_id = ++post_id;
+	ret = ibv_post_recv(qp, &wr, &bad_wr);
+	if (unlikely(ret) < 0) {
+		fprintf(stderr, "failed in post recv\n");
+		exit(1);
+	}
+
+	return post_id;
+}
+
+int poll(uint64_t wr_id) {
+    if (poll_id >= wr_id) {
+        return 0;
+    }
+
+	static struct ibv_wc wc[MAX_POLL];
+    int inflight = post_id - poll_id;
+
+    if (unlikely(inflight > MAX_POLL)) {
+        inflight = MAX_POLL;
+    }
+
+	do {
+        int n = ibv_poll_cq(cq, inflight, wc);
+        for (int i = 0; i < n; i++)
+            if (wc[i].wr_id > poll_id)
+                poll_id = wc[i].wr_id;
+    } while (poll_id < wr_id);
+
+    return 0;
 }
 

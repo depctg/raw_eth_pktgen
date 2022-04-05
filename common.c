@@ -330,7 +330,6 @@ uint64_t send_async(void *buf, size_t size) {
 	return post_id;
 }
 
-// Send one packet, TODO: batch
 uint64_t send(void * buf, size_t size) {
 	int n, ret;
 	struct ibv_sge sge;

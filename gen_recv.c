@@ -57,7 +57,7 @@ int main(int argc, char * argv[]) {
 
 	while (1) {
         // here we do not want to poll by id, just call ibv_xxx
-        int n = ibv_poll_cq(cq, post_recvs - poll_recvs, wc);
+        int n = ibv_poll_cq(cq, inflights, wc);
 
         // process the requests
         for (int i = 0; i < n; i++) {

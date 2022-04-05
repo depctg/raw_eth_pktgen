@@ -1,13 +1,13 @@
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "common.h"
 #include "packet.h"
 
 #include "app.h"
 
-int main() {
-	init(TRANS_TYPE_UDP);
-	steer();
+int main(int argc, char * argv[]) {
+	init(TRANS_TYPE_RC, argv[1]);
 
 /* local
 	const int size = 1024;
@@ -58,14 +58,17 @@ int main() {
 	send_async(reqs + buf_id, sizeof(struct req));
 	wr_id = recv_async(rbuf, batch_size);
 
-	for (int i = BATCH_SIZE; i < ARRAY_SIZE; i += BATCH_SIZE) {
+	for (int i = 0; i < ARRAY_SIZE; i += BATCH_SIZE) {
         // Send next request
         int buf_id_nxt = (buf_id + 1) % num_buf;
-        reqs[buf_id_nxt].index = i * sizeof(int);
-        reqs[buf_id_nxt].size = batch_size;
-        send_async(reqs + buf_id_nxt, sizeof(struct req));
-        wr_id_nxt = recv_async((int *)rbuf + buf_id_nxt * BATCH_SIZE, batch_size);
+        if (i + BATCH_SIZE < ARRAY_SIZE) {
+            reqs[buf_id_nxt].index = (i + BATCH_SIZE) * sizeof(int);
+            reqs[buf_id_nxt].size = batch_size;
+            send_async(reqs + buf_id_nxt, sizeof(struct req));
+            wr_id_nxt = recv_async((int *)rbuf + buf_id_nxt * BATCH_SIZE, batch_size);
+        }
 
+        // printf("wr_id %ld, buf_id %d\n", wr_id, buf_id);
 	    // recv result
 	    poll(wr_id);
         int * arr = (int *)rbuf + buf_id * BATCH_SIZE;
@@ -82,10 +85,6 @@ int main() {
     uint64_t endNs = getCurNs();
 
     printf("SUM %ld, ns: %ld\n", sum, endNs - startNs);
-
-
-
-
 
 }
 

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 
 #include "common.h"
 #include "packet.h"
@@ -11,12 +13,12 @@ void *sbuf, *rbuf;
 struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *smr, *rmr;
+struct ibv_context *context = NULL;
 
 uint64_t post_id = 0;
 uint64_t poll_id = 0;
 
-int init(int type) {
-	struct ibv_context *context = NULL;
+int init(int type, const char * server_url) {
 	struct ibv_pd *pd;
 
 	int ret;
@@ -57,20 +59,18 @@ int init(int type) {
 
 	/* 5. Initialize QP */
 	struct ibv_qp_init_attr qp_init_attr = {
-		.qp_context = NULL,
 		/* report send completion to cq */
 		.send_cq = cq,
 		.recv_cq = cq,
 		.cap = {
 			/* no send ring */
-			.max_send_wr = CQ_NUM_DESC,
+			.max_send_wr = CQ_NUM_DESC / 2,
 			.max_send_sge = 1,
 			/* maximum number of packets in ring */
-			.max_recv_wr = CQ_NUM_DESC,
+			.max_recv_wr = CQ_NUM_DESC / 2,
 			.max_recv_sge = 1,
 			/* if inline maximum of payload data in the descriptors themselves */
 			.max_inline_data = 512,
-
 		},
 
 		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC
@@ -84,39 +84,75 @@ int init(int type) {
 		exit(1);
 	}
 
+    /* exchange QP info */
+	struct conn_info * peerinfo;
+    if (type == TRANS_TYPE_RC) {
+        peerinfo = client_exchange_info(server_url);
+    } else if (type == TRANS_TYPE_RC_SERVER) {
+        peerinfo = server_exchange_info(server_url);
+    }
+
 	/* 7. Initialize the QP (receive ring) and assign a port */
 	struct ibv_qp_attr qp_attr;
 	int qp_flags;
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE | IBV_QP_PORT;
-	qp_attr.qp_state = IBV_QPS_INIT;
-	qp_attr.port_num = 1;
 
 	// INIT
+	memset(&qp_attr, 0, sizeof(qp_attr));
+	qp_flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+	qp_attr.qp_state = IBV_QPS_INIT;
+    qp_attr.pkey_index = 0;
+	qp_attr.port_num = 1;
+    qp_attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
+
 	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
+	if (ret != 0) {
 		fprintf(stderr, "failed modify qp to init\n");
 		exit(1);
 	}
 
 	// INIT->RTR
 	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE;
-	qp_attr.qp_state = IBV_QPS_RTR;
+	qp_flags = IBV_QP_STATE | IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+
+    qp_attr.qp_state = IBV_QPS_RTR;
+    qp_attr.path_mtu = IBV_MTU_1024;
+    qp_attr.rq_psn = 0;
+    qp_attr.max_dest_rd_atomic = 1;
+    qp_attr.min_rnr_timer = 0x12;
+
+    qp_attr.ah_attr.is_global = 1;
+    qp_attr.ah_attr.sl = 0;
+    qp_attr.ah_attr.src_path_bits = 0;
+    qp_attr.ah_attr.port_num = peerinfo->port;
+
+    qp_attr.dest_qp_num = peerinfo->qp_number;
+    qp_attr.ah_attr.dlid = peerinfo->local_id;
+
+    qp_attr.ah_attr.grh.sgid_index = DEVICE_GID;
+    qp_attr.ah_attr.grh.dgid = peerinfo->gid;
+    qp_attr.ah_attr.grh.hop_limit = 0xFF;
+    qp_attr.ah_attr.grh.traffic_class = 0;
 
 	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
-		fprintf(stderr, "failed modify qp to receive\n");
+	if (ret != 0) {
+		fprintf(stderr, "failed modify qp to receive %s\n", strerror(errno));
 		exit(1);
 	}
 
 	// RTR->RTS
-	qp_flags = IBV_QP_STATE;
+	memset(&qp_attr, 0, sizeof(qp_attr));
+	qp_flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
 	qp_attr.qp_state = IBV_QPS_RTS;
 
+    qp_attr.sq_psn = 0;
+    qp_attr.timeout = 16; // See doc
+    qp_attr.retry_cnt      = 7;
+    qp_attr.rnr_retry      = 7; /* infinite */
+    qp_attr.max_rd_atomic  = 1;
+
 	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret < 0) {
-		fprintf(stderr, "failed modify qp to receive\n");
+	if (ret != 0) {
+		fprintf(stderr, "failed modify qp to send\n");
 		exit(1);
 	}
 
@@ -273,18 +309,17 @@ uint64_t send_async(void *buf, size_t size) {
 	wr.opcode = IBV_WR_SEND;
 
 	/* inline ? */
-	wr.send_flags = IBV_SEND_INLINE;
+	// wr.send_flags = IBV_SEND_INLINE;
 
 	wr.wr_id = 0;
 #if SEND_CMPL
-	wr.wr_id = ++post_id;
 	wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 
 	/* push descriptor to hardware */
 	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (unlikely(ret < 0)) {
-		fprintf(stderr, "failed in post send\n");
+	if (unlikely(ret != 0)) {
+		fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));
 		exit(1);
 	}
 
@@ -312,30 +347,29 @@ uint64_t send(void * buf, size_t size) {
 	wr.opcode = IBV_WR_SEND;
 
 	/* inline ? */
-	wr.send_flags = IBV_SEND_INLINE;
+	// wr.send_flags = IBV_SEND_INLINE;
 
 	wr.wr_id = 0;
 #if SEND_CMPL
-	wr.wr_id = ++post_id
 	wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 
 	/* push descriptor to hardware */
 	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (ret < 0) {
+	if (ret != 0) {
 		fprintf(stderr, "failed in post send\n");
 		exit(1);
 	}
 
 	/* poll for completion after half ring is posted */
 #if SEND_CMPL
-	n = ibv_poll_cq(cq, 1, &wc);
-	if (n > 0) {
-		printf("completed message %ld\n", wc.wr_id);
-	} else if (msgs_completed < 0) {
-		printf("Polling error\n");
-		return 1;
-	}
+    while (1) {
+        n = ibv_poll_cq(cq, 1, &wc);
+        if (n > 0) {
+            printf("completed message %ld\n", wc.wr_id);
+            break;
+        }
+    }
 #endif
 
 	return 0;
@@ -356,14 +390,12 @@ uint64_t recv(void * buf, size_t size) {
 	wr.next = NULL;
 
 	ret = ibv_post_recv(qp, &wr, &bad_wr);
-	if (ret < 0) {
+	if (ret != 0) {
 		fprintf(stderr, "failed in post recv\n");
 		exit(1);
 	}
 
-	printf("begin poll\n");
 	while ((n = ibv_poll_cq(cq, 1, &wc)) == 0);
-	printf("message received %d\n", n);
 	return 0;
 }
 
@@ -382,7 +414,7 @@ uint64_t recv_async(void * buf, size_t size) {
 
 	wr.wr_id = ++post_id;
 	ret = ibv_post_recv(qp, &wr, &bad_wr);
-	if (unlikely(ret) < 0) {
+	if (unlikely(ret) != 0) {
 		fprintf(stderr, "failed in post recv\n");
 		exit(1);
 	}

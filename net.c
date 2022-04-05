@@ -3,111 +3,96 @@
 #include <stdlib.h>
 
 #include <infiniband/verbs.h>
-#include <nanomsg/nn.h>
-#include <nanomsg/reqrep.h>
+#include <nng/nng.h>
+#include <nng/protocol/reqrep0/rep.h>
+#include <nng/protocol/reqrep0/req.h>
 
-#include "test.h"
+#include "common.h"
 
-static int sock_init = 0;
-static int sock, rv_connect;
+static const int size = 1024*1024*64;
 
 static void fatal(const char *func)
 {
-        fprintf(stderr, "%s: %s\n", func, nn_strerror(nn_errno()));
-        exit(1);
+    int rv = 0;
+    fprintf(stderr, "%s: %s\n", func, nng_strerror(rv));
+    exit(1);
 }
 
-int client_exchange_info(struct rdma_conn *conn) {
-    int sock, rv;
-    int send_size, bytes;
-    void *info, *peerinfo = NULL;
-    int size = 1024*1024*64;
+struct conn_info * client_exchange_info(const char * server_url) {
+    nng_socket sock;
+    int rv;
+	size_t send_size, bytes;
 
+    union ibv_gid gids;
+    ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
+    struct conn_info local_info = {
+        .gid = gids,
+        .port = PORT_NUM,
+        .qp_number = qp->qp_num,
+        .num_mr = 0,
+        .local_id = 0
+    };
+	struct conn_info *peer_info = NULL;
 
-    printf("connecting to server %s...\n", config.server_url);
-    if ((sock = nn_socket(AF_SP, NN_REQ)) < 0) {
+    printf("connecting to server %s...\n", server_url);
+    if ((rv = nng_req0_open(&sock)) < 0) {
         fatal("nn_socket");
     }
-
-    if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVBUF, &size, sizeof(size)) != 0) {
-        fatal("nng_setopt_size");
-    }
-    if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_SNDBUF, &size, sizeof(size)) != 0) {
-        fatal("nng_setopt_size");
-    }
-    size = -1;
-    if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVMAXSIZE, &size, sizeof(size)) != 0) {
+    if ((rv = nng_setopt_size(sock, NNG_OPT_RECVMAXSZ, size)) != 0) {
         fatal("nng_setopt_size");
     }
 
-    if ((rv = nn_connect(sock, config.server_url)) < 0) {
+    if ((rv = nng_dial(sock, server_url, NULL, 0)) < 0) {
         fatal("nn_connect");
     }
 
-    send_size = extract_info(conn, &info);
-    printf("try to send size %d\n", send_size);
-    if ((bytes = nn_send(sock, info, send_size, 0)) < 0) {
+    // send peerinfo
+    send_size = sizeof(local_info);
+    if ((rv = nng_send(sock, &local_info, send_size, 0)) < 0) {
         fatal("nn_send");
     }
-    if ((bytes = nn_recv(sock, &peerinfo, NN_MSG, 0)) < 0) {
+    if ((rv = nng_recv(sock, &peer_info, &bytes, NNG_FLAG_ALLOC)) < 0) {
         fatal("nn_recv");
     }
 
-    conn->peerinfo = peerinfo;
-    printf("received mr, with bytes %d, num %d\n", bytes, conn->peerinfo->num_mr);
+    printf("received mr, with bytes %ld, num %d\n", bytes, peer_info->num_mr);
 
-    // TODO: check this
-    // nn_freemsg(buf);
-
-    free(info);
-
-    return 0;
+    return peer_info;
 }
 
-int server_exchange_info(struct rdma_conn *conn) {
-    int send_size, bytes;
-    void *info, *peerinfo = NULL;
-    int size = 1024*1024*64;
+struct conn_info * server_exchange_info(const char * server_url) {
+    nng_socket sock;
+	int rv;
+    size_t send_size, bytes;
+
+    union ibv_gid gids;
+    ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
+    struct conn_info local_info = {
+        .gid = gids,
+        .port = PORT_NUM,
+        .qp_number = qp->qp_num,
+        .num_mr = 0
+    };
+	struct conn_info *peer_info = NULL;
 
     // create server
-    if (!sock_init) {
-        if ((sock = nn_socket(AF_SP, NN_REP)) < 0) {
-            fatal("nn_socket");
-        }
+	if ((rv = nng_rep0_open(&sock)) < 0) {
+		fatal("nn_socket");
+	}
+	if ((rv = nng_listen(sock, server_url, NULL, 0)) < 0) {
+		fatal("nn_bind");
+	}
 
-        if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVBUF, &size, sizeof(size)) != 0) {
-            fatal("nng_setopt_size");
-        }
-        if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_SNDBUF, &size, sizeof(size)) != 0) {
-            fatal("nng_setopt_size");
-        }
-        size = -1;
-        if (nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVMAXSIZE, &size, sizeof(size)) != 0) {
-            fatal("nng_setopt_size");
-        }
-
-        if ((rv_connect = nn_bind(sock, config.server_listen_url)) < 0) {
-            fatal("nn_bind");
-        }
-
-        sock_init = 1;
-    }
-
-    if ((bytes = nn_recv(sock, &peerinfo, NN_MSG, 0)) < 0) {
+    printf("Listening on %s\n", server_url);
+    if ((rv = nng_recv(sock, &peer_info, &bytes, NNG_FLAG_ALLOC)) < 0) {
         fatal("nn_recv");
     }
-
-    // TODO: fix this, use memcpy
-    conn->peerinfo = peerinfo;
-    send_size = extract_info(conn, &info);
-    if ((bytes = nn_send(sock, info, send_size, 0)) < 0) {
+    send_size = sizeof(local_info);
+    if ((rv = nng_send(sock, &local_info, send_size, 0)) < 0) {
         fatal("nn_send");
     }
-    printf("send %d bytes, expect to send %d bytes \n", send_size, bytes);
+    printf("send %ld bytes, expect to send %ld bytes \n", send_size, bytes);
 
-    // TODO: check this
-    // nn_freemsg(buf);
-
-    return 0;
+    return peer_info;
 }
 

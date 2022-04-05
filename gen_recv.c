@@ -8,15 +8,22 @@
 static inline int app_init() {
     // generate c array in sbuf
 	int * a = (int *)sbuf;
+    unsigned long long sum = 0;
 	// init a
-	for (int i = 0; i < ARRAY_SIZE; i++)
+	for (int i = 0; i < ARRAY_SIZE; i++) {
 		a[i] = i;
+        sum += a[i];
+    }
+
+    printf("Local sum %lld\n", sum);
+
     return 0;
 }
 
-int main() {
-	init(TRANS_TYPE_UDP);
-	steer();
+int main(int argc, char * argv[]) {
+	init(TRANS_TYPE_RC_SERVER, argv[1]);
+    app_init();
+    printf("start processing requests...\n");
 
 /*  non-zero copy version
 	const int size = 1024;
@@ -52,22 +59,25 @@ int main() {
         // here we do not want to poll by id, just call ibv_xxx
         int n = ibv_poll_cq(cq, post_recvs - poll_recvs, wc);
 
-        // fill the recv queue first
-        while (post_recvs < poll_recvs + n + inflights) {
+        // process the requests
+        for (int i = 0; i < n; i++) {
+            // not a timeout
+            if (wc[i].status == 0 && wc[i].wr_id != 0) {
+                int idx = (poll_recvs++) % max_recvs;
+                // printf("%d %d [%d] processing request %d -> %d\n", post_recvs, poll_recvs, wc[i].wr_id, reqs[idx].index, reqs[idx].size);
+
+                // process request
+                // sleep here to change the latency
+                send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
+            }
+        }
+
+        // fill the recv queue
+        while (post_recvs < poll_recvs + inflights) {
             int idx = post_recvs % max_recvs;
             recv_async(reqs + idx, sizeof(struct req));
             post_recvs ++;
         }
-
-        // process the requests
-        for (int i = 0; i < n; i++) {
-            int idx = (poll_recvs + i) % max_recvs;
-
-            // process request
-            // sleep here to change the latency
-            send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
-        }
-        poll_recvs += n;
 	}
     
     return 0;

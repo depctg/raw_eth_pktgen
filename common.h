@@ -13,14 +13,15 @@ extern "C" {
 #endif
 
 /* send switch */
-#define SEND_CMPL 0
+#define SEND_CMPL 1
 
 /* run show_gids to get the info */
-#define NUM_DEVICES 4
-#define DEVICE_NAME "mlx5_2"
-
+#define NUM_DEVICES 2
+#define DEVICE_NAME "mlx5_0"
+#define DEVICE_GID 3
 #define PORT_NUM 1
-#define CQ_NUM_DESC 512
+
+#define CQ_NUM_DESC 64
 
 /* size for local buffers, 256M */
 #define SEND_BUF_SIZE 1024 * 1024 * 256
@@ -33,19 +34,20 @@ extern "C" {
 
 enum {
     TRANS_TYPE_UDP = 0,
-    TRANS_TYPE_SENDRECV,
-    TRANS_TYPE_READWRITE
+    TRANS_TYPE_RC,
+    TRANS_TYPE_RC_SERVER
 };
 
 extern void *sbuf, *rbuf;
 extern struct ibv_qp *qp;
 extern struct ibv_cq *cq;
 extern struct ibv_mr *smr, *rmr;
+extern struct ibv_context *context;
 
 extern uint64_t post_id;
 extern uint64_t poll_id;
 
-int init(int type);
+int init(int type, const char * server_url);
 int steer();
 uint64_t send(void * buf, size_t size);
 uint64_t send_async(void * buf, size_t size);
@@ -63,6 +65,8 @@ struct conn_info {
     int num_mr;
     struct ibv_mr mr[0];
 };
+struct conn_info * server_exchange_info(const char * server_url);
+struct conn_info * client_exchange_info(const char * server_url);
 
 static inline uint64_t getCurNs() {
     struct timespec ts;

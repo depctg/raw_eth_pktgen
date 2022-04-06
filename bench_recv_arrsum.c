@@ -6,6 +6,8 @@
 #include "packet.h"
 #include "app.h"
 
+static unsigned int u_sleep = 100;
+
 static inline int app_init() {
     // generate c array in sbuf
 	int * a = (int *)sbuf;
@@ -21,18 +23,8 @@ static inline int app_init() {
     return 0;
 }
 
-// addr usleep
-int main(int argc, char * argv[]) {
-    if (argc < 2) return -1;
- 
-    unsigned int u_sleep = 100;
-    if (argc > 2) sscanf (argv[2], "%u", &u_sleep);
-
-	init(TRANS_TYPE_RC_SERVER, argv[1]);
-    app_init();
-    printf("start processing requests...\n");
-
-/*  non-zero copy version
+// non-zero copy version
+void job0() {
 	const int size = 1024;
 	int a[size];
 	int sum = 0;
@@ -45,11 +37,12 @@ int main(int argc, char * argv[]) {
 	    // Data copy!
 	    reps[0] = a[reqs[0].index];
 	    // sleep
-	    // usleep();
+	    usleep(u_sleep);
 	    send(&reps[0], sizeof(int));
 	}
-*/
+}
 
+void job1() {
     const unsigned int max_recvs = 64;
     const unsigned int inflights = max_recvs / 2;
 	struct ibv_wc wc[max_recvs];
@@ -86,8 +79,26 @@ int main(int argc, char * argv[]) {
             post_recvs ++;
         }
 	}
-    
-    return 0;
+}
 
+const static int n_jobs = 2;
+static void (*jobs[2]) () = {job0, job1};
+
+// addr job usleep
+int main(int argc, char * argv[]) {
+    if (argc < 2) return -1;
+ 
+    int job;
+    sscanf (argv[2], "%d", &job);
+    if (job >= n_jobs) return -1;
+    if (argc > 2) sscanf (argv[2], "%u", &u_sleep);
+
+	init(TRANS_TYPE_RC_SERVER, argv[1]);
+    app_init();
+    printf("start processing requests...\n");
+
+    (*jobs[job])();
+
+    return 0;
 }
 

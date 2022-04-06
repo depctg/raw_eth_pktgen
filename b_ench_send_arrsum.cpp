@@ -14,8 +14,9 @@ static int size_array = 1024;
 // local
 void job0() {
     int a[size_array];
-    int sum = 0;
+    unsigned long long sum = 0;
     for (int i = 0; i < size_array; i++) {
+        a[i] = i;
         sum += a[i];
     }
 
@@ -42,10 +43,6 @@ void job1() {
 // remote: unoptimized
 void job2() {
     struct req *reqs = (struct req *)sbuf;
-    size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
-    reqs[0].index = 0;
-    reqs[0].size = sizeof(int);
-    send(&reqs[0], sizeof(struct req));
 
     int sum = 0;
     for (int i = 0; i < size_array; i++) {

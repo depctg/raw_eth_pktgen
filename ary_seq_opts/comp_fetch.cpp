@@ -1,9 +1,9 @@
-#include <string.h>
-#include "common.h"
-#include "packet.h"
-#include "app.h"
+#include "../common.h"
+#include "../packet.h"
+#include "../app.h"
 #include <chrono>
 #include <iostream>
+#include <string.h>
 
 using namespace std;
 int main(int argc, char * argv[]) {
@@ -20,7 +20,7 @@ int main(int argc, char * argv[]) {
     recv(rbuf, ts);
     int *a = (int*) rbuf;
     for (int i = 0; i < ARRAY_SIZE; ++i) {
-        sum += a[i];
+        sum += *a++;
     }
     auto end = chrono::steady_clock::now();
     std::cout << "SUM " << sum 

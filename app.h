@@ -2,7 +2,7 @@
 #define _APP_H_
 
 #define ARRAY_SIZE (1024 * 1024)
-#define BATCH_SIZE (64)
+#define BATCH_SIZE (16)
 
 struct req {
     int index;

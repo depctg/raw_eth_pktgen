@@ -17,6 +17,8 @@ gen_%: gen_%.o $(OBJECTS)
 
 cpp_% : cpp_%.o $(OBJECTS)
 	$(CXX) $(LD_FLAGS) -o $@ $^ $(LIBS)
+bench_%: bench_%.o $(OBJECTS)
+	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:
 	rm *.o $(TARGETS)

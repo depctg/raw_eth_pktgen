@@ -370,7 +370,7 @@ uint64_t send(void * buf, size_t size) {
     while (1) {
         n = ibv_poll_cq(cq, 1, &wc);
         if (n > 0) {
-            printf("completed message %ld\n", wc.wr_id);
+            //printf("completed message %ld\n", wc.wr_id);
             break;
         }
     }

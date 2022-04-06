@@ -14,7 +14,7 @@ all: $(TARGETS)
 gen_%: gen_%.o $(OBJECTS)
 	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-bench_%: bench/bench_%.o $(OBJECTS)
+bench_%: bench_%.o $(OBJECTS)
 	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:

@@ -74,7 +74,7 @@ int main(int argc, char * argv[]) {
 
                 // process request
                 // sleep here to change the latency
-                usleep(u_sleep);
+                // usleep(u_sleep);
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
             }
         }

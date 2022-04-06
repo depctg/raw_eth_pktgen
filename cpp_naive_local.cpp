@@ -1,10 +1,10 @@
 #include <string.h>
-#include "../common.h"
-#include "../packet.h"
+#include "common.h"
+#include "packet.h"
 #include <chrono>
 #include <iostream>
 
-#include "../app.h"
+#include "app.h"
 
 using namespace std;
 int main(int argc, char * argv[]) {

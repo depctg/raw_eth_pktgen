@@ -30,7 +30,6 @@ int main(int argc, char * argv[]) {
 	    // get data from buffer
         for (int j = 0; j < BATCH_SIZE; j++)
             sum += *arr++;
-        if (i % (1024*48) == 0) cout << sum << endl; 
         buf_ofst ++;
         reqs[0].index = buf_ofst * batch_size;
         reqs[0].size = batch_size;
@@ -38,7 +37,7 @@ int main(int argc, char * argv[]) {
 
     auto end = chrono::steady_clock::now();
     std::cout << "SUM " << sum 
-              << ", ns: " << chrono::duration_cast<chrono::microseconds>(end - start).count()
+              << ", ns: " << chrono::duration_cast<chrono::nanoseconds>(end - start).count()
               << std::endl;
     return 0;
 }

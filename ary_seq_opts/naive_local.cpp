@@ -22,7 +22,7 @@ int main(int argc, char * argv[]) {
     }
     auto end = chrono::steady_clock::now();
     std::cout << "SUM " << sum 
-              << ", ns: " << chrono::duration_cast<chrono::microseconds>(end - start).count()
+              << ", ns: " << chrono::duration_cast<chrono::nanoseconds>(end - start).count()
               << std::endl;
     return 0;
 }

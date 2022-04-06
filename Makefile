@@ -1,5 +1,5 @@
 OBJECTS := common.o packet.o net.o
-TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv cpp_naive_local
+TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv cpp_array_seq/naive_local cpp_array_seq/comp_fetch_local
 
 LD       := gcc
 LIBS     := -libverbs -lnng

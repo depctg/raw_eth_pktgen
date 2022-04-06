@@ -43,6 +43,7 @@ void job1() {
 }
 
 // remote: optmized
+// ARRAY_SIZE BATCH_SIZE in app.h
 void job2() {
     int batch_size = sizeof(int) * BATCH_SIZE;
     struct req *reqs = (struct req *)sbuf;

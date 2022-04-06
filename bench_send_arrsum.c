@@ -1,6 +1,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <time.h>
+ 
 #include "common.h"
 #include "packet.h"
 
@@ -43,6 +46,8 @@ void job1() {
 }
 
 // remote: optmized
+// prefetch one batch
+// todo: plot runtime over batch_size + latency
 // ARRAY_SIZE BATCH_SIZE in app.h
 void job2() {
     int batch_size = sizeof(int) * BATCH_SIZE;
@@ -82,6 +87,45 @@ void job2() {
         // prepare for next poll
         wr_id = wr_id_nxt;
         buf_id = buf_id_nxt;
+    }
+
+    printf("SUM %ld\n", sum);
+}
+
+// remote: optimized
+// tiling
+void job3() {
+
+}
+
+void swap (int *a, int *b) {
+    int temp = *a; *a = *b; *b = temp;
+}
+ 
+// initialize a random access pattern for all elements
+// remember to free the result
+int* init_access_patten(int n) {
+    int* a = (int *)malloc(sizeof(int)*n); 
+    srand(time(NULL));
+
+    for (int i = 0; i < n; ++i) {
+        a[i] = i;
+    }
+ 
+    for (int i = n-1; i > 0; i--) {
+        swap(&a[i], &a[rand() % (i+1)]);
+    }
+
+    return a;
+}
+
+// local: random access
+void job4() {
+    int a[size_array];
+    int sum = 0;
+    int* pattern = init_access_patten(size_array);
+    for (int i = 0; i < size_array; i++) {
+        sum += a[pattern[i]];
     }
 
     printf("SUM %ld\n", sum);

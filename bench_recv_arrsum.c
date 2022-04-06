@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <infiniband/verbs.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "common.h"
 #include "packet.h"
@@ -86,7 +87,7 @@ void job1() {
 const static int n_jobs = 2;
 static void (*jobs[2]) () = {job0, job1};
 // cosmetic
-static char jobs_desc[2]  = {"naive", "zero copy"};
+static char *jobs_desc[2]  = {"naive", "zero copy"};
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
     {"job", required_argument, 0, 0},

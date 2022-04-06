@@ -7,7 +7,6 @@
  
 #include "common.h"
 #include "packet.h"
-
 #include "app.h"
 
 // default values
@@ -137,7 +136,7 @@ void job4() {
 const static int n_jobs = 3;
 static void (*jobs[3]) () = {job0, job1, job2};
 // cosmetic
-static char jobs_desc[3]  = {"local sequential", "remote sequential", "remote sequential prefetch=1"};
+static char *jobs_desc[3]  = {"local sequential", "remote sequential", "remote sequential prefetch=1"};
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
     {"job", required_argument, 0, 0},

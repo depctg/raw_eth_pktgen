@@ -4,11 +4,13 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string>
+#include <iostream>
 
 #include "../common.h"
 #include "../packet.h"
 #include "../app.h"
 
+using namespace std;
 // default values
 static unsigned int u_sleep = 100;
 static int size_array = 1024;
@@ -73,6 +75,8 @@ void job1() {
                 // process request
                 // sleep here to change the latency
                 usleep(u_sleep);
+                // cout << u_sleep;
+                // cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
             }
         }

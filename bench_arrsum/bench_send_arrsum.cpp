@@ -163,7 +163,6 @@ void job_stride_batched_fetch() {
     int step_further = min(pre_stride, max_steps);
     for (int i = 0; i < step_further; ++i) {
         int idx = (req_step_id + i) % num_buf;
-        cout << "req " << req_step_id + i << "idx " << idx << endl;
         reqs[idx].index = i * size_batch * sizeof(int);
         reqs[idx].size = batch_size;
         send_async(reqs + idx, sizeof(struct req));
@@ -289,7 +288,7 @@ int main(int argc, char * argv[]) {
     uint64_t totalNs = 0; // can overflow
     void (*f)() = jobs[job];
     printf("running: %s\n", jobs_desc[job].c_str());
-    (*f)();
+    // (*f)();
     for (int i = 0; i < n_runs; ++i) {
         uint64_t startNs = getCurNs();
         (*f)();

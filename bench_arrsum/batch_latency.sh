@@ -3,12 +3,13 @@
 # trap 'read -p "run: $BASH_COMMAND"' DEBUG
 source ../util.sh
 port=2345
-nruns=10
+nruns=1
 
 sudo rm log.*
 # batch size VS latency
-array_size=$(expr 1024 \* 2)
-batch_size=(4 8 16 32 64 128 256 512 1024)
+array_size=$(expr 1024 \* 1024 \* 4)
+# batch_size=(4 8 16 32 64 128 256 512 1024)
+batch_size=(16 32 64 128 256 512 1024 2048)
 usleep=0
 sudo kill -9 `pgrep -f bench_recv_arrs` &>/dev/null
 for bs in "${batch_size[@]}"

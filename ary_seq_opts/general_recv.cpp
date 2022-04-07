@@ -70,6 +70,7 @@ int main(int argc, char * argv[]) {
 
                 // process request
                 // sleep here to change the latency
+                usleep(0);
                 // cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
             }

@@ -25,10 +25,7 @@ ary_seq_opts/% : ary_seq_opts/%.o $(OBJECTS)
 # 	$(CXX) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 bench_%: bench_%.o $(OBJECTS)
-	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
-
-b_ench_%: b_ench_%.o $(OBJECTS)
-	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
+	$(LD) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:
 	rm *.o $(TARGETS)

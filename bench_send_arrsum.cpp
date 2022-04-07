@@ -1,14 +1,18 @@
-#include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <time.h>
 #include <getopt.h>
 #include <queue>
+#include <chrono>
+#include <string>
  
 #include "common.h"
 #include "packet.h"
 #include "app.h"
+
+using namespace std;
 
 // default values
 static int size_array = 1024;
@@ -18,7 +22,7 @@ static int pre_stride = 4;
 // local
 void job0() {
     int a[size_array];
-    int sum = 0;
+    long sum = 0;
     for (int i = 0; i < size_array; i++) {
         sum += a[i];
     }
@@ -34,7 +38,7 @@ void job1() {
     // reqs[0].size = sizeof(int);
     // send(&reqs[0], sizeof(struct req));
 
-    int sum = 0;
+    long sum = 0;
     for (int i = 0; i < size_array; i++) {
         // send req
         reqs[0].index = i * sizeof(int);
@@ -98,7 +102,7 @@ void job2() {
 // remote: completed fetch
 void job3() {
     struct req *reqs = (struct req*) sbuf;
-    unsigned long long sum = 0;
+    long sum = 0;
     // fetch the entire array back
     int ts = sizeof(int) * size_array;
     reqs[0].index = 0;
@@ -218,7 +222,7 @@ int* init_access_patten(int n) {
 // local: random access
 void job4() {
     int a[size_array];
-    int sum = 0;
+    long sum = 0;
     int* pattern = init_access_patten(size_array);
     for (int i = 0; i < size_array; i++) {
         sum += a[pattern[i]];
@@ -228,10 +232,11 @@ void job4() {
     printf("SUM %ld\n", sum);
 }
 
-const static int n_jobs = 3;
-static void (*jobs[3]) () = {job0, job1, job2};
-// cosmetic
-static char *jobs_desc[3]  = {"local sequential", "remote sequential", "remote sequential prefetch=1"};
+// orders match
+static void (*jobs[]) () = {job0, job1, job2, job3, job_batched_fetch, job_stride_batched_fetch, job4};
+static std::string jobs_desc[] = {"local sequential", "remote sequential", "remote sequential prefetch=1",
+    "remote sequential prefetch=all", "remote sequential batch prefetch",
+    "remote sequential strided batch prefetch", "local random"};
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
     {"job", required_argument, 0, 0},
@@ -273,14 +278,14 @@ int main(int argc, char * argv[]) {
     }
 
     if (!addr) return -1;
-    if (job == -1 || job >= n_jobs) return -1;
+    if (job == -1 || job >= sizeof(jobs) / sizeof(jobs[0])) return -1;
 
     init(TRANS_TYPE_RC, argv[1]);
     printf("init done\n");
 
     uint64_t totalNs = 0; // can overflow
     void (*f)() = jobs[job];
-    printf("running: %s\n", jobs_desc[job]);
+    printf("running: %s\n", jobs_desc[job].c_str());
     for (int i = 0; i < n_runs; ++i) {
         uint64_t startNs = getCurNs();
         (*f)();

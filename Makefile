@@ -1,5 +1,5 @@
 OBJECTS := common.o packet.o net.o
-TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv
+TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv b_ench_recv_arrsum b_ench_send_arrsum
 
 LD       := g++
 LIBS     := -libverbs -lnng
@@ -27,7 +27,7 @@ ary_seq_opts/% : ary_seq_opts/%.o $(OBJECTS)
 bench_%: bench_%.o $(OBJECTS)
 	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-b_ench_%: bench_%.o $(OBJECTS)
+b_ench_%: b_ench_%.o $(OBJECTS)
 	$(LD) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:

@@ -1,25 +1,23 @@
 #include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <time.h>
- 
+#include <queue>
+#include <iostream>
 #include "common.h"
 #include "packet.h"
-
 #include "app.h"
 
+using namespace std;
 static int size_array = 1024;
 
 // local
 void job0() {
-    int a[size_array];
+    int *a = new int[size_array];
     unsigned long long sum = 0;
     for (int i = 0; i < size_array; i++) {
-        a[i] = i;
-        sum += a[i];
+        *(a+i) = i;
+        sum += *(a+i);
     }
-
+    delete[] a;
     printf("SUM %ld\n", sum);
 }
 
@@ -28,13 +26,14 @@ void job1() {
     struct req *reqs = (struct req*) sbuf;
     unsigned long long sum = 0;
     // fetch the entire array back
-    int ts = sizeof(int) * ARRAY_SIZE;
+    int ts = sizeof(int) * size_array;
     reqs[0].index = 0;
     reqs[0].size = ts;
     send(reqs, sizeof(struct req));
     recv(rbuf, ts);
     int *a = (int*) rbuf;
-    for (int i = 0; i < ARRAY_SIZE; ++i) {
+    // cout << a[size_array] << endl;
+    for (int i = 0; i < size_array; ++i) {
         sum += *a++;
     }
     printf("SUM %ld\n", sum);
@@ -103,7 +102,6 @@ void job4() {
 
     uint64_t sum = 0;
     int max_steps = ARRAY_SIZE / BATCH_SIZE;
-    auto start = chrono::steady_clock::now();
 
     // Pre-pre-fetch   
     int step_further = min(PRE_STRIDE, max_steps);

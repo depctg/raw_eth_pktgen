@@ -5,6 +5,8 @@
 #include <getopt.h>
 #include <string>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #include "../common.h"
 #include "../packet.h"
@@ -12,8 +14,12 @@
 
 using namespace std;
 // default values
-static unsigned int u_sleep = 100;
+static unsigned int nanoscs = 100;
 static int size_array = 1024;
+
+void rdma_latency(unsigned int d) {
+    std::this_thread::sleep_for(std::chrono::nanoseconds(d));
+}
 
 // generate c array in sbuf
 static inline int app_init() {
@@ -44,7 +50,7 @@ void job0() {
 	    // Data copy!
 	    reps[0] = a[reqs[0].index];
 	    // sleep
-	    usleep(u_sleep);
+        if (nanoscs) rdma_latency(nanoscs);
 	    send(&reps[0], sizeof(int));
 	}
 }
@@ -74,7 +80,7 @@ void job1() {
 
                 // process request
                 // sleep here to change the latency
-                usleep(u_sleep);
+                if (nanoscs) rdma_latency(nanoscs);
                 // cout << u_sleep;
                 // cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
@@ -96,7 +102,7 @@ static std::string jobs_desc[] = {"naive", "zero copy"};
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
     {"job", required_argument, 0, 0},
-    {"usleep", required_argument, 0, 0},
+    {"nsleep", required_argument, 0, 0},
     {"size_array", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
@@ -115,7 +121,7 @@ int main(int argc, char * argv[]) {
                 job = atoi(optarg);
                 break;
             case 2:
-                u_sleep = atoi(optarg);
+                nanoscs = atoi(optarg);
                 break;
             case 3:
                 size_array = atoi(optarg);

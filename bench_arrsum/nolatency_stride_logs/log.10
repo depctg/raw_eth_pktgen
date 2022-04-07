@@ -1,0 +1,26 @@
+device 0, mlx5_0 | mlx5_0
+connecting to server tcp://localhost:2346...
+received mr, with bytes 32, num 0
+init done
+running: remote sequential strided batch prefetch
+SUM 8796090925056
+n_run: 0, ns: 50476087 
+SUM 8796090925056
+n_run: 1, ns: 20266019 
+SUM 8796090925056
+n_run: 2, ns: 20206354 
+SUM 8796090925056
+n_run: 3, ns: 20142471 
+SUM 8796090925056
+n_run: 4, ns: 19964027 
+SUM 8796090925056
+n_run: 5, ns: 20207496 
+SUM 8796090925056
+n_run: 6, ns: 20197486 
+SUM 8796090925056
+n_run: 7, ns: 20148422 
+SUM 8796090925056
+n_run: 8, ns: 20230099 
+SUM 8796090925056
+n_run: 9, ns: 20141329 
+n_runs: 10, avg ns: 23197979 

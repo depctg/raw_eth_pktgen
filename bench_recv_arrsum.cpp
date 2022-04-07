@@ -124,7 +124,7 @@ int main(int argc, char * argv[]) {
     if (!addr) return -1;
     if (job == -1 || job >= sizeof(jobs) / sizeof(jobs[0])) return -1;
 
-	init(TRANS_TYPE_RC_SERVER, argv[1]);
+	init(TRANS_TYPE_RC_SERVER, addr);
     app_init();
 
     printf("start processing requests...\n");

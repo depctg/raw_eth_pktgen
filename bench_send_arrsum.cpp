@@ -280,7 +280,7 @@ int main(int argc, char * argv[]) {
     if (!addr) return -1;
     if (job == -1 || job >= sizeof(jobs) / sizeof(jobs[0])) return -1;
 
-    init(TRANS_TYPE_RC, argv[1]);
+    init(TRANS_TYPE_RC, addr);
     printf("init done\n");
 
     uint64_t totalNs = 0; // can overflow

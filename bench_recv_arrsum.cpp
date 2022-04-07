@@ -1,19 +1,22 @@
 #include <stdio.h>
 #include <infiniband/verbs.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "common.h"
 #include "packet.h"
 #include "app.h"
 
+// default values
 static unsigned int u_sleep = 100;
+static int size_array = 1024;
 
 static inline int app_init() {
     // generate c array in sbuf
 	int * a = (int *)sbuf;
     unsigned long long sum = 0;
 	// init a
-	for (int i = 0; i < ARRAY_SIZE; i++) {
+	for (int i = 0; i < size_array; i++) {
 		a[i] = i;
         sum += a[i];
     }
@@ -83,22 +86,51 @@ void job1() {
 
 const static int n_jobs = 2;
 static void (*jobs[2]) () = {job0, job1};
+// cosmetic
+static char *jobs_desc[2]  = {"naive", "zero copy"};
+static struct option long_options[] = {
+    {"addr", required_argument, 0, 0},
+    {"job", required_argument, 0, 0},
+    {"usleep", required_argument, 0, 0},
+    {"size_array", required_argument, 0, 0},
+    {0, 0, 0, 0}
+};
 
-// addr job usleep
 int main(int argc, char * argv[]) {
-    if (argc < 2) return -1;
- 
-    int job;
-    sscanf (argv[2], "%d", &job);
-    if (job >= n_jobs) return -1;
-    if (argc > 2) sscanf (argv[2], "%u", &u_sleep);
+    char * addr = 0;
+    int job = -1;
+
+    int opt= 0, long_index =0;
+    while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+        switch (long_index) {
+            case 0:
+                addr = optarg;
+                break;
+            case 1:
+                job = atoi(optarg);
+                break;
+            case 2:
+                u_sleep = atoi(optarg);
+                break;
+            case 3:
+                size_array = atoi(optarg);
+                break;
+             default:
+                return -1;
+        }
+    }
+
+    if (!addr) return -1;
+    if (job == -1 || job >= n_jobs) return -1;
 
 	init(TRANS_TYPE_RC_SERVER, argv[1]);
     app_init();
-    printf("start processing requests...\n");
 
+    printf("start processing requests...\n");
+    printf("ctrl c to stop after each benchmark\n");
+
+    printf("running: %s\n", jobs_desc[job]);
     (*jobs[job])();
 
     return 0;
 }
-

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <getopt.h>
+#include <queue>
  
 #include "common.h"
 #include "packet.h"
@@ -28,10 +29,10 @@ void job0() {
 // remote: unoptimized
 void job1() {
     struct req *reqs = (struct req *)sbuf;
-    size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
-    reqs[0].index = 0;
-    reqs[0].size = sizeof(int);
-    send(&reqs[0], sizeof(struct req));
+    // size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
+    // reqs[0].index = 0;
+    // reqs[0].size = sizeof(int);
+    // send(&reqs[0], sizeof(struct req));
 
     int sum = 0;
     for (int i = 0; i < size_array; i++) {
@@ -94,10 +95,103 @@ void job2() {
     printf("SUM %ld\n", sum);
 }
 
-// remote: optimized
-// tiling
+// remote: completed fetch
 void job3() {
+    struct req *reqs = (struct req*) sbuf;
+    unsigned long long sum = 0;
+    // fetch the entire array back
+    int ts = sizeof(int) * size_array;
+    reqs[0].index = 0;
+    reqs[0].size = ts;
+    send(reqs, sizeof(struct req));
+    recv(rbuf, ts);
+    int *a = (int*) rbuf;
+    for (int i = 0; i < size_array; ++i) {
+        sum += a[i];
+    }
+    printf("SUM %ld\n", sum);
+}
 
+void job_batched_fetch() {
+    // batch optimization
+    int batch_size = sizeof(int) * size_batch;
+	struct req *reqs = (struct req *)sbuf;
+
+    uint64_t sum = 0;
+    // Send first request
+    int buf_ofst = 0;
+	reqs[0].index = 0;
+	reqs[0].size = batch_size;
+	for (int i = 0; i < size_array; i += size_batch) {
+	    // fetch batch
+        send(reqs, sizeof(struct req));
+        recv((int*)rbuf + buf_ofst*size_batch, batch_size);
+        int * arr = (int *)rbuf + buf_ofst * size_batch;
+
+	    // get data from buffer
+        for (int j = 0; j < size_batch; j++)
+            sum += *arr++;
+        buf_ofst ++;
+        reqs[0].index = buf_ofst * batch_size;
+        reqs[0].size = batch_size;
+	}
+    printf("SUM %ld\n", sum);
+}
+
+void job_stride_batched_fetch() {
+    // strided_prefetch
+    int batch_size = sizeof(int) * size_batch;
+	struct req *reqs = (struct req *)sbuf;
+    uint64_t wr_id_cur;
+    queue<pair<uint64_t, int>> wr_ids;
+
+    const int num_buf = 2 * pre_stride;
+    int req_step_id = 0;
+
+    uint64_t sum = 0;
+    int max_steps = size_array / size_batch;
+    auto start = chrono::steady_clock::now();
+
+    // Pre-pre-fetch   
+    int step_further = min(pre_stride, max_steps);
+    for (int i = 0; i < step_further; ++i) {
+        int idx = (req_step_id + i) % num_buf;
+        // cout << "req " << req_step_id + i << "idx " << idx << endl;
+        reqs[idx].index = i * size_batch * sizeof(int);
+        reqs[idx].size = batch_size;
+        send_async(reqs + idx, sizeof(struct req));
+        wr_id_cur = recv_async((int *)rbuf + idx * size_batch, batch_size);
+        wr_ids.push({wr_id_cur, idx});
+    }
+
+    req_step_id += step_further;
+    for (int mut_step_id = 0; mut_step_id < max_steps; ++mut_step_id) {
+        // pre-fetch next round
+        if (mut_step_id % pre_stride == pre_stride / 2) {
+            int step_further = min(pre_stride, max_steps - req_step_id);
+            for (int i = 0; i < step_further; ++i) {
+                int idx = (req_step_id + i) % num_buf;
+                // cout << "req " << req_step_id + i << "idx " << idx << endl;
+                reqs[idx].index = (req_step_id + i) * size_batch * sizeof(int);
+                reqs[idx].size = batch_size;
+                send_async(reqs + idx, sizeof(struct req));
+                wr_id_cur = recv_async((int *)rbuf + idx * size_batch, batch_size);
+                wr_ids.push({wr_id_cur, idx});
+            }
+            req_step_id += step_further;
+        }
+        // cout << "Requested up to: " << req_step_id << endl;
+        pair<uint64_t, int> p = wr_ids.front();
+        poll(p.first);
+        int * arr = (int *)rbuf + p.second * size_batch;
+        wr_ids.pop();
+
+	    // get data from buffer
+        for (int j = 0; j < size_batch; j++)
+            sum += arr[j];
+    }
+
+    printf("SUM %ld\n", sum);
 }
 
 void swap (int *a, int *b) {
@@ -129,6 +223,7 @@ void job4() {
     for (int i = 0; i < size_array; i++) {
         sum += a[pattern[i]];
     }
+    free(pattern);
 
     printf("SUM %ld\n", sum);
 }

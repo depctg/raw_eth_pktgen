@@ -5,7 +5,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <queue>
-#include <chrono>
+// #include <chrono>
 #include <string>
  
 #include "common.h"
@@ -24,6 +24,7 @@ void job0() {
     int a[size_array];
     long sum = 0;
     for (int i = 0; i < size_array; i++) {
+        a[i] = i;
         sum += a[i];
     }
 
@@ -154,7 +155,6 @@ void job_stride_batched_fetch() {
 
     uint64_t sum = 0;
     int max_steps = size_array / size_batch;
-    auto start = chrono::steady_clock::now();
 
     // Pre-pre-fetch   
     int step_further = min(pre_stride, max_steps);

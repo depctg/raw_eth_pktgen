@@ -1,5 +1,5 @@
 OBJECTS := common.o packet.o net.o
-TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv b_ench_recv_arrsum b_ench_send_arrsum
+TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum
 
 LD       := g++
 LIBS     := -libverbs -lnng
@@ -24,7 +24,12 @@ ary_seq_opts/% : ary_seq_opts/%.o $(OBJECTS)
 # batch_fetch: $(OBJECTS) batch_fetch.o
 # 	$(CXX) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-bench_%: bench_%.o $(OBJECTS)
+test_arrsum: bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum 
+	echo "Benchmark array sequantial sum"
+
+bench_arrsum/%.o: bench_arrsum/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+bench_arrsum/%: bench_arrsum/%.o $(OBJECTS)
 	$(LD) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:

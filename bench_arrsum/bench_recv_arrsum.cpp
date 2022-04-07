@@ -5,9 +5,9 @@
 #include <getopt.h>
 #include <string>
 
-#include "common.h"
-#include "packet.h"
-#include "app.h"
+#include "../common.h"
+#include "../packet.h"
+#include "../app.h"
 
 // default values
 static unsigned int u_sleep = 100;

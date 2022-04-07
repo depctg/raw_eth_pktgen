@@ -19,9 +19,9 @@ ary_seq_opts/%.o : ary_seq_opts/%.cpp
 ary_seq_opts/% : ary_seq_opts/%.o $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-prefetch_batch : ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch
+prefetch_batch : ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch ary_seq_opts/async_fetch
 clean_ary_seq: 
-	sudo rm ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch
+	sudo rm ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch ary_seq_opts/async_fetch
 # batch_fetch.o : cpp_ary_seq/batch_fetch.cpp
 # 	$(CXX) $(LD_FLAGS) -c -o $@ $^
 # batch_fetch: $(OBJECTS) batch_fetch.o

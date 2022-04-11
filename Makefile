@@ -1,5 +1,5 @@
 OBJECTS := common.o packet.o net.o
-TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum
+TARGETS := bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum
 
 LD       := g++
 LIBS     := -libverbs -lnng
@@ -33,6 +33,13 @@ test_arrsum: bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum
 bench_arrsum/%.o: bench_arrsum/%.cpp
 	$(CXX) $(LD_FLAGS) -c -o $@ $^
 bench_arrsum/%: bench_arrsum/%.o $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+
+caches: cache_opts/ary_seq cache_opts/receiver
+	echo "Cache tests"
+cache_opts/%.o: cache_opts/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+cache_opts/%: cache_opts/%.o $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean:

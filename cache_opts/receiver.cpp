@@ -1,10 +1,9 @@
+#include <stdio.h>
+#include <infiniband/verbs.h>
+#include <iostream>
 #include "../common.h"
 #include "../packet.h"
 #include "../app.h"
-#include <infiniband/verbs.h>
-#include <chrono>
-#include <iostream>
-#include <string.h>
 
 using namespace std;
 static inline int app_init() {
@@ -13,12 +12,11 @@ static inline int app_init() {
     unsigned long long sum = 0;
 	// init a
 	for (int i = 0; i < ARRAY_SIZE; i++) {
-		*a = i;
-        sum += *a;
-        a++;
+		a[i] = i;
+        sum += a[i];
     }
 
-    cout <<("Local sum %lld\n", sum) << endl;
+    printf("Local sum %lld\n", sum);
 
     return 0;
 }
@@ -70,8 +68,7 @@ int main(int argc, char * argv[]) {
 
                 // process request
                 // sleep here to change the latency
-                usleep(0);
-                // cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
+                cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
             }
         }

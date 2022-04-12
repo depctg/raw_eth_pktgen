@@ -1,0 +1,16 @@
+device 0, mlx5_0 | mlx5_0
+connecting to server tcp://localhost:2353...
+received mr, with bytes 32, num 0
+init done
+running: remote sequential batch prefetch
+SUM 8796090925056
+n_run: 0, ns: 83801280 
+SUM 8796090925056
+n_run: 1, ns: 69863940 
+SUM 8796090925056
+n_run: 2, ns: 69711025 
+SUM 8796090925056
+n_run: 3, ns: 69948002 
+SUM 8796090925056
+n_run: 4, ns: 70476410 
+n_runs: 5, avg ns: 72760131 

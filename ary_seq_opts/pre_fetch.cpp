@@ -28,7 +28,6 @@ int main(int argc, char * argv[]) {
     int step_further = min(PRE_STRIDE, max_steps);
     for (int i = 0; i < step_further; ++i) {
         int idx = (req_step_id + i) % num_buf;
-        // cout << "req " << req_step_id + i << "idx " << idx << endl;
         reqs[idx].index = i * BATCH_SIZE * sizeof(int);
         reqs[idx].size = batch_size;
         send_async(reqs + idx, sizeof(struct req));

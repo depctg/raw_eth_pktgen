@@ -2,8 +2,7 @@
 #include <infiniband/verbs.h>
 #include <iostream>
 #include "../common.h"
-#include "../packet.h"
-#include "../app.h"
+#include "../commu.h"
 
 using namespace std;
 static inline int app_init() {
@@ -23,7 +22,7 @@ static inline int app_init() {
 
 int main(int argc, char * argv[]) {
 	init(TRANS_TYPE_RC_SERVER, argv[1]);
-    app_init();
+    // app_init();
     printf("start processing requests...\n");
 
 /*  non-zero copy version

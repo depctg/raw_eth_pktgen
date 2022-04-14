@@ -4,7 +4,6 @@
 #include "../common.h"
 #include "../packet.h"
 #include "../app.h"
-#include "dm_cache.hpp"
 
 int main(int argc, char * argv[]) {
     int msg_size = 16;

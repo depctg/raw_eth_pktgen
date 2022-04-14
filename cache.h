@@ -40,9 +40,10 @@ typedef struct FreeQueue
 	uint32_t front, end, frees;
 	uint64_t* slots;
 } FreeQueue;
-FreeQueue *initQueue(uint64_t max_size, uint64_t cache_line_size);
+FreeQueue *initQueue(uint64_t max_size, uint32_t cache_line_size);
 int isFull(FreeQueue *fq);
 int isEmpty(FreeQueue *fq);
+// claim a block, will evit LRU if needed
 uint64_t claim(FreeQueue *fq, BlockDLL *dll);
 void reclaim(FreeQueue *fq, uint64_t offset);
 
@@ -51,7 +52,7 @@ typedef struct CacheTable
 	uint64_t tag_mask;
 	uint64_t addr_mask;
 	uint64_t max_size;
-	uint64_t cache_line_size;
+	uint32_t cache_line_size;
 
 	void *reqs;
 	char *line_pool;
@@ -67,7 +68,7 @@ typedef struct CacheTable
 // max_size, cache_line_size (byte)
 CacheTable *createCacheTable(
 	uint64_t max_size,
-	uint64_t cache_line_size,
+	uint32_t cache_line_size,
 	void *req_buffer,
 	void *recv_buffer
 );

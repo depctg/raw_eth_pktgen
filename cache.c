@@ -39,7 +39,9 @@ uint64_t popVictim(BlockDLL *dll)
 	dll->tail = dll->tail->prev;
 	if (dll->tail)
 		dll->tail->next = NULL;
-	return victim->offset;
+	uint64_t offset = victim->offset;
+	free(victim);
+	return offset;
 }
 
 void addHot(BlockDLL *dll, Block *b)
@@ -73,7 +75,7 @@ void touch(BlockDLL *dll, Block *b)
 	}
 }
 
-FreeQueue* initQueue(uint64_t max_size, uint64_t cache_line_size)
+FreeQueue* initQueue(uint64_t max_size, uint32_t cache_line_size)
 {
 	FreeQueue *fq = (FreeQueue *) malloc(sizeof(FreeQueue));
 	fq->capacity = max_size / cache_line_size;
@@ -120,7 +122,7 @@ void reclaim(FreeQueue *fq, uint64_t s)
 
 CacheTable *createCacheTable(
 	uint64_t max_size,
-	uint64_t cache_line_size,
+	uint32_t cache_line_size,
 	void *req_buffer,
 	void *recv_buffer)
 {
@@ -143,11 +145,6 @@ CacheTable *createCacheTable(
 	return cache;
 }
 
-// void insert(uint64_t addr)
-// {
-
-// }
-
 char *cache_access(CacheTable *table, uint64_t addr)
 {
 	uint64_t tag = addr & table->addr_mask;
@@ -160,12 +157,22 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		r->addr = tag;
 		r->size = table->cache_line_size;
 		r->type = 1;
+
+		// claim a space for hot data
+		// evict in claim
+		uint64_t rbuf_offset = claim(table->fq, table->dll);
     send(r, sizeof(struct req));
-		return NULL;
+		recv(table->line_pool + rbuf_offset, table->cache_line_size);
+
+		// create new block - dirty = 1
+		tgt = newBlock(1, rbuf_offset);
+		// inser to map as hot 
+		addHot(table->dll, tgt);
+		return table->line_pool + rbuf_offset + offset;
 	}
 
 	// get offset
-	char *mem = /*(char *)*/ table->line_pool + tgt->offset;
+	char *mem = table->line_pool + tgt->offset + offset;
 	touch(table->dll, tgt);
 	return mem;
 }

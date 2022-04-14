@@ -2,7 +2,7 @@
 #include <sparsehash/dense_hash_map> // memory intense for efficiency
 #include <cmath>
 #include <string>
-#include "../greeting.h"
+#include "greeting.h"
 
 
 using namespace std;
@@ -68,20 +68,25 @@ struct AddrHasher {
 };
 public:
   char* cache_line_pool;
+  // map [tag, offset]
   google::dense_hash_map<uint64_t, uint64_t, AddrHasher<uint64_t>> map;
   FreeSlots *slotManager;
   uint64_t max_size;
   uint32_t cache_line_size;
+  uint8_t tag_shifts;
+  uint64_t addr_mask;
 
   KVS(void* send_buf, uint64_t max_size, uint32_t cache_line_size): 
   cache_line_pool((char*)send_buf), 
   max_size(max_size),
-  cache_line_size(cache_line_size),
-  slotManager(new FreeSlots(max_size, cache_line_size))
+  cache_line_size(cache_line_size)
   {
+    slotManager = new FreeSlots(max_size, cache_line_size);
     // lets hope we will never use these keys
     map.set_empty_key(-1);
     map.set_deleted_key(-2);
+    tag_shifts = log2(cache_line_size * sizeof(char));
+    addr_mask = ~(((uint64_t) 1 << tag_shifts) - 1);
   }
 
   // uint64_t manual_insert(void *line)
@@ -95,13 +100,15 @@ public:
   void handle_req_fetch(struct req* r)
   {
     // fetch type, send send req
-    cout << "First 5 data in this line: " << endl;
-    for (uint8_t i = 0; i < 5; ++i)
-    {
-      cout << *((uint64_t*) (cache_line_pool + map[r->addr]) + i) << endl;
-    }
+    // cout << "First {size} data at this line: " << r->addr << " " << map[r->addr] << endl;
+    // for (uint8_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++i)
+    // {
+    //   uint64_t *line = ((uint64_t *) (cache_line_pool + map[r->addr])) + i;
+    //   cout << *line << endl;
+    // }
+
     // no-copy
-    send_async(cache_line_pool + map[r->addr], cache_line_size);
+    send(cache_line_pool + map[r->addr], cache_line_size);
   }
 
   void handle_req_update(struct req* r)

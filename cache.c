@@ -7,6 +7,9 @@
 #include "common.h"
 #include "cache.h"
 #include "greeting.h"
+#include <inttypes.h>
+#include "uthash.h"
+
 
 
 Block *newBlock(uint8_t dirty, uint64_t offset)
@@ -127,32 +130,55 @@ CacheTable *createCacheTable(
 	void *recv_buffer)
 {
 	CacheTable *cache = (CacheTable *)malloc(sizeof(CacheTable));
-	uint8_t lbts = log2(cache_line_size);
+	uint8_t lbts = log2(cache_line_size * sizeof(char));
+	cache->tag_shifts = lbts;
 	cache->tag_mask = ((uint64_t) 1 << lbts) - 1;
 	cache->addr_mask = ~(cache->tag_mask);
 	cache->max_size = max_size;
 	cache->cache_line_size = cache_line_size;
+	cache->misses = 0;
 
 	cache->reqs = req_buffer;
 	cache->line_pool = (char*) recv_buffer;
 
-	cache->map = (Block **)malloc(max_size * sizeof(Block *));
-	for (size_t i = 0; i < max_size; ++i)
-		cache->map[i] = NULL;
-	
+	uint64_t tag_possibles = ((uint64_t)-1) >> lbts;
+	cache->map = NULL;
 	cache->dll = initBlockDLL();
-	cache->fq = initQueue(max_size, cache_line_size);
+	cache->fq = initQueue(cache->max_size, cache->cache_line_size);
 	return cache;
 }
 
+void hashPrint(HashStruct *hs)
+{
+	HashStruct *cur;
+	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
+			printf("tag %d, offset %" PRIu64 "\n" , cur->tag, cur->bptr->offset);
+	}
+}
+
+void linePrint(char *line, uint32_t cache_line_size)
+{
+	uint64_t *vline = (uint64_t *) line;
+	printf("Received line: \n");
+	for (size_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++ i)
+	{
+		printf("%" PRIu64 "\n", *(vline + i));
+	}
+}
+
+// addr (bytes) -> offset with regard to *rbuf
 char *cache_access(CacheTable *table, uint64_t addr)
 {
-	uint64_t tag = addr & table->addr_mask;
-	uint64_t offset = addr & table->tag_mask;
-	Block *tgt = table->map[tag];
+	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
+	uint64_t offset = (addr & table->tag_mask) / sizeof(char);
+	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, offset);
+	// hashPrint(table->map);
+	HashStruct *tgt;
+	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
-	if (tgt == NULL)
+	if (tgt == NULL || tgt->bptr == NULL)
 	{
+		table->misses += 1;
 		struct req *r = (struct req*) table->reqs;
 		r->addr = tag;
 		r->size = table->cache_line_size;
@@ -161,18 +187,25 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		// claim a space for hot data
 		// evict in claim
 		uint64_t rbuf_offset = claim(table->fq, table->dll);
+		// printf("Send tag: %"PRIu64"\n", r->addr);
     send(r, sizeof(struct req));
 		recv(table->line_pool + rbuf_offset, table->cache_line_size);
+		// linePrint(table->line_pool + rbuf_offset, table->cache_line_size);
 
+		if (tgt == NULL) 
+			tgt = (HashStruct *) malloc(sizeof *tgt);
 		// create new block - dirty = 1
-		tgt = newBlock(1, rbuf_offset);
+		tgt->bptr = newBlock(1, rbuf_offset);
+		tgt->tag = (int) tag;
 		// inser to map as hot 
-		addHot(table->dll, tgt);
+		addHot(table->dll, tgt->bptr);
+		HASH_ADD_INT(table->map, tag, tgt);
+
 		return table->line_pool + rbuf_offset + offset;
-	}
+	} 
 
 	// get offset
-	char *mem = table->line_pool + tgt->offset + offset;
-	touch(table->dll, tgt);
+	char *mem = table->line_pool + tgt->bptr->offset + offset;
+	touch(table->dll, tgt->bptr);
 	return mem;
 }

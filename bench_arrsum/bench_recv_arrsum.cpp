@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <infiniband/verbs.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string>
@@ -103,7 +102,7 @@ void job1() {
 	}
 }
 
-// orders match
+// orders must match
 static void (*jobs[]) () = {job0, job1};
 static std::string jobs_desc[] = {"naive", "zero copy"};
 static struct option long_options[] = {

@@ -40,21 +40,16 @@ void job0() {
 // remote: unoptimized
 void job1() {
     struct req *reqs = (struct req *)sbuf;
-    // size_t num_reqs = SEND_BUF_SIZE / sizeof(struct req);
-    // reqs[0].index = 0;
-    // reqs[0].size = sizeof(int);
-    // send(&reqs[0], sizeof(struct req));
 
     long sum = 0;
     for (int i = 0; i < size_array; i++) {
-        // send req
         reqs[0].index = i * sizeof(int);
         reqs[0].size = sizeof(int);
         if (cycles_to_sleep_req) reqs[0].cycles_to_sleep = cycles_to_sleep_req;
         send(&reqs[0], sizeof(struct req));
-        // recv result
+
         recv(rbuf, sizeof(int));
-        // get data from buffer
+
         sum += ((int *)rbuf)[0];
         if (cycles_to_sleep) wait_until_cycles(get_cycles()+cycles_to_sleep);
     }
@@ -64,7 +59,6 @@ void job1() {
 
 // remote: optmized
 // prefetch one batch
-// todo: plot runtime over batch_size + latency
 void job2() {
     int batch_size = sizeof(int) * size_batch;
     struct req *reqs = (struct req *)sbuf;
@@ -158,7 +152,6 @@ void job_batched_fetch() {
 	}
     printf("SUM %ld\n", sum);
 }
-
 
 // job 5
 void job_stride_batched_fetch() {
@@ -256,7 +249,7 @@ void job4() {
 }
 */
 
-// orders match
+// orders must match
 static void (*jobs[]) () = {job0, job1, job2, job3, job_batched_fetch, job_stride_batched_fetch};
 static std::string jobs_desc[] = {"local sequential", "remote sequential", "remote sequential prefetch=1",
     "remote sequential prefetch=all", "remote sequential batch prefetch",
@@ -270,12 +263,14 @@ static struct option long_options[] = {
     {"pre_stride", required_argument, 0, 0},
     {"cycles_to_sleep", required_argument, 0, 0},
     {"cycles_to_sleep_req", required_argument, 0, 0},
+    {"warmup", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
 
 int main(int argc, char * argv[]) {
     char * addr = 0; // e.g. tcp://localhost:3456
     int job = -1, n_runs = 10;
+    int warmup = 1;
 
     int opt= 0, long_index =0;
     while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
@@ -301,8 +296,11 @@ int main(int argc, char * argv[]) {
             case 6:
                 cycles_to_sleep = atoi(optarg);
                 break;
-            case 6:
+            case 7:
                 cycles_to_sleep_req = atoi(optarg);
+                break;
+            case 8:
+                warmup = atoi(optarg);
                 break;
             default:
                 return -1;
@@ -315,19 +313,27 @@ int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC, addr);
     printf("init done\n");
 
-    uint64_t totalNs = 0; // can overflow
     void (*f)() = jobs[job];
+    while(warmup--) { (*f)(); }
+    printf("warmup done\n");
+
     printf("running: %s\n", jobs_desc[job].c_str());
-    // (*f)();
+    uint64_t totalNs = 0; // can overflow
+    unsigned long long totalCycles = 0; // can overflow
     for (int i = 0; i < n_runs; ++i) {
         uint64_t startNs = getCurNs();
+        unsigned long long startCycles = get_cycles();
         (*f)();
+        unsigned long long endCycles = get_cycles();
         uint64_t endNs = getCurNs();
         totalNs += endNs - startNs;
+        totalCycles += endCycles - startCycles;
         printf("n_run: %d, ns: %ld \n", i, endNs - startNs);
+        printf("n_run: %d, cycles: %llu \n", i, endCycles - startCycles);
     }
 
     printf("n_runs: %d, avg ns: %ld \n", n_runs, totalNs / n_runs);
+    printf("n_runs: %d, avg cycles: %ld \n", n_runs, totalCycles / n_runs);
 
     return 0;
 }

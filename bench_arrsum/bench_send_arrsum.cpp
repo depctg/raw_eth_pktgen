@@ -5,12 +5,12 @@
 #include <time.h>
 #include <getopt.h>
 #include <queue>
-#include <chrono>
+// #include <chrono>
 #include <string>
  
-#include "common.h"
-#include "packet.h"
-#include "app.h"
+#include "../common.h"
+#include "../packet.h"
+#include "../app.h"
 
 using namespace std;
 
@@ -24,6 +24,7 @@ void job0() {
     int a[size_array];
     long sum = 0;
     for (int i = 0; i < size_array; i++) {
+        a[i] = i;
         sum += a[i];
     }
 
@@ -116,6 +117,7 @@ void job3() {
     printf("SUM %ld\n", sum);
 }
 
+// job 4
 void job_batched_fetch() {
     // batch optimization
     int batch_size = sizeof(int) * size_batch;
@@ -142,6 +144,8 @@ void job_batched_fetch() {
     printf("SUM %ld\n", sum);
 }
 
+
+// job 5
 void job_stride_batched_fetch() {
     // strided_prefetch
     int batch_size = sizeof(int) * size_batch;
@@ -154,13 +158,11 @@ void job_stride_batched_fetch() {
 
     uint64_t sum = 0;
     int max_steps = size_array / size_batch;
-    auto start = chrono::steady_clock::now();
 
     // Pre-pre-fetch   
     int step_further = min(pre_stride, max_steps);
     for (int i = 0; i < step_further; ++i) {
         int idx = (req_step_id + i) % num_buf;
-        // cout << "req " << req_step_id + i << "idx " << idx << endl;
         reqs[idx].index = i * size_batch * sizeof(int);
         reqs[idx].size = batch_size;
         send_async(reqs + idx, sizeof(struct req));
@@ -286,6 +288,7 @@ int main(int argc, char * argv[]) {
     uint64_t totalNs = 0; // can overflow
     void (*f)() = jobs[job];
     printf("running: %s\n", jobs_desc[job].c_str());
+    // (*f)();
     for (int i = 0; i < n_runs; ++i) {
         uint64_t startNs = getCurNs();
         (*f)();

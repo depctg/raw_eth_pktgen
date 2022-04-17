@@ -1,5 +1,5 @@
-OBJECTS := common.o packet.o net.o
-TARGETS := gen_send gen_recv gen_simple_send gen_simple_recv gen_latency_send gen_latency_recv
+OBJECTS := common.o packet.o net.o cache.o
+TARGETS := bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum
 
 LD       := g++
 LIBS     := -libverbs -lnng
@@ -17,15 +17,32 @@ gen_%: gen_%.o $(OBJECTS)
 ary_seq_opts/%.o : ary_seq_opts/%.cpp
 	$(CXX) $(LD_FLAGS) -c -o $@ $^
 ary_seq_opts/% : ary_seq_opts/%.o $(OBJECTS)
-	$(CXX) $(LD_FLAGS) -o $@ $^ $(LIBS)
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
+prefetch_batch : ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch ary_seq_opts/async_fetch
+clean_ary_seq: 
+	sudo rm ary_seq_opts/general_recv ary_seq_opts/batch_fetch ary_seq_opts/pre_fetch ary_seq_opts/comp_fetch ary_seq_opts/async_fetch
 # batch_fetch.o : cpp_ary_seq/batch_fetch.cpp
 # 	$(CXX) $(LD_FLAGS) -c -o $@ $^
 # batch_fetch: $(OBJECTS) batch_fetch.o
 # 	$(CXX) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-bench_%: bench_%.o $(OBJECTS)
-	$(LD) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+test_arrsum: bench_arrsum/bench_send_arrsum bench_arrsum/bench_recv_arrsum 
+	echo "Benchmark array sequantial sum"
+
+bench_arrsum/%.o: bench_arrsum/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+bench_arrsum/%: bench_arrsum/%.o $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+
+caches: cache_opts/cache_test cache_opts/remote_test
+	echo "Cache tests"
+cache_opts/%.o: cache_opts/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+cache_opts/%: cache_opts/%.o $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+clean_cache_opts: 
+	sudo rm cache_opts/cache_test cache_opts/remote_test
 
 clean:
 	rm *.o $(TARGETS)

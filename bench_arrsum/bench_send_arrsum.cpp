@@ -11,6 +11,7 @@
 #include "../common.h"
 #include "../packet.h"
 #include "../app.h"
+#include "../cycles.h"
 
 using namespace std;
 
@@ -18,6 +19,8 @@ using namespace std;
 static int size_array = 1024;
 static int size_batch = 64;
 static int pre_stride = 4;
+static int cycles_to_sleep = 0; // cycles to sleep locally
+static int cycles_to_sleep_req = 0; // cycles to sleep, sent in the request
 
 // local
 void job0() {
@@ -26,6 +29,9 @@ void job0() {
     for (int i = 0; i < size_array; i++) {
         a[i] = i;
         sum += a[i];
+        if (cycles_to_sleep) wait_until_cycles(get_cycles()+cycles_to_sleep);
+        // simulate remote sleep here
+        if (cycles_to_sleep_req) wait_until_cycles(get_cycles()+cycles_to_sleep_req);
     }
 
     printf("SUM %ld\n", sum);
@@ -44,11 +50,13 @@ void job1() {
         // send req
         reqs[0].index = i * sizeof(int);
         reqs[0].size = sizeof(int);
+        if (cycles_to_sleep_req) reqs[0].cycles_to_sleep = cycles_to_sleep_req;
         send(&reqs[0], sizeof(struct req));
         // recv result
         recv(rbuf, sizeof(int));
         // get data from buffer
         sum += ((int *)rbuf)[0];
+        if (cycles_to_sleep) wait_until_cycles(get_cycles()+cycles_to_sleep);
     }
 
     printf("SUM %ld\n", sum);
@@ -70,6 +78,7 @@ void job2() {
     // Send first request
     reqs[buf_id].index = 0;
     reqs[buf_id].size = batch_size;
+    if (cycles_to_sleep_req) reqs[buf_id].cycles_to_sleep = cycles_to_sleep_req;
     send_async(reqs + buf_id, sizeof(struct req));
     wr_id = recv_async(rbuf, batch_size);
 
@@ -79,6 +88,7 @@ void job2() {
         if (i + size_batch < size_array) {
             reqs[buf_id_nxt].index = (i + size_batch) * sizeof(int);
             reqs[buf_id_nxt].size = batch_size;
+            if (cycles_to_sleep_req) reqs[buf_id].cycles_to_sleep = cycles_to_sleep_req;
             send_async(reqs + buf_id_nxt, sizeof(struct req));
             wr_id_nxt = recv_async((int *)rbuf + buf_id_nxt * size_batch, batch_size);
         }
@@ -89,8 +99,10 @@ void job2() {
         int * arr = (int *)rbuf + buf_id * size_batch;
 
         // get data from buffer
-        for (int j = 0; j < size_batch; j++)
-            sum += arr[j];
+        for (int j = 0; j < size_batch; j++) {
+          sum += arr[j];
+          if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
+        }
 
         // prepare for next poll
         wr_id = wr_id_nxt;
@@ -113,6 +125,7 @@ void job3() {
     int *a = (int*) rbuf;
     for (int i = 0; i < size_array; ++i) {
         sum += a[i];
+        if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
     }
     printf("SUM %ld\n", sum);
 }
@@ -135,8 +148,10 @@ void job_batched_fetch() {
         int * arr = (int *)rbuf + buf_ofst * size_batch;
 
 	    // get data from buffer
-        for (int j = 0; j < size_batch; j++)
+        for (int j = 0; j < size_batch; j++) {
             sum += *arr++;
+            if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
+        }
         buf_ofst ++;
         reqs[0].index = buf_ofst * batch_size;
         reqs[0].size = batch_size;
@@ -165,6 +180,7 @@ void job_stride_batched_fetch() {
         int idx = (req_step_id + i) % num_buf;
         reqs[idx].index = i * size_batch * sizeof(int);
         reqs[idx].size = batch_size;
+        if (cycles_to_sleep_req) reqs[idx].cycles_to_sleep = cycles_to_sleep_req;
         send_async(reqs + idx, sizeof(struct req));
         wr_id_cur = recv_async((int *)rbuf + idx * size_batch, batch_size);
         wr_ids.push({wr_id_cur, idx});
@@ -180,6 +196,7 @@ void job_stride_batched_fetch() {
                 // cout << "req " << req_step_id + i << "idx " << idx << endl;
                 reqs[idx].index = (req_step_id + i) * size_batch * sizeof(int);
                 reqs[idx].size = batch_size;
+                if (cycles_to_sleep_req) reqs[idx].cycles_to_sleep = cycles_to_sleep_req;
                 send_async(reqs + idx, sizeof(struct req));
                 wr_id_cur = recv_async((int *)rbuf + idx * size_batch, batch_size);
                 wr_ids.push({wr_id_cur, idx});
@@ -193,13 +210,16 @@ void job_stride_batched_fetch() {
         wr_ids.pop();
 
 	    // get data from buffer
-        for (int j = 0; j < size_batch; j++)
+        for (int j = 0; j < size_batch; j++) {
             sum += arr[j];
+            if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
+        }
     }
 
     printf("SUM %ld\n", sum);
 }
 
+/*
 void swap (int *a, int *b) {
     int temp = *a; *a = *b; *b = temp;
 }
@@ -222,6 +242,7 @@ int* init_access_patten(int n) {
 }
 
 // local: random access
+// orphan 
 void job4() {
     int a[size_array];
     long sum = 0;
@@ -233,12 +254,13 @@ void job4() {
 
     printf("SUM %ld\n", sum);
 }
+*/
 
 // orders match
-static void (*jobs[]) () = {job0, job1, job2, job3, job_batched_fetch, job_stride_batched_fetch, job4};
+static void (*jobs[]) () = {job0, job1, job2, job3, job_batched_fetch, job_stride_batched_fetch};
 static std::string jobs_desc[] = {"local sequential", "remote sequential", "remote sequential prefetch=1",
     "remote sequential prefetch=all", "remote sequential batch prefetch",
-    "remote sequential strided batch prefetch", "local random"};
+    "remote sequential strided batch prefetch"};
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
     {"job", required_argument, 0, 0},
@@ -246,6 +268,8 @@ static struct option long_options[] = {
     {"n_runs", required_argument, 0, 0},
     {"size_batch", required_argument, 0, 0},
     {"pre_stride", required_argument, 0, 0},
+    {"cycles_to_sleep", required_argument, 0, 0},
+    {"cycles_to_sleep_req", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
 
@@ -274,7 +298,13 @@ int main(int argc, char * argv[]) {
             case 5:
                 pre_stride = atoi(optarg);
                 break;
-             default:
+            case 6:
+                cycles_to_sleep = atoi(optarg);
+                break;
+            case 6:
+                cycles_to_sleep_req = atoi(optarg);
+                break;
+            default:
                 return -1;
         }
     }

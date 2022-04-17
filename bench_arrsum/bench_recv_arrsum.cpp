@@ -11,11 +11,14 @@
 #include "../common.h"
 #include "../packet.h"
 #include "../app.h"
+#include "../cycles.h"
 
 using namespace std;
+
 // default values
-static unsigned int nanoscs = 100;
+static unsigned int nanoscs = 0; // sleep_for ns
 static int size_array = 1024;
+static int cycles_to_sleep = 0; // sleep for cycles, in addition to sleep_for and req.cycles_to_sleep
 
 void rdma_latency(unsigned int d) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(d));
@@ -51,6 +54,8 @@ void job0() {
 	    reps[0] = a[reqs[0].index];
 	    // sleep
         if (nanoscs) rdma_latency(nanoscs);
+        if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
+        if (reps[0].cycles_to_sleep) wait_until_cycles(get_cycles() + reps[0].cycles_to_sleep);
 	    send(&reps[0], sizeof(int));
 	}
 }
@@ -81,6 +86,8 @@ void job1() {
                 // process request
                 // sleep here to change the latency
                 if (nanoscs) rdma_latency(nanoscs);
+                if (cycles_to_sleep) wait_until_cycles(get_cycles() + cycles_to_sleep);
+                if (reqs[idx].cycles_to_sleep) wait_until_cycles(get_cycles() + reqs[idx].cycles_to_sleep);
                 // cout << u_sleep;
                 // cout << "receive req: idx " << reqs[idx].index << " size: " << reqs[idx].size << endl;
                 send_async((char *)sbuf + reqs[idx].index, reqs[idx].size);
@@ -104,6 +111,7 @@ static struct option long_options[] = {
     {"job", required_argument, 0, 0},
     {"nsleep", required_argument, 0, 0},
     {"size_array", required_argument, 0, 0},
+    {"cycles_to_sleep", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
 
@@ -126,7 +134,10 @@ int main(int argc, char * argv[]) {
             case 3:
                 size_array = atoi(optarg);
                 break;
-             default:
+            case 4:
+                cycles_to_sleep = atoi(optarg);
+                break;
+            default:
                 return -1;
         }
     }

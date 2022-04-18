@@ -8,6 +8,8 @@
 struct req {
     int index;
     int size;
+
+    unsigned long long cycles_to_sleep;
 };
 
 #endif 

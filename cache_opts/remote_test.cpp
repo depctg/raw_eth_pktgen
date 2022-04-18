@@ -8,7 +8,7 @@
 using namespace std;
 
 static uint64_t max_size = 256 << 20;
-static uint32_t cache_line_size = 1024;
+static uint32_t cache_line_size = 8192;
 static uint32_t ary_size = 4 << 20;
 
 // data resides in sbuf for non-copy

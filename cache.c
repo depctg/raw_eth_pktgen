@@ -11,12 +11,12 @@
 #include "uthash.h"
 
 
-
-Block *newBlock(uint8_t dirty, uint64_t offset)
+Block *newBlock(uint8_t dirty, uint64_t offset, uint64_t tag)
 {
 	Block *b = (Block *)malloc(sizeof(Block));
 	b->dirty = dirty;
 	b->offset = offset;
+	b->tag = tag;
 	b->prev = b->next = NULL;
 	return b;
 }
@@ -28,7 +28,7 @@ BlockDLL *initBlockDLL()
 	return d;
 }
 
-uint64_t popVictim(BlockDLL *dll)
+uint64_t popVictim(BlockDLL *dll, HashStruct *map)
 {
 	if (!dll->tail) {
 		fprintf(stderr, "Eviction of empty cache pool\n");
@@ -43,6 +43,9 @@ uint64_t popVictim(BlockDLL *dll)
 	if (dll->tail)
 		dll->tail->next = NULL;
 	uint64_t offset = victim->offset;
+	HashStruct *entry;
+	HASH_FIND_INT(map, &(victim->tag), entry);
+	HASH_DEL(map, entry);
 	free(victim);
 	return offset;
 }
@@ -105,9 +108,9 @@ int noFree(FreeQueue *fq)
 	return fq->frees == 0;
 }
 
-uint64_t claim(FreeQueue *fq, BlockDLL *dll)
+uint64_t claim(FreeQueue *fq, BlockDLL *dll, HashStruct *map)
 {
-	if (noFree(fq)) return popVictim(dll);
+	if (noFree(fq)) return popVictim(dll, map);
 	uint64_t room = fq->slots[fq->front];
 	fq->front = (fq->front + 1) % fq->capacity;
 	fq->frees -= 1;
@@ -186,7 +189,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 
 		// claim a space for hot data
 		// evict in claim
-		uint64_t rbuf_offset = claim(table->fq, table->dll);
+		uint64_t rbuf_offset = claim(table->fq, table->dll, table->map);
 		// printf("Send tag: %"PRIu64"\n", r->addr);
     send(r, sizeof(struct req));
 		recv(table->line_pool + rbuf_offset, table->cache_line_size);
@@ -195,7 +198,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		if (tgt == NULL) 
 			tgt = (HashStruct *) malloc(sizeof *tgt);
 		// create new block - dirty = 1
-		tgt->bptr = newBlock(1, rbuf_offset);
+		tgt->bptr = newBlock(1, rbuf_offset, tag);
 		tgt->tag = (int) tag;
 		// inser to map as hot 
 		addHot(table->dll, tgt->bptr);

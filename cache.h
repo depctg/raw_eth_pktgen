@@ -16,10 +16,11 @@ extern "C"
 typedef struct Block
 {
 	uint64_t offset;
+	uint64_t tag;
 	struct Block *prev, *next;
 	uint8_t dirty;
 } Block;
-Block *newBlock(uint8_t dirty, uint64_t offset);
+Block *newBlock(uint8_t dirty, uint64_t offset, uint64_t tag);
 
 typedef struct HashStruct
 {
@@ -35,7 +36,7 @@ typedef struct BlockDLL
 } BlockDLL;
 BlockDLL *initBlockDLL();
 // pop last
-uint64_t popVictim(BlockDLL *dll);
+uint64_t popVictim(BlockDLL *dll, HashStruct *map);
 // add front
 void addHot(BlockDLL *dll, Block *b);
 // refresh life time of visited victim
@@ -52,7 +53,7 @@ FreeQueue *initQueue(uint64_t max_size, uint32_t cache_line_size);
 int isFull(FreeQueue *fq);
 int isEmpty(FreeQueue *fq);
 // claim a block, will evit LRU if needed
-uint64_t claim(FreeQueue *fq, BlockDLL *dll);
+uint64_t claim(FreeQueue *fq, BlockDLL *dll, HashStruct *map);
 void reclaim(FreeQueue *fq, uint64_t offset);
 
 typedef struct CacheTable

@@ -15,12 +15,13 @@ extern "C"
 
 typedef struct Block
 {
-	uint64_t offset;
+	uint64_t rbuf_offset;
 	uint64_t tag;
 	struct Block *prev, *next;
+	uint8_t present;
 	uint8_t dirty;
 } Block;
-Block *newBlock(uint8_t dirty, uint64_t offset, uint64_t tag);
+Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty);
 
 typedef struct HashStruct
 {
@@ -62,6 +63,7 @@ typedef struct CacheTable
 	uint64_t addr_mask;
 	uint64_t max_size;
 	uint64_t misses;
+	uint64_t accesses;
 	uint32_t cache_line_size;
 	uint8_t tag_shifts;
 

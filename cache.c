@@ -11,13 +11,14 @@
 #include "uthash.h"
 
 
-Block *newBlock(uint8_t dirty, uint64_t offset, uint64_t tag)
+Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty)
 {
 	Block *b = (Block *)malloc(sizeof(Block));
-	b->dirty = dirty;
-	b->offset = offset;
+	b->rbuf_offset = offset;
 	b->tag = tag;
 	b->prev = b->next = NULL;
+	b->present = present;
+	b->dirty = dirty;
 	return b;
 }
 
@@ -40,14 +41,11 @@ uint64_t popVictim(BlockDLL *dll, HashStruct *map)
 
 	Block *victim = dll->tail;
 	dll->tail = dll->tail->prev;
-	if (dll->tail)
-		dll->tail->next = NULL;
-	uint64_t offset = victim->offset;
-	HashStruct *entry;
-	HASH_FIND_INT(map, &(victim->tag), entry);
-	HASH_DEL(map, entry);
-	free(victim);
-	return offset;
+	victim->present = 0;
+	if (victim->dirty) {
+		printf("Dirty ! Need flush\n");
+	}
+	return victim->rbuf_offset;
 }
 
 void addHot(BlockDLL *dll, Block *b)
@@ -139,12 +137,12 @@ CacheTable *createCacheTable(
 	cache->addr_mask = ~(cache->tag_mask);
 	cache->max_size = max_size;
 	cache->cache_line_size = cache_line_size;
+	cache->accesses = 0;
 	cache->misses = 0;
 
 	cache->reqs = req_buffer;
 	cache->line_pool = (char*) recv_buffer;
 
-	uint64_t tag_possibles = ((uint64_t)-1) >> lbts;
 	cache->map = NULL;
 	cache->dll = initBlockDLL();
 	cache->fq = initQueue(cache->max_size, cache->cache_line_size);
@@ -155,7 +153,7 @@ void hashPrint(HashStruct *hs)
 {
 	HashStruct *cur;
 	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
-			printf("tag %d, offset %" PRIu64 "\n" , cur->tag, cur->bptr->offset);
+			printf("tag %d, offset %" PRIu64 "\n" , cur->tag, cur->bptr->rbuf_offset);
 	}
 }
 
@@ -169,17 +167,34 @@ void linePrint(char *line, uint32_t cache_line_size)
 	}
 }
 
-// addr (bytes) -> offset with regard to *rbuf
+// Access virtual address {addr}
+// addr:
+// |  tag (64-L)b | LOFST (L)b  |
+// LOFST: line_offset
+
+// Cache table reserves rbuf memory within [rbuf', rbuf' + max_size]
+// rbuf' = rbuf + N
+
+// Find ROFST: rbuf_offset in the cache table
+// ROFST = map[tag]
+
+// return the correct address
+// {rbuf'}      {rbuf' + ROFST}         														 {rbuf' + max_size}
+//  |       ...        | < ------- cache_line_size  -------> |   ...        |
+//										 | <- LOFST -> |
+//																   return {rbuf' + ROFST + LOFST}
+
 char *cache_access(CacheTable *table, uint64_t addr)
 {
+	table->accesses += 1;
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
-	uint64_t offset = (addr & table->tag_mask) / sizeof(char);
+	uint64_t line_offset /* bytes */ = (addr & table->tag_mask) / sizeof(char);
 	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, offset);
 	// hashPrint(table->map);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
-	if (tgt == NULL || tgt->bptr == NULL)
+	if (tgt == NULL || !tgt->bptr->present)
 	{
 		table->misses += 1;
 		struct req *r = (struct req*) table->reqs;
@@ -187,28 +202,38 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		r->size = table->cache_line_size;
 		r->type = 1;
 
-		// claim a space for hot data
-		// evict in claim
-		uint64_t rbuf_offset = claim(table->fq, table->dll, table->map);
-		// printf("Send tag: %"PRIu64"\n", r->addr);
+		// TODO: async
     send(r, sizeof(struct req));
+
+		// claim a space for hot data, evict if needed
+		uint64_t rbuf_offset = claim(table->fq, table->dll, table->map);
+
+		// printf("Send tag: %"PRIu64"\n", r->addr);
 		recv(table->line_pool + rbuf_offset, table->cache_line_size);
 		// linePrint(table->line_pool + rbuf_offset, table->cache_line_size);
 
-		if (tgt == NULL) 
+		if (tgt == NULL)
+		{
 			tgt = (HashStruct *) malloc(sizeof *tgt);
-		// create new block - dirty = 1
-		tgt->bptr = newBlock(1, rbuf_offset, tag);
-		tgt->tag = (int) tag;
-		// inser to map as hot 
-		addHot(table->dll, tgt->bptr);
-		HASH_ADD_INT(table->map, tag, tgt);
-
-		return table->line_pool + rbuf_offset + offset;
+			// create new block
+			tgt->bptr = newBlock(rbuf_offset, tag, 1, 0);
+			tgt->tag = (int) tag;
+			// inser to map as hot 
+			addHot(table->dll, tgt->bptr);
+			HASH_ADD_INT(table->map, tag, tgt);
+		}
+		else
+		{
+			tgt->bptr->rbuf_offset = rbuf_offset;
+			tgt->bptr->present = 1;
+			// if is pulled, the dirty flag is clean
+			// touch -> hot
+			touch(table->dll, tgt->bptr);
+		}
+		return table->line_pool + rbuf_offset + line_offset;
 	} 
 
-	// get offset
-	char *mem = table->line_pool + tgt->bptr->offset + offset;
+	// if find target, touch and return
 	touch(table->dll, tgt->bptr);
-	return mem;
+	return table->line_pool + tgt->bptr->rbuf_offset + line_offset;
 }

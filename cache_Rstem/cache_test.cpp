@@ -34,7 +34,6 @@ int main(int argc, char * argv[]) {
         mutate ^= v;
         // cout << v << endl << access_pattern[i] << endl;
         assert(v == access_pattern[i]);
-        // cout << *((uint64_t*) v) << endl;
     }
     
     // sequential complete access
@@ -42,12 +41,13 @@ int main(int argc, char * argv[]) {
     // {
     //     char *l = cache_access(cache, i * sizeof(uint64_t));
     //     uint64_t v = *((uint64_t *) l); 
+    //     // cout << (void *) l << endl;
     //     mutate ^= v;
-    //     assert(v == i);
-    //     // cout << *((uint64_t*) v) << endl;
+    //     // assert(v == i);
+    //     cout << v << endl;
     // }
 
     auto end = chrono::steady_clock::now();
-    std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", miss rate: " << ((float)cache->misses / (float)num_access_times) * 100 << std::endl;
+    std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", miss rate: " << ((float)cache->misses / (float)cache->accesses) * 100 << std::endl;
     return 1;
 }

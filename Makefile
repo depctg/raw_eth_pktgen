@@ -35,14 +35,23 @@ bench_arrsum/%.o: bench_arrsum/%.cpp
 bench_arrsum/%: bench_arrsum/%.o $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-caches: cache_opts/cache_test cache_opts/remote_test
+cachesR: cache_Rstem/cache_test cache_Rstem/remote_test
 	echo "Cache tests"
-cache_opts/%.o: cache_opts/%.cpp
+cache_Rstem/%.o: cache_Rstem/%.cpp
 	$(CXX) $(LD_FLAGS) -c -o $@ $^
-cache_opts/%: cache_opts/%.o $(OBJECTS) 
+cache_Rstem/%: cache_Rstem/%.o $(OBJECTS) 
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
-clean_cache_opts: 
-	sudo rm cache_opts/cache_test cache_opts/remote_test
+clean_cacheR: 
+	sudo rm cache_Rstem/cache_test cache_Rstem/remote_test
+
+AIFMCOMP: AIFM_COMP/ary_sum_local AIFM_COMP/ary_sum_remote
+	echo "Compare AIFM"
+AIFM_COMP/%.o: AIFM_COMP/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+AIFM_COMP/%: AIFM_COMP/%.o $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+clean_AIFMCOMP: 
+	sudo rm AIFM_COMP/ary_sum_local AIFM_COMP/ary_sum_remote
 
 clean:
 	rm *.o $(TARGETS)

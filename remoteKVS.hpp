@@ -97,22 +97,30 @@ public:
   //   return offset;
   // }
 
+  void print_line(void *line)
+  {
+    uint64_t *u64l = (uint64_t *) line;
+    for (uint8_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++i)
+    {
+      cout << u64l[i] << " ";
+    }
+    cout << endl;
+  }
+
   void handle_req_fetch(struct req* r)
   {
-    // fetch type, send send req
-    // cout << "First {size} data at this line: " << r->addr << " " << map[r->addr] << endl;
-    // for (uint8_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++i)
-    // {
-    //   uint64_t *line = ((uint64_t *) (cache_line_pool + map[r->addr])) + i;
-    //   cout << *line << endl;
-    // }
-
     // no-copy
+    // cout << "Fetch request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
+    // print_line(cache_line_pool + map[r->addr]);
     send(cache_line_pool + map[r->addr], cache_line_size);
   }
 
   void handle_req_update(struct req* r)
   {
+    // print content inline
+    // cout << "Write request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
+    // print_line(r+1);
+
     // insert type
     auto iter = map.find(r->addr);
     if (iter != map.end())

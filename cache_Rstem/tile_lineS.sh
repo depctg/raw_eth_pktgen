@@ -15,7 +15,7 @@ do
   cd ..
   make clean_cache_opts
   make caches
-  cd cache_opts/
+  cd cache_Rstem/
   cache_exp_remoteKVS remote_test $port &>/dev/null &
   sleep 1
   cache_exp_access cache_test $port | tee log.$t

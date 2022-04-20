@@ -40,17 +40,19 @@ int main(int argc, char * argv[])
   cout << "Start processing requests" << endl;
   KVS *kvs = new KVS(sbuf, max_size, cache_line_size);
   app_init(kvs, ary_size);
+
   // cout << "In pool" << endl;
   // for (size_t i = 0; i < ary_size; ++i)
   // {
   //   cout << *((uint64_t*) kvs->cache_line_pool + i) << endl;
   // }
+
   // notify start
   send((char *)sbuf + max_size + sizeof(uint64_t), 1);
   // vanilla req-response 
   while (1)
   {
-    recv(rbuf, sizeof(struct req));
+    recv(rbuf, sizeof(struct req) + cache_line_size);
     struct req *r = (struct req *) rbuf;
     // cout << "Req: " << r->addr << " " << r->size << " " << r->type << endl;
 
@@ -62,7 +64,6 @@ int main(int argc, char * argv[])
     else
     {
       // recv playload
-      recv((char*)rbuf + sizeof(struct req), cache_line_size);
       kvs->handle_req_update(r);
     }
   }

@@ -36,10 +36,10 @@ typedef struct BlockDLL
 	Block *head, *tail;
 } BlockDLL;
 BlockDLL *initBlockDLL();
-// pop last
-uint64_t popVictim(BlockDLL *dll, HashStruct *map);
 // add front
 void addHot(BlockDLL *dll, Block *b);
+// add after end
+void addCold(BlockDLL *dll, Block *b);
 // refresh life time of visited victim
 void touch(BlockDLL *dll, Block *b);
 
@@ -53,9 +53,33 @@ typedef struct FreeQueue
 FreeQueue *initQueue(uint64_t max_size, uint32_t cache_line_size);
 int isFull(FreeQueue *fq);
 int isEmpty(FreeQueue *fq);
-// claim a block, will evit LRU if needed
-uint64_t claim(FreeQueue *fq, BlockDLL *dll, HashStruct *map);
-void reclaim(FreeQueue *fq, uint64_t offset);
+// claim a block, return 0 if no free
+int claim(FreeQueue *fq, uint64_t *offset);
+void reclaim(FreeQueue *fq, uint64_t *offset);
+
+// Centralized communicator
+typedef enum {SUCC, RINGF, SERVF} send_rel;
+typedef struct Ambassador
+{
+	char *reqs;
+	char *line_pool;
+	uint64_t cache_line_size;
+	size_t req_size; /* sizeof(char) * line_size + sizeof(struct req) */
+
+	uint32_t *snid;
+	uint32_t ring_size;
+	uint32_t front, end, frees;
+} Ambassador;
+Ambassador *newAmbassador(uint32_t ring_size, uint64_t cls, void *req_buffer, void *recv_buffer);
+uint32_t get_sid(Ambassador *a);
+void ret_sid(Ambassador *a, uint32_t sid);
+
+void fetch_sync(Block *b, Ambassador *a);
+void update_sync(void *dat_buf, uint64_t tag, Ambassador *a);
+// not implemented
+send_rel fetch_async(Block *b, Ambassador *a);
+uint64_t update_async(Block *b, Ambassador *a);
+
 
 typedef struct CacheTable
 {
@@ -64,11 +88,11 @@ typedef struct CacheTable
 	uint64_t max_size;
 	uint64_t misses;
 	uint64_t accesses;
+
+	Ambassador *amba;
+
 	uint32_t cache_line_size;
 	uint8_t tag_shifts;
-
-	void *reqs;
-	char *line_pool;
 
 	// a hashmap of blocks
 	// Block **map;
@@ -86,10 +110,26 @@ CacheTable *createCacheTable(
 	void *req_buffer,
 	void *recv_buffer
 );
-// insert from outside of rbuf?
-// void insert(uint64_t addr);
+
+
+// pop LRU, update if dirty
+uint64_t popVictim(BlockDLL *dll, CacheTable *table);
+
+// public interfaces:
+// cache_access : 1 B
+// cache_write : 1B
+// remote_write : 1 CLS
 
 char *cache_access(CacheTable *table, uint64_t addr);
+
+// write one byte
+void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
+
+// insert one line
+void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
+
+// write one cache line directly to remote
+void remote_write(CacheTable *table, uint64_t addr, void *dat_buf);
 
 #ifdef __cplusplus
 }

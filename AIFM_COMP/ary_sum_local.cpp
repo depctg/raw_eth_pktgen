@@ -55,7 +55,6 @@ int main(int argc, char * argv[])
   evictAry(B, kNumEntries * sizeof(uint64_t), cache);
   uint64_t b_offset = kNumEntries * sizeof(uint64_t);
   uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
-  cout << "here" << endl;
   for (int i = 0; i < kNumEntries; ++i)
   {
     uint64_t *ai = (uint64_t *) cache_access(cache, i * sizeof(uint64_t));

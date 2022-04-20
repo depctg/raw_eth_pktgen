@@ -44,7 +44,7 @@ cache_Rstem/%: cache_Rstem/%.o $(OBJECTS)
 clean_cacheR: 
 	sudo rm cache_Rstem/cache_test cache_Rstem/remote_test
 
-AIFMCOMP_seq: AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/cache_remote
+AIFMCOMP_seq: AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote
 	echo "Compare AIFM"
 AIFM_COMP_seq/%.o: AIFM_COMP_seq/%.cpp
 	$(CXX) $(LD_FLAGS) -c -o $@ $^
@@ -59,7 +59,7 @@ AIFM_COMP_rand/%: AIFM_COMP_rand/%.o $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean_AIFMCOMP: 
-	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote
+	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote
 
 clean:
 	rm *.o $(TARGETS)

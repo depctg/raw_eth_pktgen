@@ -49,31 +49,33 @@ using namespace std;
 int main(int argc, char * argv[])
 {
   init(TRANS_TYPE_RC, argv[1]);
-  CacheTable *cache = createCacheTable(kCacheSize, kCacheLineSize, sbuf, rbuf);
+  CacheTable *cache = createCacheTable(kCacheSize - sizeof(uint64_t) * kNumEntries, kCacheLineSize, sbuf, rbuf);
 
   uint64_t *A = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
   uint64_t *B = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
+
+  uint64_t *C = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
+
   prepareAry(A); prepareAry(B);
+  uint64_t b_offset = kNumEntries * sizeof(uint64_t);
+  uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
   auto start = chrono::steady_clock::now();
   // write A to remote
   cacheAry(A, 0, cache);
   // Write B to remote
-  cacheAry(B, kNumEntries * sizeof(uint64_t), cache);
+  cacheAry(B, b_offset, cache);
 
   cout << "all remote" << endl;
 
-  uint64_t b_offset = kNumEntries * sizeof(uint64_t);
-  uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
   for (int i = 0; i < kNumEntries; ++i)
   {
     uint64_t *ai = (uint64_t *) cache_access(cache, i * sizeof(uint64_t));
     uint64_t avi = *ai;
     uint64_t *bi = (uint64_t *) cache_access(cache, b_offset + i * sizeof(uint64_t));
     uint64_t bvi = *bi;
-    uint64_t ci = avi + bvi;
-    // cout << ci << endl;
-    cache_write(cache, c_offset + i * sizeof(uint64_t), &ci);
+    C[i] = avi + bvi;
   }
+  evictAry(C, c_offset, cache);
   auto end = chrono::steady_clock::now();
   std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", miss rate: " << ((float)cache->misses / (float)cache->accesses) * 100 << std::endl;
 

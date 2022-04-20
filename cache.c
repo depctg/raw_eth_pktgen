@@ -188,7 +188,7 @@ void fetch_sync(Block *b, Ambassador *a)
 	r->addr = b->tag;
 	r->size = a->cache_line_size;
 	r->type = 1;
-	send(r, sizeof(struct req));
+	send(r, a->req_size);
 	recv(a->line_pool + b->rbuf_offset, a->cache_line_size);
 	ret_sid(a, send_buf_nid);
 }
@@ -201,9 +201,9 @@ void update_sync(void *dat_buf, uint64_t tag, Ambassador *a)
 	r->size = a->cache_line_size;
 	r->type = 0;
 	memcpy(r+1, dat_buf, sizeof(char) * a->cache_line_size);
-	send(r, sizeof(struct req));
-	send(r+1, a->cache_line_size);
-	// send(r, a->req_size);
+	// send(r, sizeof(struct req));
+	// send(r+1, a->cache_line_size);
+	send(r, a->req_size);
 	ret_sid(a, send_buf_nid);
 }
 
@@ -362,6 +362,7 @@ void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 		}
 		else
 		{
+			// printf("Write to evicted, tag: %" PRIu64"\n", tgt->bptr->tag);
 			// remote has stale version, pull and write-back
 			tgt->bptr->rbuf_offset = rbuf_offset;
 			fetch_sync(tgt->bptr, table->amba);

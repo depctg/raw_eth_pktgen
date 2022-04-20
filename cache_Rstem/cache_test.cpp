@@ -3,16 +3,16 @@
 #include "../common.h"
 #include "../greeting.h"
 #include "../cache.h"
-#include "../patterns.h"
+#include "../patterns.hpp"
 #include <assert.h>
 
-constexpr static uint64_t max_size = 16 << 20;
+constexpr static uint64_t max_size = 64 << 20;
 constexpr static uint32_t cache_line_size = 8192;
-constexpr static uint32_t array_size = 4 << 20;
+constexpr static uint32_t array_size = 8 << 20;
 constexpr static uint64_t num_access_times = 4 << 20;
 constexpr static uint64_t tile = 2048;
 constexpr static uint64_t sigma = 8388608;
-// constexpr static uint64_t num_access_times = array_size;
+constexpr static double skewness = 0.0;
 
 uint64_t mutate = 0;
 
@@ -22,7 +22,8 @@ int main(int argc, char * argv[]) {
     CacheTable *cache = createCacheTable(max_size, cache_line_size, sbuf, rbuf);
 
     // vector<size_t> access_pattern = gen_access_pattern_normal(num_access_times, array_size / 2, 1, sigma, 2333);
-    vector<size_t> access_pattern = gen_access_pattern_uniform(num_access_times, array_size, tile, 2333);
+    // vector<size_t> access_pattern = gen_access_pattern_uniform(num_access_times, array_size, tile, 2333);
+    vector<size_t> access_pattern = gen_access_pattern_zipf(num_access_times, array_size, skewness, 1, 10);
     recv((char *)rbuf + max_size, 1);
     auto start = chrono::steady_clock::now();
 

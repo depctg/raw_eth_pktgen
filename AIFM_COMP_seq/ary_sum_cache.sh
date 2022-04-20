@@ -15,8 +15,8 @@ do
 
   cd ..
   make clean_AIFMCOMP
-  make AIFMCOMP
-  cd AIFM_COMP/
+  make AIFMCOMP_seq
+  cd AIFM_COMP_seq/
   cache_exp_remoteKVS ary_sum_remote $port &>/dev/null &
   sleep 1
   cache_exp_access ary_sum_local $port | tee log.$mem

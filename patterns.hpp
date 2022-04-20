@@ -150,6 +150,18 @@ double rand_val(int seed)
   return((double) x / m);
 }
 
+vector<size_t> gen_access_pattern_seq(size_t n_access, size_t array_size)
+{
+  vector<size_t> pattern;
+  size_t p = 0;
+  while (p < n_access)
+  {
+    pattern.push_back(p % array_size);
+    p ++;
+  }
+  return pattern;
+}
+
 vector<size_t> gen_access_pattern_zipf(size_t n_access, size_t array_size, double alpha, size_t tile_size, int seed)
 {
   vector<size_t> pattern;

@@ -9,7 +9,7 @@
 #include <memory>
 #include <random>
 
-constexpr static uint64_t kCacheSize = 196 << 20;
+constexpr static uint64_t kCacheSize = 480 << 20;
 constexpr static uint64_t kNumEntries = (16ULL << 20);
 constexpr static uint64_t kCacheLineSize = (16384 * 2);
 

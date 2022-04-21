@@ -7,7 +7,7 @@
 using namespace std;
 
 constexpr uint64_t sbuf_reserve = 480 << 20;
-constexpr uint64_t batch_size = 16384;
+constexpr uint64_t batch_size = 16384 * 2;
 
 void sbuf_populate(uint64_t offset, size_t size, void *dat_buf)
 {

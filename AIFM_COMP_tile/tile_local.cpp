@@ -10,7 +10,7 @@
 #include <memory>
 #include <random>
 
-constexpr static uint64_t kCacheSize = 64 << 20;
+constexpr static uint64_t kCacheSize = 480 << 20;
 constexpr static uint64_t kNumEntries = (8ULL << 20);
 constexpr static uint64_t kCacheLineSize = (2048);
 constexpr static double skewness = 0;

@@ -58,8 +58,15 @@ AIFM_COMP_rand/%.o: AIFM_COMP_rand/%.cpp
 AIFM_COMP_rand/%: AIFM_COMP_rand/%.o $(OBJECTS) 
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
+AIFMCOMP_tile: AIFM_COMP_tile/tile_local AIFM_COMP_tile/cache_remote AIFM_COMP_tile/keepC_local
+	echo "Compare AIFM"
+AIFM_COMP_tile/%.o: AIFM_COMP_tile/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+AIFM_COMP_tile/%: AIFM_COMP_tile/%.o $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+
 clean_AIFMCOMP: 
-	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local
+	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local AIFM_COMP_tile/tile_local AIFM_COMP_tile/cache_remote AIFM_COMP_tile/keepC_local
 
 clean:
 	rm *.o $(TARGETS)

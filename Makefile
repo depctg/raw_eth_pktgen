@@ -51,7 +51,7 @@ AIFM_COMP_seq/%.o: AIFM_COMP_seq/%.cpp
 AIFM_COMP_seq/%: AIFM_COMP_seq/%.o $(OBJECTS) 
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
-AIFMCOMP_rand: AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote
+AIFMCOMP_rand: AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local
 	echo "Compare AIFM"
 AIFM_COMP_rand/%.o: AIFM_COMP_rand/%.cpp
 	$(CXX) $(LD_FLAGS) -c -o $@ $^
@@ -59,7 +59,7 @@ AIFM_COMP_rand/%: AIFM_COMP_rand/%.o $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
 clean_AIFMCOMP: 
-	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote
+	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local
 
 clean:
 	rm *.o $(TARGETS)

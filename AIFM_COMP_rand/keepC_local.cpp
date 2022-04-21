@@ -10,7 +10,7 @@
 #include <memory>
 #include <random>
 
-constexpr static uint64_t kCacheSize = 192 << 20;
+constexpr static uint64_t kCacheSize = 128 << 20;
 constexpr static uint64_t kNumEntries = (8ULL << 20);
 constexpr static uint64_t kCacheLineSize = (8192);
 constexpr static double skewness = 1.3;
@@ -52,10 +52,11 @@ using namespace std;
 int main(int argc, char * argv[])
 {
   init(TRANS_TYPE_RC, argv[1]);
-  CacheTable *cache = createCacheTable(kCacheSize, kCacheLineSize, sbuf, rbuf);
+  CacheTable *cache = createCacheTable(kCacheSize - sizeof(uint64_t) * kNumEntries, kCacheLineSize, sbuf, rbuf);
 
   uint64_t *A = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
   uint64_t *B = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
+  uint64_t *C = (uint64_t *) malloc(kNumEntries * sizeof(uint64_t));
   prepareAry(A); prepareAry(B);
   uint64_t b_offset = kNumEntries * sizeof(uint64_t);
   uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
@@ -77,8 +78,10 @@ int main(int argc, char * argv[])
     uint64_t bvi = *bi;
     mut ^= (avi + bvi);
     // cout << i << endl;
-    cache_write(cache, c_offset + i * sizeof(uint64_t), &mut);
+    // cache_write(cache, c_offset + i * sizeof(uint64_t), &mut);
+    C[i] = mut;
   }
+  evictAry(C, c_offset, cache);
   auto end = chrono::steady_clock::now();
   std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << ", miss rate: " << ((float)cache->misses / (float)cache->accesses) * 100 << std::endl;
 

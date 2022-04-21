@@ -65,8 +65,15 @@ AIFM_COMP_tile/%.o: AIFM_COMP_tile/%.cpp
 AIFM_COMP_tile/%: AIFM_COMP_tile/%.o $(OBJECTS) 
 	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
 
+AIFMCOMP_pf: AIFM_COMP_pf/local AIFM_COMP_pf/pre_remote 
+	echo "Compare AIFM"
+AIFM_COMP_pf/%.o: AIFM_COMP_pf/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+AIFM_COMP_pf/%: AIFM_COMP_pf/%.o $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+
 clean_AIFMCOMP: 
-	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local AIFM_COMP_tile/tile_local AIFM_COMP_tile/cache_remote AIFM_COMP_tile/keepC_local
+	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local AIFM_COMP_tile/tile_local AIFM_COMP_tile/cache_remote AIFM_COMP_tile/keepC_local AIFM_COMP_pf/local AIFM_COMP_pf/pre_remote
 
 clean:
 	rm *.o $(TARGETS)

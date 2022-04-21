@@ -11,7 +11,7 @@
 
 constexpr static uint64_t localMem = 32 << 20;
 constexpr static uint64_t kNumEntries = (16 << 20);
-constexpr static uint64_t batch_size = (16384);
+constexpr static uint64_t batch_size = (16384 * 2);
 constexpr static uint64_t per_batch = batch_size / sizeof(uint64_t);
 constexpr static uint64_t c_max_local = localMem / 2;
 constexpr static uint64_t c_local_size = batch_size <= c_max_local ? batch_size : c_max_local;
@@ -81,7 +81,7 @@ int main(int argc, char ** argv)
 
   int cur_c_i = 0;
   int c_tile_i = 0;
-  const int num_buf = 1024;
+  const int num_buf = 3096;
   int buf_id = 0, buf_id_nxt = 0;
   // pre-send first request
   wr_id = fetchAB(0, reqs, buf_id);

@@ -4,10 +4,11 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
+#include <inttypes.h>
+
 #include "common.h"
 #include "cache.h"
 #include "greeting.h"
-#include <inttypes.h>
 #include "uthash.h"
 
 

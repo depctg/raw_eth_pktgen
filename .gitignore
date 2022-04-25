@@ -1,3 +1,5 @@
+.*.swp
+/build*
 **/.vscode
 cache_opts/cache_test
 cache_opts/remote_test

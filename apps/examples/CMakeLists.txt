@@ -1,6 +1,5 @@
-add_executable(gen_send gen_send.c)
-add_executable(gen_recv gen_recv.c)
+link_libraries(common)
 
-target_link_libraries(gen_send PRIVATE $<TARGET_OBJECTS:common>)
-target_link_libraries(gen_recv PRIVATE $<TARGET_OBJECTS:common>)
+add_executable(${app}-send gen_send.c)
+add_executable(${app}-recv gen_recv.c)
 

@@ -50,10 +50,14 @@ extern uint64_t poll_id;
 
 int init(int type, const char * server_url);
 int steer();
+
 uint64_t send(void * buf, size_t size);
 uint64_t send_async(void * buf, size_t size);
+uint64_t send_async_sge(struct ibv_sge *sge, int num_sge);
+
 uint64_t recv(void * buf, size_t size);
 uint64_t recv_async(void * buf, size_t size);
+
 int poll(uint64_t wr_id);
 
 // RDMA_info exchange

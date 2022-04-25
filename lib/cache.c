@@ -11,6 +11,39 @@
 #include "greeting.h"
 #include "uthash.h"
 
+static inline uint64_t _async_request_sge(
+        Block *b, Ambassador *a, uint64_t tag, int type
+    ) {
+	uint32_t sid = get_sid(a);
+	struct req *r = (struct req *) (a->reqs + sid * a->req_size);
+	r->size = a->cache_line_size;
+	r->addr = type == CACHE_READ ? b->tag : tag;
+	r->type = type;
+
+    char * cacheline = a->line_pool + b->rbuf_offset;
+
+    // build sge RDMA packet
+
+    if (type == CACHE_READ) {
+        send_async(r, sizeof(struct req));
+        return recv_async(cacheline, a->cache_line_size);
+    } else if (type == CACHE_WRITE) {
+        size_t msgsize = a->cache_line_size + sizeof(struct req);
+        struct ibv_sge sge[2];
+
+        // request
+        sge[0].addr = (uintptr_t)r;
+        sge[0].length = sizeof(struct req);
+        sge[0].lkey = rmr->lkey;
+        // data
+        sge[1].addr = (uintptr_t)cacheline;
+        sge[1].length = a->cache_line_size;
+        sge[1].lkey = rmr->lkey;
+
+        return send_async_sge(sge, 2);
+    }
+}
+
 
 Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty)
 {

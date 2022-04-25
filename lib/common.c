@@ -65,10 +65,10 @@ int init(int type, const char * server_url) {
 		.cap = {
 			/* no send ring */
 			.max_send_wr = CQ_NUM_DESC / 2,
-			.max_send_sge = 1,
+			.max_send_sge = 2,
 			/* maximum number of packets in ring */
 			.max_recv_wr = CQ_NUM_DESC / 2,
-			.max_recv_sge = 1,
+			.max_recv_sge = 2,
 			/* if inline maximum of payload data in the descriptors themselves */
 			.max_inline_data = 512,
 		},
@@ -291,19 +291,12 @@ int steer_udp(uint16_t steer_port, uint16_t src_port) {
     return 0;
 }
 
-uint64_t send_async(void *buf, size_t size) {
+static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 	int ret;
-	struct ibv_sge sge;
 	struct ibv_send_wr wr, *bad_wr;
 
-	/* Send Packets */
-	/* scatter/gather entry describes location and size of data to send*/
-	sge.addr = (uint64_t)buf;
-	sge.length = size;
-	sge.lkey = smr->lkey;
-
-	wr.num_sge = 1;
-	wr.sg_list = &sge;
+	wr.num_sge = num_sge;
+	wr.sg_list = sge;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 
@@ -312,6 +305,8 @@ uint64_t send_async(void *buf, size_t size) {
 	wr.wr_id = 0;
 
 #if SEND_INLINE
+    size_t size = 0;
+    for (int i = 0; i < num_sge; i++) size += sge[i].length;
     if (likely(size < 512))
         wr.send_flags |= IBV_SEND_INLINE;
 #endif
@@ -328,6 +323,23 @@ uint64_t send_async(void *buf, size_t size) {
 	}
 
 	return post_id;
+}
+
+uint64_t send_async(void *buf, size_t size) {
+	int ret;
+	struct ibv_sge sge;
+
+	/* Send Packets */
+	/* scatter/gather entry describes location and size of data to send*/
+	sge.addr = (uint64_t)buf;
+	sge.length = size;
+	sge.lkey = smr->lkey;
+
+    return _send_async_impl(&sge, 1);
+}
+
+uint64_t send_async_sge(struct ibv_sge *sge, int num_sge) {
+    return _send_async_impl(sge, num_sge);
 }
 
 uint64_t send(void * buf, size_t size) {

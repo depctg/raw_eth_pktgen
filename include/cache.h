@@ -58,6 +58,10 @@ int claim(FreeQueue *fq, uint64_t *offset);
 void reclaim(FreeQueue *fq, uint64_t *offset);
 
 // Centralized communicator
+enum {
+    CACHE_WRITE = 0,
+    CACHE_READ = 1,
+};
 typedef enum {SUCC, RINGF, SERVF} send_rel;
 typedef struct Ambassador
 {

@@ -75,6 +75,17 @@ AIFM_COMP_pf/%: AIFM_COMP_pf/%.o $(OBJECTS)
 clean_AIFMCOMP: 
 	sudo rm AIFM_COMP_seq/ary_sum_local AIFM_COMP_seq/keepC_local AIFM_COMP_seq/cache_remote AIFM_COMP_rand/rand_local AIFM_COMP_rand/cache_remote AIFM_COMP_rand/keepC_local AIFM_COMP_tile/tile_local AIFM_COMP_tile/cache_remote AIFM_COMP_tile/keepC_local AIFM_COMP_pf/local AIFM_COMP_pf/pre_remote
 
+
+comp_net_simu: cpt_net/local cpt_net/pre_remote 
+	echo "Computation network latency"
+cpt_net/%.o: cpt_net/%.cpp
+	$(CXX) $(LD_FLAGS) -c -o $@ $^
+cpt_net/%: cpt_net/%.o $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(LD_FLAGS) -o $@ $^ $(LIBS)
+
+clean_compnet:
+	sudo rm cpt_net/local cpt_net/pre_remote
+
 clean:
 	rm *.o $(TARGETS)
 

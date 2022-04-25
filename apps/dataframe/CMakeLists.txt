@@ -237,6 +237,7 @@ add_executable(gen_rand_tester  test/gen_rand_tester.cc)
 
 # Link the DataFrame library to the test binary
 target_link_libraries(dataframe_tester DataFrame)
+target_link_libraries(dataframe_tester common)
 
 # Link the DataFrame library to the test binary
 target_link_libraries(dataframe_tester_2 DataFrame)

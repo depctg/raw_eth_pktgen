@@ -42,6 +42,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <typeinfo>
 
+#include "common.h"
+#include "packet.h"
+
+#include "app.h"
+
 using namespace hmdf;
 
 typedef StdDataFrame<unsigned long> MyDataFrame;
@@ -5130,6 +5135,7 @@ static void test_read_csv()
 // -----------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
+	init(TRANS_TYPE_RC, argv[1]);
 
     test_haphazard();
     test_read();

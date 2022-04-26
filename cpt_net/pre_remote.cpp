@@ -8,8 +8,8 @@
 using namespace std;
 
 constexpr uint64_t sbuf_reserve = 480 << 20;
-constexpr uint64_t batch_size = 1024;
-constexpr uint64_t net_lat = 3; /*us*/
+constexpr uint64_t batch_size = 4096;
+constexpr uint64_t net_lat = 0; /*us*/
 
 void sbuf_populate(uint64_t offset, size_t size, void *dat_buf)
 {

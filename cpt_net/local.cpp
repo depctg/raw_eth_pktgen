@@ -10,10 +10,10 @@
 #include <random>
 #include "../sleepus.hpp"
 
-constexpr static uint64_t localMem = 32 << 20;
-constexpr static uint64_t kNumEntries = (4 << 20);
-constexpr static uint64_t batch_size = (16384);
-constexpr static uint64_t compute_t = 0; /*us*/
+constexpr static uint64_t localMem = 64 << 20;
+constexpr static uint64_t kNumEntries = (64 << 10);
+constexpr static uint64_t batch_size = (4096);
+constexpr static uint64_t compute_t = 40;
 constexpr static uint64_t per_batch = batch_size / sizeof(uint64_t);
 constexpr static uint64_t c_max_local = localMem / 2;
 constexpr static uint64_t c_local_size = batch_size <= c_max_local ? batch_size : c_max_local;
@@ -21,6 +21,7 @@ constexpr static uint64_t per_tile = c_local_size / sizeof(uint64_t);
 constexpr static uint64_t b_offset = kNumEntries * sizeof(uint64_t);
 constexpr static uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
 constexpr static size_t req_size = batch_size + sizeof(struct req);
+
 
 void prepareAry(uint64_t *ary)
 {
@@ -74,15 +75,15 @@ int main(int argc, char ** argv)
   prepareAry(A); prepareAry(B);
   
   uint64_t wr_id, wr_id_nxt;
+  auto start = chrono::steady_clock::now();
 
   struct req *creq = (struct req *) sbuf;
   struct req *reqs = (struct req *) ((char *)sbuf + req_size);
   evictAB(A, B, reqs);
 
-  auto start = chrono::steady_clock::now();
   int cur_c_i = 0;
   int c_tile_i = 0;
-  const int num_buf = 2048;
+  const int num_buf = 3096;
   int buf_id = 0, buf_id_nxt = 0;
   // pre-send first request
   wr_id = fetchAB(0, reqs, buf_id);
@@ -100,7 +101,6 @@ int main(int argc, char ** argv)
     {
       // cout << A_batch[j] << " " << B_batch[j] << endl;
       C[cur_c_i] = AB_batch[j*2] + AB_batch[j*2+1];
-      // simulate workload
       wait_until_us(compute_t);
       cur_c_i ++;
       if (cur_c_i == per_tile)
@@ -129,34 +129,34 @@ int main(int argc, char ** argv)
   std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
 
   // assert
-  buf_id_nxt = (buf_id + 1) % num_buf;
-  struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size); 
-  r->addr = c_offset;
-	r->size = batch_size;
-	r->type = 1;
-	send_async(r, req_size);
-	wr_id = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
-  buf_id = buf_id_nxt;
-  for (int i = 0; i < kNumEntries; i += per_batch)
-  {
-    buf_id_nxt = (buf_id + 1) % num_buf;
-    if (i + per_batch < kNumEntries) 
-    {
-      struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size);
-      r->addr = c_offset + (i + per_batch) * sizeof(uint64_t);
-      r->size = batch_size;
-      r->type = 1;
-      send_async(r, req_size);
-      wr_id_nxt = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
-    }
-    poll(wr_id);
-    uint64_t *c_remote = (uint64_t *)rbuf + buf_id * per_batch;
-    for (int j = 0; j < per_batch; ++ j)
-      // assert(c_remote[j] == A[i+j] + B[i+j]);
-      // cout << c_remote[j] << endl;
-      if (c_remote[j] != A[i+j] + B[i+j])
-        cout << c_remote[j] << " " << A[i+j] + B[i+j] << endl;
-    wr_id = wr_id_nxt;
-    buf_id = buf_id_nxt;
-  }
+  // buf_id_nxt = (buf_id + 1) % num_buf;
+  // struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size); 
+  // r->addr = c_offset;
+	// r->size = batch_size;
+	// r->type = 1;
+	// send_async(r, req_size);
+	// wr_id = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
+  // buf_id = buf_id_nxt;
+  // for (int i = 0; i < kNumEntries; i += per_batch)
+  // {
+  //   buf_id_nxt = (buf_id + 1) % num_buf;
+  //   if (i + per_batch < kNumEntries) 
+  //   {
+  //     struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size);
+  //     r->addr = c_offset + (i + per_batch) * sizeof(uint64_t);
+  //     r->size = batch_size;
+  //     r->type = 1;
+  //     send_async(r, req_size);
+  //     wr_id_nxt = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
+  //   }
+  //   poll(wr_id);
+  //   uint64_t *c_remote = (uint64_t *)rbuf + buf_id * per_batch;
+  //   for (int j = 0; j < per_batch; ++ j)
+  //     assert(c_remote[j] == A[i+j] + B[i+j]);
+  //     // cout << c_remote[j] << endl;
+  //     // if (c_remote[j] != A[i+j] + B[i+j])
+  //     //   cout << c_remote[j] << " " << A[i+j] + B[i+j] << endl;
+  //   wr_id = wr_id_nxt;
+  //   buf_id = buf_id_nxt;
+  // }
 }

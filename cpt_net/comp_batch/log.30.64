@@ -1,0 +1,4 @@
+device 0, mlx5_0 | mlx5_0
+connecting to server tcp://localhost:2356...
+received mr, with bytes 32, num 0
+ms: 8865903

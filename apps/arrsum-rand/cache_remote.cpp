@@ -1,7 +1,7 @@
 #include <iostream>
-#include "../common.h"
-#include "../greeting.h"
-#include "../remoteKVS.hpp"
+#include "common.h"
+#include "greeting.h"
+#include "remoteKVS.hpp"
 #include <assert.h>
 #include <string>
 

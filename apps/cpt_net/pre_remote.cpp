@@ -8,7 +8,8 @@
 using namespace std;
 
 constexpr uint64_t sbuf_reserve = 480 << 20;
-constexpr uint64_t batch_size = 16384 * 2;
+constexpr uint64_t batch_size = 4096;
+constexpr uint64_t net_lat = 0; /*us*/
 
 void sbuf_populate(uint64_t offset, size_t size, void *dat_buf)
 {
@@ -55,12 +56,14 @@ int main(int argc, char **argv)
         if (r->type)
         {
           // print_payload((char *) sbuf + r->addr, r->size);
+          wait_until_us(net_lat);
           send_async((char *) sbuf + r->addr, r->size);
         }
         else
         {
           // recv playload
           // print_payload(r+1, r->size);
+          wait_until_us(net_lat);
           sbuf_populate(r->addr, r->size, r+1);
         }
       }

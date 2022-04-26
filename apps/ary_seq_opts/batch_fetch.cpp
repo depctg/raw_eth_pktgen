@@ -1,5 +1,5 @@
-#include "../common.h"
-#include "../greeting.h"
+#include "common.h"
+#include "greeting.h"
 #include <chrono>
 #include <iostream>
 #include <string.h>

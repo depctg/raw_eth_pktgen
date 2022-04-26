@@ -8,10 +8,10 @@
 // #include <chrono>
 #include <string>
  
-#include "../common.h"
-#include "../packet.h"
-#include "../app.h"
-#include "../cycles.h"
+#include "common.h"
+#include "packet.h"
+#include "app.h"
+#include "cycles.h"
 
 using namespace std;
 

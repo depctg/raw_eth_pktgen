@@ -1,6 +1,6 @@
-#include "../common.h"
-#include "../packet.h"
-#include "../app.h"
+#include "common.h"
+#include "packet.h"
+#include "app.h"
 #include <infiniband/verbs.h>
 #include <chrono>
 #include <iostream>

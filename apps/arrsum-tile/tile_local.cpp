@@ -1,9 +1,9 @@
 #include <iostream>
 #include <chrono>
-#include "../common.h"
-#include "../greeting.h"
-#include "../cache.h"
-#include "../patterns.hpp"
+#include "common.h"
+#include "greeting.h"
+#include "cache.h"
+#include "patterns.hpp"
 #include <assert.h>
 #include <cstdint>
 #include <cstring>

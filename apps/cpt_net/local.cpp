@@ -2,7 +2,6 @@
 #include <chrono>
 #include "common.h"
 #include "greeting.h"
-#include "cache.h"
 #include <assert.h>
 #include <cstdint>
 #include <cstring>
@@ -10,9 +9,10 @@
 #include <random>
 #include "sleepus.hpp"
 
-constexpr static uint64_t localMem = 32 << 20;
-constexpr static uint64_t kNumEntries = (16 << 20);
-constexpr static uint64_t batch_size = (1024);
+constexpr static uint64_t localMem = 64 << 20;
+constexpr static uint64_t kNumEntries = (64 << 10);
+constexpr static uint64_t batch_size = (4096);
+constexpr static uint64_t compute_t = 40;
 constexpr static uint64_t per_batch = batch_size / sizeof(uint64_t);
 constexpr static uint64_t c_max_local = localMem / 2;
 constexpr static uint64_t c_local_size = batch_size <= c_max_local ? batch_size : c_max_local;
@@ -100,6 +100,7 @@ int main(int argc, char ** argv)
     {
       // cout << A_batch[j] << " " << B_batch[j] << endl;
       C[cur_c_i] = AB_batch[j*2] + AB_batch[j*2+1];
+      wait_until_us(compute_t);
       cur_c_i ++;
       if (cur_c_i == per_tile)
       {
@@ -127,34 +128,34 @@ int main(int argc, char ** argv)
   std::cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
 
   // assert
-  buf_id_nxt = (buf_id + 1) % num_buf;
-  struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size); 
-  r->addr = c_offset;
-	r->size = batch_size;
-	r->type = 1;
-	send_async(r, req_size);
-	wr_id = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
-  buf_id = buf_id_nxt;
-  for (int i = 0; i < kNumEntries; i += per_batch)
-  {
-    buf_id_nxt = (buf_id + 1) % num_buf;
-    if (i + per_batch < kNumEntries) 
-    {
-      struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size);
-      r->addr = c_offset + (i + per_batch) * sizeof(uint64_t);
-      r->size = batch_size;
-      r->type = 1;
-      send_async(r, req_size);
-      wr_id_nxt = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
-    }
-    poll(wr_id);
-    uint64_t *c_remote = (uint64_t *)rbuf + buf_id * per_batch;
-    for (int j = 0; j < per_batch; ++ j)
-      assert(c_remote[j] == A[i+j] + B[i+j]);
-      // cout << c_remote[j] << endl;
-      // if (c_remote[j] != A[i+j] + B[i+j])
-      //   cout << c_remote[j] << " " << A[i+j] + B[i+j] << endl;
-    wr_id = wr_id_nxt;
-    buf_id = buf_id_nxt;
-  }
+  // buf_id_nxt = (buf_id + 1) % num_buf;
+  // struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size); 
+  // r->addr = c_offset;
+	// r->size = batch_size;
+	// r->type = 1;
+	// send_async(r, req_size);
+	// wr_id = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
+  // buf_id = buf_id_nxt;
+  // for (int i = 0; i < kNumEntries; i += per_batch)
+  // {
+  //   buf_id_nxt = (buf_id + 1) % num_buf;
+  //   if (i + per_batch < kNumEntries) 
+  //   {
+  //     struct req *r = (struct req *) ((char *) reqs + buf_id_nxt * req_size);
+  //     r->addr = c_offset + (i + per_batch) * sizeof(uint64_t);
+  //     r->size = batch_size;
+  //     r->type = 1;
+  //     send_async(r, req_size);
+  //     wr_id_nxt = recv_async((uint64_t *)rbuf + buf_id_nxt * per_batch, batch_size);
+  //   }
+  //   poll(wr_id);
+  //   uint64_t *c_remote = (uint64_t *)rbuf + buf_id * per_batch;
+  //   for (int j = 0; j < per_batch; ++ j)
+  //     assert(c_remote[j] == A[i+j] + B[i+j]);
+  //     // cout << c_remote[j] << endl;
+  //     // if (c_remote[j] != A[i+j] + B[i+j])
+  //     //   cout << c_remote[j] << " " << A[i+j] + B[i+j] << endl;
+  //   wr_id = wr_id_nxt;
+  //   buf_id = buf_id_nxt;
+  // }
 }

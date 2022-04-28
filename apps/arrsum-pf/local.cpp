@@ -12,7 +12,7 @@
 
 constexpr static uint64_t localMem = 32 << 20;
 constexpr static uint64_t kNumEntries = (16 << 20);
-constexpr static uint64_t batch_size = (1024);
+constexpr static uint64_t batch_size = (16384);
 constexpr static uint64_t per_batch = batch_size / sizeof(uint64_t);
 constexpr static uint64_t c_max_local = localMem / 2;
 constexpr static uint64_t c_local_size = batch_size <= c_max_local ? batch_size : c_max_local;

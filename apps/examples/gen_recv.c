@@ -16,7 +16,7 @@ static inline int app_init() {
     }
 
     printf("Local sum %lld\n", sum);
-
+    
     return 0;
 }
 

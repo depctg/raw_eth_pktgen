@@ -7,8 +7,8 @@
 
 using namespace std;
 
-constexpr uint64_t kNumEntries = 4 << 20;
-constexpr uint64_t batch_size = 4096;
+constexpr uint64_t kNumEntries = 64 << 20;
+constexpr uint64_t batch_size = 8 << 10;
 constexpr uint64_t net_lat = 0; /*us*/
 
 static std::chrono::time_point<std::chrono::steady_clock> timebase;
@@ -41,13 +41,13 @@ int main(int argc, char **argv)
   init(TRANS_TYPE_RC_SERVER, argv[1]);
   app_init();
   cout << "Start processing requests" << endl;
-
   const unsigned int max_recvs = 64;
   const unsigned int inflights = max_recvs / 2;
   struct ibv_wc wc[max_recvs];
   unsigned int post_recvs = 0, poll_recvs = 0;
 
   struct req *reqs = (struct req *) rbuf;
+  send(reqs, sizeof(struct req));
   for (int i = 0; i < inflights; i++)
     recv_async(reqs + i, sizeof(struct req));
   post_recvs += inflights;
@@ -61,11 +61,7 @@ int main(int argc, char **argv)
       {
         int idx = (poll_recvs ++) % max_recvs;
         struct req *r = reqs + idx;
-        // if fetch type
-        if (r->type)
-        {
-          send_async((char *) sbuf + r->addr, r->size);
-        }
+        send_async((char *) sbuf + r->addr, r->size);
       }
     }
     while (post_recvs < poll_recvs + inflights)

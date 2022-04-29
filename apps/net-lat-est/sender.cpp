@@ -3,17 +3,10 @@
 #include "common.h"
 #include "greeting.h"
 #include <memory>
+#include <cstdlib>
 
-constexpr static uint64_t packet_size = 128 << 10;
+constexpr static uint64_t packet_size = 8 << 20;
 constexpr static uint64_t num_iter = 10000;
-
-uint64_t find_min(uint64_t *ary, int length)
-{
-  uint64_t rel = *ary;
-  for (int i = 1; i < length; ++i)
-    rel = rel < *(ary + i) ? rel : *(ary+i);
-  return rel;
-}
 
 using namespace std;
 using namespace std::chrono;
@@ -31,5 +24,10 @@ int main(int argc, char **argv)
     *(lats + i) = duration_cast<microseconds>(end - start).count(); 
     total_lat += *(lats + i);
   }
-  cout << "size | min | avg" << endl << packet_size << " | " << find_min(lats, num_iter) / (double) 2 << " | " << (double) total_lat / (2*num_iter) << endl;
+  sort(lats, lats + num_iter);
+  cout << "size | min | median | mean " << endl 
+  << packet_size << " | " 
+  << lats[0] / (double) 2 << " | " 
+  << ((num_iter % 2 == 0) ? (lats[num_iter / 2] + lats[(num_iter-1) / 2]) : lats[num_iter / 2]) / (double) 2 << " | "
+  << (double) total_lat / (2*num_iter) << endl;
 }

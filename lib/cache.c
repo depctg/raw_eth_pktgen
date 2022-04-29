@@ -368,6 +368,11 @@ char *cache_access(CacheTable *table, uint64_t addr)
 // Write at location addr, size 8B
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 {
+	cache_write_n(table, addr, dat_buf, sizeof(uint64_t));
+}
+
+void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
+{
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
 
@@ -404,11 +409,11 @@ void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 			addHot(table->dll, tgt->bptr);
 		}
 		// write to rbuf
-		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, sizeof(uint64_t));
+		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->present = 1;
 		return;
 	}
-	memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, sizeof(uint64_t));
+	memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 	tgt->bptr->dirty = 1;
 }
 

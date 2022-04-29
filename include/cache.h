@@ -128,6 +128,8 @@ char *cache_access(CacheTable *table, uint64_t addr);
 
 // write one byte
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
+// write s bytes
+void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
 
 // insert one line
 void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);

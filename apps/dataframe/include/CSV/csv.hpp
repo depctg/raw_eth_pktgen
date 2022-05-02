@@ -51,6 +51,8 @@
 #include <istream>
 #include <memory>
 
+#include "vec.hpp"
+
 namespace io
 {
 

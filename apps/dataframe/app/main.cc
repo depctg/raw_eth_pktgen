@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "vec.hpp"
+
 using namespace hmdf;
 
 // Download dataset at https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page.
@@ -247,6 +249,10 @@ void analyze_trip_durations_of_timestamps(StdDataFrame<uint64_t>& df, const char
 
 int main()
 {
+    init(TRANS_TYPE_RC, argv[1]);
+    CacheTable *cache = createCacheTable(kCacheSize - sizeof(uint64_t) * kNumEntries, kCacheLineSize, sbuf, rbuf);
+    RCacheVector_init_cache_table(cache);
+
     std::vector<std::chrono::time_point<std::chrono::steady_clock>> times(10);
     auto df  = load_data();
     times[0] = std::chrono::steady_clock::now();

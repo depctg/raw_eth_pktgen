@@ -6,10 +6,12 @@
 #include <type_traits>
 #include <vector>
 
+#include <stdexcept>
+
 #include "cache.h"
 
 static uint64_t offset_vec = 0;
-inline static uint64_t get_new_vec_offset(uint64_t s) { return (id_vec += s); }
+inline static uint64_t get_new_vec_offset(uint64_t s) { return (offset_vec += s); }
 
 static CacheTable *ctable = 0;
 void RCacheVector_init_cache_table(CacheTable *c) {
@@ -22,7 +24,7 @@ class RCacheVector {
     using Index_t = uint64_t;
     using Pattern_t = int64_t;
 
-    template <typename T>
+    template <typename U>
     friend class RCacheVector;
 
     /*
@@ -76,14 +78,14 @@ class RCacheVector {
 
    public:
     explicit RCacheVector(uint64_t atleast_cap = 0) {
-      if (!ctable) throw "RCacheVector_init_cache_table first";
+      if (!ctable) throw std::runtime_error("RCacheVector_init_cache_table first");
 
       _chunk_num_entries = ctable->cache_line_size / _data_size;
-      if (!_chunk_num_entries) throw "cache line size too small";
+      if (!_chunk_num_entries) throw std::runtime_error("cache line size too small");
       auto num_entries_to_alloc = (atleast_cap) ? (atleast_cap-1) / _chunk_num_entries + 1 : 0;
-      _capacity = num_chunks_to_alloc * _chunk_num_entries;
+      _capacity = num_entries_to_alloc * _chunk_num_entries;
       _offset =
-          get_new_vec_offset(num_chunks_to_alloc * ctable->cache_line_size);
+          get_new_vec_offset(num_entries_to_alloc * ctable->cache_line_size);
     }
     //   RCacheVector &operator=(const RCacheVector &other);
     //   RCacheVector(RCacheVector &&other);
@@ -97,7 +99,7 @@ class RCacheVector {
     void push_back(U &&u) {
         static_assert(std::is_same<std::decay_t<U>, std::decay_t<T>>::value, "U not same as T");
 
-        if (unlikely(_capacity == _size + 1)) {
+        if (_capacity == _size + 1) [[unlikely]] {
             resize(_capacity*2+1);
         }
 
@@ -118,26 +120,32 @@ class RCacheVector {
         uint64_t old_offset = _offset;
 
         auto num_entries_to_alloc = (atleast_cap) ? (atleast_cap-1) / _chunk_num_entries + 1 : 0;
-        _capacity = num_chunks_to_alloc * _chunk_num_entries;
-        _offset = get_new_vec_offset(num_chunks_to_alloc * ctable->cache_line_size);
+        _capacity = num_entries_to_alloc * _chunk_num_entries;
+        _offset = get_new_vec_offset(num_entries_to_alloc * ctable->cache_line_size);
 
         for (int i = 0; i < _size; ++i) {
             // TODO: better copy
-            cache_write_n(ctable, _offset+where_offset(i), reinterpret_cast<*T>(cache_access(ctable, old_offset+where_offset(i))), _data_size);
+            cache_write_n(ctable, _offset+where_offset(i), reinterpret_cast<T*>(cache_access(ctable, old_offset+where_offset(i))), _data_size);
         }
 
         // TODO: release old offset
     }
 
+    // return copy only
     T nth_element(uint64_t i) {
-        return *reinterpret_cast<*T>(cache_access(ctable, _offset+where_offset(i)));
+        return *reinterpret_cast<T*>(cache_access(ctable, _offset+where_offset(i)));
     }
     T front() { return nth_element(0); }
     const T back() { return nth_element(_size-1); }
     T at(uint64_t i) { return nth_element(i); }
 
+    // T& operator[](int i) {
+        // throw std::runtime_error("not supported");
+    // }
+
+    // the only mutator
     void update(uint64_t i, T&& t) {
-        if (i >= _size) throw "update out of index";
+        if (i >= _size) throw std::runtime_error("update out of index");
 
         cache_write_n(ctable, _offset+where_offset(i), &t, _data_size);
     }

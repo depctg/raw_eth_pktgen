@@ -59,27 +59,49 @@ public:
     HeteroVector &operator= (HeteroVector &&rhs) noexcept;
 
     template<typename T>
-    std::vector<T> &get_vector();
-    template<typename T>
-    const std::vector<T> &get_vector() const;
+    std::vector<T> &get_vector() {
+        auto    iter = vectors_<T>.find (this);
 
-    // It returns a view of the underlying vector.
-    // NOTE: One can modify the vector through the view. But the vector
-    //       cannot be extended or shrunk through the view.
-    // There is no const version of this method
-    //
-    template<typename T>
-    HeteroView get_view(size_type begin = 0, size_type end = -1);
+        // don't have it yet, so create functions for copying and destroying
+        if (iter == vectors_<T>.end())  {
+            clear_functions_.emplace_back (
+                [](HeteroVector &hv) { vectors_<T>.erase(&hv); });
+
+            // if someone copies me, they need to call each
+            // copy_function and pass themself
+            copy_functions_.emplace_back (
+                [](const HeteroVector &from, HeteroVector &to)  {
+                    vectors_<T>[&to] = vectors_<T>[&from];
+                });
+
+            move_functions_.emplace_back (
+                [](HeteroVector &from, HeteroVector &to)  {
+                    vectors_<T>[&to] = std::move(vectors_<T>[&from]);
+                    vectors_<T>.erase(vectors_<T>.find(&from));
+                });
+
+            iter = vectors_<T>.emplace (this, std::vector<T>()).first;
+        }
+
+        return (iter->second);
+    }
+
 
     template<typename T>
-    HeteroPtrView get_ptr_view(size_type begin = 0, size_type end = -1);
+    const std::vector<T> &get_vector() const { return (const_cast<HeteroVector *>(this)->get_vector<T>()); }
 
     template<typename T>
-    void push_back(const T &v);
+    HeteroView get_view(size_type begin = 0, size_type end = -1) {throw -1;}
+
+    template<typename T>
+    HeteroPtrView get_ptr_view(size_type begin = 0, size_type end = -1) {throw -1;}
+
+    template<typename T>
+    void push_back(const T &v) { get_vector<T>().push_back (v); }
     template<typename T, class... Args>
-    void emplace_back (Args &&... args);
+    void emplace_back (Args &&... args) {get_vector<T>().emplace_back (std::forward<Args>(args)...);}
     template<typename T, typename ITR, class... Args>
-    void emplace (ITR pos, Args &&... args);
+    void emplace (ITR pos, Args &&... args) { get_vector<T>().emplace (pos, std::forward<Args>(args)...); }
 
     template<typename T>
     void reserve (size_type r)  { get_vector<T>().reserve (r); }
@@ -92,75 +114,83 @@ public:
     void clear();
 
     template<typename T>
-    void erase(size_type pos);
+    void erase(size_type pos) {
+        auto    &vec = get_vector<T>();
+        vec.erase (vec.begin() + pos);
+    }
 
     template<typename T>
-    void resize(size_type count);
-    template<typename T>
-    void resize(size_type count, const T &v);
+    void resize(size_type count)  { get_vector<T>().resize (count); }
 
     template<typename T>
-    void pop_back();
+    void resize(size_type count, const T &v)  { get_vector<T>().resize (count, v); }
 
     template<typename T>
-    bool empty() const noexcept;
+    void pop_back()  { get_vector<T>().pop_back (); }
 
     template<typename T>
-    T &at(size_type idx);
-    template<typename T>
-    const T &at(size_type idx) const;
+    bool empty() const noexcept  { return (get_vector<T>().empty ()); }
 
     template<typename T>
-    T &back();
-    template<typename T>
-    const T &back() const;
+    T &at(size_type idx)  { return (get_vector<T>().at (idx)); }
 
     template<typename T>
-    T &front();
-    template<typename T>
-    const T &front() const;
+    const T &at(size_type idx) const  { return (get_vector<T>().at (idx)); }
 
     template<typename T>
-    using iterator = typename std::vector<T>::iterator;
+    T &back()  { return (get_vector<T>().back ()); }
+
     template<typename T>
-    using const_iterator = typename std::vector<T>::const_iterator;
+    const T &back() const  { return (get_vector<T>().back ()); }
+
     template<typename T>
-    using reverse_iterator = typename std::vector<T>::reverse_iterator;
+    T &front()  { return (get_vector<T>().front ()); }
+
     template<typename T>
-    using const_reverse_iterator =
-        typename std::vector<T>::const_reverse_iterator;
+    const T &front() const  { return (get_vector<T>().front ()); }
+
+  	template <typename T>
+	class Null {};
+    template<typename T>
+    using iterator = Null<T>;
+    template<typename T>
+    using const_iterator = Null<T>;
+    template<typename T>
+    using reverse_iterator = Null<T>;
+    template<typename T>
+    using const_reverse_iterator = Null<T>;
 
     template<typename T>
     inline iterator<T>
-    begin() noexcept { return (get_vector<T>().begin()); }
+    begin() noexcept { throw -1; }
 
     template<typename T>
     inline iterator<T>
-    end() noexcept { return (get_vector<T>().end()); }
+    end() noexcept {throw -1; }
 
     template<typename T>
     inline const_iterator<T>
-    begin () const noexcept { return (get_vector<T>().begin()); }
+    begin () const noexcept {throw -1; }
 
     template<typename T>
     inline const_iterator<T>
-    end () const noexcept { return (get_vector<T>().end()); }
+    end () const noexcept {throw -1; }
 
     template<typename T>
     inline reverse_iterator<T>
-    rbegin() noexcept { return (get_vector<T>().rbegin()); }
+    rbegin() noexcept {throw -1;}
 
     template<typename T>
     inline reverse_iterator<T>
-    rend() noexcept { return (get_vector<T>().rend()); }
+    rend() noexcept {throw -1; }
 
     template<typename T>
     inline const_reverse_iterator<T>
-    rbegin () const noexcept { return (get_vector<T>().rbegin()); }
+    rbegin () const noexcept {throw -1;}
 
     template<typename T>
     inline const_reverse_iterator<T>
-    rend () const noexcept { return (get_vector<T>().rend()); }
+    rend () const noexcept {throw -1;}
 
 private:
 
@@ -174,31 +204,23 @@ private:
     std::vector<std::function<void(HeteroVector &,
                                    HeteroVector &)>>    move_functions_;
 
-    // Visitor stuff
-    //
     template<typename T, typename U>
-    void visit_impl_help_ (T &visitor);
+    void visit_impl_help_ (T &visitor) {throw -1;}
     template<typename T, typename U>
-    void visit_impl_help_ (T &visitor) const;
-
+    void visit_impl_help_ (T &visitor) const {throw -1;}
     template<typename T, typename U>
-    void sort_impl_help_ (T &functor);
+    void sort_impl_help_ (T &functor) {throw -1;}
+    template<class T, template<class...> class TLIST, class... TYPES>
+    void visit_impl_ (T &&visitor, TLIST<TYPES...>) {throw -1;}
+    template<class T, template<class...> class TLIST, class... TYPES>
+    void visit_impl_ (T &&visitor, TLIST<TYPES...>) const {throw -1;}
+    template<class T, template<class...> class TLIST, class... TYPES>
+    void sort_impl_ (T &&functor, TLIST<TYPES...>) {throw -1;}
 
     template<typename T, typename U>
     void change_impl_help_ (T &functor);
     template<typename T, typename U>
     void change_impl_help_ (T &functor) const;
-
-    // Specific visit implementations
-    //
-    template<class T, template<class...> class TLIST, class... TYPES>
-    void visit_impl_ (T &&visitor, TLIST<TYPES...>);
-    template<class T, template<class...> class TLIST, class... TYPES>
-    void visit_impl_ (T &&visitor, TLIST<TYPES...>) const;
-
-    template<class T, template<class...> class TLIST, class... TYPES>
-    void sort_impl_ (T &&functor, TLIST<TYPES...>);
-
     template<class T, template<class...> class TLIST, class... TYPES>
     void change_impl_ (T &&functor, TLIST<TYPES...>);
     template<class T, template<class...> class TLIST, class... TYPES>
@@ -208,33 +230,21 @@ public:
 
     template<typename... Ts>
     struct type_list  {   };
-
     template<typename... Ts>
     struct visitor_base  { using types = type_list<Ts ...>; };
-
     template<typename T>
-    void visit (T &&visitor)  {
-
-        visit_impl_ (visitor, typename std::decay_t<T>::types { });
-    }
+    void visit (T &&visitor)  { throw -1; }
     template<typename T>
-    void visit (T &&visitor) const  {
-
-        visit_impl_ (visitor, typename std::decay_t<T>::types { });
-    }
+    void visit (T &&visitor) const  { throw -1; }
     template<typename T>
-    void sort (T &&functor)  {
+    void sort (T &&functor)  { throw -1; }
 
-        sort_impl_ (functor, typename std::decay_t<T>::types { });
-    }
     template<typename T>
     void change (T &&functor)  {
-
         change_impl_ (functor, typename std::decay_t<T>::types { });
     }
     template<typename T>
     void change (T &&functor) const  {
-
         change_impl_ (functor, typename std::decay_t<T>::types { });
     }
 };

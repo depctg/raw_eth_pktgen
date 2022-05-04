@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "common.h"
+#include "cache.h"
 #include "vec.hpp"
 
 using namespace hmdf;
@@ -247,8 +249,9 @@ void analyze_trip_durations_of_timestamps(StdDataFrame<uint64_t>& df, const char
 }
 */
 
-int main()
+int main(int argc, char * argv[])
 {
+    auto kCacheSize = 1024, kNumEntries = 10, kCacheLineSize = 1024;
     init(TRANS_TYPE_RC, argv[1]);
     CacheTable *cache = createCacheTable(kCacheSize - sizeof(uint64_t) * kNumEntries, kCacheLineSize, sbuf, rbuf);
     RCacheVector_init_cache_table(cache);

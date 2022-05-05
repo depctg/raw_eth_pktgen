@@ -221,11 +221,11 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
 #include(AddUninstallTarget)
 
 # Build the app binary
-add_executable($(APP)-main app/main.cc)
+add_executable(${app}-main app/main.cc)
 
 # Link the DataFrame library to the app binary
-target_link_libraries($(APP)-main DataFrame)
-target_link_libraries($(APP)-main common)
+target_link_libraries(${app}-main DataFrame)
+target_link_libraries(${app}-main common)
 
 # Build the test binary
 #add_executable(dataframe_tester  test/dataframe_tester.cc)
@@ -249,7 +249,7 @@ if (UNIX)
   # Find pthreads library
   set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads REQUIRED)
-  target_link_libraries($(APP)-main Threads::Threads)
+  target_link_libraries(${app}-main Threads::Threads)
   #target_link_libraries(dataframe_tester Threads::Threads)
   #target_link_libraries(dataframe_tester_2 Threads::Threads)
   #target_link_libraries(dataframe_performance Threads::Threads)
@@ -260,7 +260,7 @@ if (UNIX)
 endif (UNIX)
 
 if (UNIX AND NOT APPLE)
-  target_link_libraries($(APP)-main rt)
+  target_link_libraries(${app}-main rt)
   #target_link_libraries(dataframe_tester rt)
   #target_link_libraries(dataframe_tester_2 rt)
   #target_link_libraries(dataframe_performance rt)

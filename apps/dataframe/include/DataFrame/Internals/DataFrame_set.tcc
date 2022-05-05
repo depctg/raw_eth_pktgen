@@ -36,27 +36,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmdf
 {
 
-template<typename I, typename  H>
-template<typename T>
-std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
+// template<typename I, typename  H>
+// template<typename T>
+// std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
 
-    static_assert(std::is_base_of<HeteroVector, DataVec>::value,
-                  "Only a StdDataFrame can call create_column()");
+//     static_assert(std::is_base_of<HeteroVector, DataVec>::value,
+//                   "Only a StdDataFrame can call create_column()");
 
-    if (! ::strcmp(name, DF_INDEX_COL_NAME))
-        throw DataFrameError ("DataFrame::create_column(): ERROR: "
-                              "Data column name cannot be 'INDEX'");
+//     if (! ::strcmp(name, DF_INDEX_COL_NAME))
+//         throw DataFrameError ("DataFrame::create_column(): ERROR: "
+//                               "Data column name cannot be 'INDEX'");
 
-    data_.emplace_back (DataVec());
-    column_tb_.emplace (name, data_.size() - 1);
+//     data_.emplace_back (DataVec());
+//     column_tb_.emplace (name, data_.size() - 1);
 
-    DataVec         &hv = data_.back();
-    const SpinGuard guard(lock_);
-    std::vector<T>  &vec = hv.template get_vector<T>();
+//     DataVec         &hv = data_.back();
+//     const SpinGuard guard(lock_);
+//     std::vector<T>  &vec = hv.template get_vector<T>();
 
-    // vec.resize(indices_.size(), _get_nan<T>());
-    return (vec);
-}
+//     // vec.resize(indices_.size(), _get_nan<T>());
+//     return (vec);
+// }
 
 // ----------------------------------------------------------------------------
 
@@ -377,52 +377,52 @@ setup_view_column_ (const char *name, Index2D<ITR> range)  {
 
 // ----------------------------------------------------------------------------
 
-template<typename I, typename  H>
-template<typename T>
-typename DataFrame<I, H>::size_type
-DataFrame<I, H>::
-load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
+// template<typename I, typename  H>
+// template<typename T>
+// typename DataFrame<I, H>::size_type
+// DataFrame<I, H>::
+// load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
 
-    const size_type idx_s = indices_.size();
-    const size_type data_s = data.size();
+//     const size_type idx_s = indices_.size();
+//     const size_type data_s = data.size();
 
-    if (data_s > idx_s)  {
-        char buffer [512];
+//     if (data_s > idx_s)  {
+//         char buffer [512];
 
-        sprintf (buffer, "DataFrame::load_column(): ERROR: "
-#ifdef _WIN32
-                         "data size of %zu is larger than index size of %zu",
-#else
-                         "data size of %lu is larger than index size of %lu",
-#endif // _WIN32
-                 data_s, idx_s);
-        throw InconsistentData (buffer);
-    }
+//         sprintf (buffer, "DataFrame::load_column(): ERROR: "
+// #ifdef _WIN32
+//                          "data size of %zu is larger than index size of %zu",
+// #else
+//                          "data size of %lu is larger than index size of %lu",
+// #endif // _WIN32
+//                  data_s, idx_s);
+//         throw InconsistentData (buffer);
+//     }
 
-    size_type   ret_cnt = data_s;
+//     size_type   ret_cnt = data_s;
 
-    if (padding == nan_policy::pad_with_nans && data_s < idx_s)  {
-        for (size_type i = 0; i < idx_s - data_s; ++i)  {
-            data.push_back (std::move(_get_nan<T>()));
-            ret_cnt += 1;
-        }
-    }
+//     if (padding == nan_policy::pad_with_nans && data_s < idx_s)  {
+//         for (size_type i = 0; i < idx_s - data_s; ++i)  {
+//             data.push_back (std::move(_get_nan<T>()));
+//             ret_cnt += 1;
+//         }
+//     }
 
-    const auto      iter = column_tb_.find (name);
-    std::vector<T>  *vec_ptr = nullptr;
+//     const auto      iter = column_tb_.find (name);
+//     std::vector<T>  *vec_ptr = nullptr;
 
-    if (iter == column_tb_.end())
-        vec_ptr = &(create_column<T>(name));
-    else  {
-        DataVec         &hv = data_[iter->second];
-        const SpinGuard guard(lock_);
+//     if (iter == column_tb_.end())
+//         vec_ptr = &(create_column<T>(name));
+//     else  {
+//         DataVec         &hv = data_[iter->second];
+//         const SpinGuard guard(lock_);
 
-        vec_ptr = &(hv.template get_vector<T>());
-    }
+//         vec_ptr = &(hv.template get_vector<T>());
+//     }
 
-    *vec_ptr = std::move(data);
-    return (ret_cnt);
-}
+//     *vec_ptr = std::move(data);
+//     return (ret_cnt);
+// }
 
 // ----------------------------------------------------------------------------
 
@@ -483,16 +483,16 @@ load_align_column(
 
 // ----------------------------------------------------------------------------
 
-template<typename I, typename  H>
-template<typename T>
-typename DataFrame<I, H>::size_type
-DataFrame<I, H>::
-load_column (const char *name,
-             const std::vector<T> &data,
-             nan_policy padding)  {
+// template<typename I, typename  H>
+// template<typename T>
+// typename DataFrame<I, H>::size_type
+// DataFrame<I, H>::
+// load_column (const char *name,
+//              const std::vector<T> &data,
+//              nan_policy padding)  {
 
-    return (load_column<T>(name, { data.begin(), data.end() }, padding));
-}
+//     return (load_column<T>(name, { data.begin(), data.end() }, padding));
+// }
 
 // ----------------------------------------------------------------------------
 

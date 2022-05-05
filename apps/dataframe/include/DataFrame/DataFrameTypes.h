@@ -35,6 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <limits>
 #include <stdexcept>
 
+#include "vec.hpp"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -318,7 +320,7 @@ template<typename T, typename U>
 struct type_declare;
 
 template<typename U>
-struct type_declare<HeteroVector, U>  { using type = std::vector<U>; };
+struct type_declare<HeteroVector, U>  { using type = RCacheVector<U>; };
 
 template<typename U>
 struct type_declare<HeteroView, U>  { using type = VectorView<U>; };

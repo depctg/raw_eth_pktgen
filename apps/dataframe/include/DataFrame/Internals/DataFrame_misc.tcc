@@ -50,7 +50,7 @@ DataFrame<I, H>::consistent_functor_<Ts ...>::operator() (T &vec) const  {
     using ValueType =
         typename std::remove_reference<decltype(vec)>::type::value_type;
 
-    vec.resize(size, ValueType());
+    vec.resize(size);
 }
 
 // ----------------------------------------------------------------------------

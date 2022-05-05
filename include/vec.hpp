@@ -89,26 +89,42 @@ class RCacheVector {
     }
     //   RCacheVector &operator=(const RCacheVector &other);
     //   RCacheVector(RCacheVector &&other);
-    //   RCacheVector &operator=(RCacheVector &&other);
+    RCacheVector &operator=(RCacheVector &&other) {
+        // TODO: release old offset
+        _chunk_num_entries = other._chunk_num_entries;
+        _offset = other._offset;
+        _capacity = other._capacity;
+        _size = other._size;
+    }
     ~RCacheVector() {
         // TODO: release old offset
     }
 
     uint64_t capacity() const { return _capacity; }
-    template <typename U>
-    void push_back(U &&u) {
-        static_assert(std::is_same<std::decay_t<U>, std::decay_t<T>>::value, "U not same as T");
-
+    uint64_t size() const {return _size;}
+    void push_back(T &&t) {
         if (_capacity == _size + 1) [[unlikely]] {
             resize(_capacity*2+1);
         }
 
-        cache_write_n(ctable, _offset + where_offset(_size), &u, _data_size);
+        cache_write_n(ctable, _offset + where_offset(_size), &t, _data_size);
 
         _size += 1;
 
         // TODO: prefech
         // TODO: batch write to remote
+        // TODO: smarter remote?
+    }
+    void push_back( const T& t ) {
+        if (_capacity == _size + 1) [[unlikely]] {
+            resize(_capacity*2+1);
+        }
+
+        cache_write_n(ctable, _offset + where_offset(_size), &t, _data_size);
+
+        _size += 1;
+
+        // same TODO above
     }
     void pop_back() {if(_size) _size-=1;}
     void reserve(uint64_t count) {

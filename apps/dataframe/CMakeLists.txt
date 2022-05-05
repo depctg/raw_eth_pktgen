@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
 
+link_libraries(common)
+
 # We use:
 # - InstallBasicPackageFiles
 #       (http://robotology.github.io/ycm/gh-pages/v0.8/
@@ -222,10 +224,9 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
 
 # Build the app binary
 add_executable(${app}-main app/main.cc)
+add_executable(${app}-vec_remote app/vec_remote.cc)
 
-# Link the DataFrame library to the app binary
 target_link_libraries(${app}-main DataFrame)
-target_link_libraries(${app}-main common)
 
 # Build the test binary
 #add_executable(dataframe_tester  test/dataframe_tester.cc)

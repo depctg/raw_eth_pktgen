@@ -14,7 +14,7 @@ static uint64_t offset_vec = 0;
 inline static uint64_t get_new_vec_offset(uint64_t s) { return (offset_vec += s); }
 
 static CacheTable *ctable = 0;
-void RCacheVector_init_cache_table(CacheTable *c) {
+inline void RCacheVector_init_cache_table(CacheTable *c) {
     if (!ctable) ctable = c;
 }
 
@@ -27,37 +27,33 @@ class RCacheVector {
     template <typename U>
     friend class RCacheVector;
 
-    /*
-    class Iterator {
+    class CIterator {
     private:
-        RCacheVector *dataframe_vec_;
+        RCacheVector<T> *_vec;
+        uint64_t _i;
         friend class RCacheVector;
 
-        Iterator(RCacheVector<T> *_vec, );
-        uint64_t get_idx() const;
+        CIterator(RCacheVector<T> *vec, uint64_t i) : _vec(vec), _i(i) {}
 
     public:
         using difference_type = int64_t;
-        using pointer = const T *;
-        using reference = const T &;
         using iterator_category = std::random_access_iterator_tag;
 
-        Iterator &operator++();
-        Iterator operator++(int);
-        Iterator &operator+=(difference_type dis);
-        Iterator operator+(difference_type dis) const;
-        Iterator &operator--();
-        Iterator operator--(int);
-        difference_type operator-(const Iterator &other) const;
-        bool operator==(const Iterator &other) const;
-        bool operator!=(const Iterator &other) const;
-        bool operator<(const Iterator &other) const;
-        bool operator<=(const Iterator &other) const;
-        bool operator>(const Iterator &other) const;
-        bool operator>=(const Iterator &other) const;
-        T operator*() const;
+        CIterator &operator++() {_i += 1; return *this;}
+        CIterator operator++(int) {CIterator it = CIterator(_vec, _i); _i += 1; return it;}
+        CIterator &operator+=(difference_type dis) {_i += dis; return *this;};
+        CIterator operator+(difference_type dis) const {return CIterator(_vec, _i+dis);}
+        CIterator &operator--() {_i-=1; return *this;}
+        CIterator operator--(int) {CIterator it = CIterator(_vec, _i); _i -= 1; return it;}
+        difference_type operator-(const CIterator &other) const {return _i - other._i;}
+        bool operator==(const CIterator &other) const {return (_vec == other._vec && _i == other._i);}
+        bool operator!=(const CIterator &other) const {return !(*this == other);}
+        bool operator<(const CIterator &other) const {return (_vec == other._vec && _i < other._i);}
+        bool operator<=(const CIterator &other) const {return (_vec == other._vec && _i <= other._i);}
+        bool operator>(const CIterator &other) const {return (_vec == other._vec && _i > other._i);}
+        bool operator>=(const CIterator &other) const {return (_vec == other._vec && _i >= other._i);}
+        T operator*() const {return _vec->nth_element(_i);}
     };
-    */
 
     const uint32_t _data_size = sizeof(T);
 
@@ -77,7 +73,11 @@ class RCacheVector {
     }
 
    public:
-    explicit RCacheVector(uint64_t atleast_cap = 0) {
+    explicit RCacheVector() {
+        RCacheVector(0);
+    }
+
+   RCacheVector(uint64_t atleast_cap) {
       if (!ctable) throw std::runtime_error("RCacheVector_init_cache_table first");
 
       _chunk_num_entries = ctable->cache_line_size / _data_size;
@@ -87,8 +87,27 @@ class RCacheVector {
       _offset =
           get_new_vec_offset(num_entries_to_alloc * ctable->cache_line_size);
     }
-    //   RCacheVector &operator=(const RCacheVector &other);
-    //   RCacheVector(RCacheVector &&other);
+
+    RCacheVector &operator=(const RCacheVector &other) {
+        // TODO: release old offset
+        _chunk_num_entries = other._chunk_num_entries;
+        _capacity = other._capacity;
+        _offset = get_new_vec_offset(_capacity/_chunk_num_entries * ctable->cache_line_size);
+        _size = other._size;
+
+        auto old_offset = other._offset;
+        for (int i = 0; i < _size; ++i) {
+            // TODO: better copy
+            cache_write_n(ctable, _offset+where_offset(i), reinterpret_cast<T*>(cache_access(ctable, old_offset+where_offset(i))), _data_size);
+        }
+    }
+    RCacheVector(RCacheVector &&other) {
+        // TODO: release old offset
+        _chunk_num_entries = other._chunk_num_entries;
+        _offset = other._offset;
+        _capacity = other._capacity;
+        _size = other._size;
+    }
     RCacheVector &operator=(RCacheVector &&other) {
         // TODO: release old offset
         _chunk_num_entries = other._chunk_num_entries;
@@ -102,6 +121,7 @@ class RCacheVector {
 
     uint64_t capacity() const { return _capacity; }
     uint64_t size() const {return _size;}
+    bool empty() const {return !_size;}
     void push_back(T &&t) {
         if (_capacity == _size + 1) [[unlikely]] {
             resize(_capacity*2+1);
@@ -120,7 +140,7 @@ class RCacheVector {
             resize(_capacity*2+1);
         }
 
-        cache_write_n(ctable, _offset + where_offset(_size), &t, _data_size);
+        cache_write_n(ctable, _offset + where_offset(_size), &const_cast<T&>(t), _data_size);
 
         _size += 1;
 
@@ -166,12 +186,12 @@ class RCacheVector {
         cache_write_n(ctable, _offset+where_offset(i), &t, _data_size);
     }
 
-    /*
-    Iterator begin();
-    Iterator end();
-    const Iterator cbegin() const;
-    const Iterator cend() const;
-    */
+    // CIterator begin() {return CIterator(this,0);}
+    // CIterator end() {return CIterator(this, _size);}
+    const CIterator begin() const {return CIterator(const_cast<RCacheVector<T>*>(this),0);}
+    const CIterator end() const {return CIterator(const_cast<RCacheVector<T>*>(this), _size);}
+    const CIterator cbegin() const {return CIterator(const_cast<RCacheVector<T>*>(this), 0);}
+    const CIterator cend() const {return CIterator(const_cast<RCacheVector<T>*>(this), _size);}
 
     // void disable_prefetch();
     // void enable_prefetch();

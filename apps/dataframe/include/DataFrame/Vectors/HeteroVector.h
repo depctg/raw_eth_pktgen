@@ -33,6 +33,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <DataFrame/Vectors/HeteroView.h>
 
 #include <unordered_map>
+#include <stdexcept>
+
+#include "vec.hpp"
 
 // ----------------------------------------------------------------------------
 
@@ -59,7 +62,7 @@ public:
     HeteroVector &operator= (HeteroVector &&rhs) noexcept;
 
     template<typename T>
-    std::vector<T> &get_vector() {
+    RCacheVector<T> &get_vector() {
         auto    iter = vectors_<T>.find (this);
 
         // don't have it yet, so create functions for copying and destroying
@@ -80,7 +83,7 @@ public:
                     vectors_<T>.erase(vectors_<T>.find(&from));
                 });
 
-            iter = vectors_<T>.emplace (this, std::vector<T>()).first;
+            iter = vectors_<T>.emplace (this, RCacheVector<T>()).first;
         }
 
         return (iter->second);
@@ -88,7 +91,7 @@ public:
 
 
     template<typename T>
-    const std::vector<T> &get_vector() const { return (const_cast<HeteroVector *>(this)->get_vector<T>()); }
+    const RCacheVector<T> &get_vector() const { return (const_cast<HeteroVector *>(this)->get_vector<T>()); }
 
     template<typename T>
     HeteroView get_view(size_type begin = 0, size_type end = -1) {throw -1;}
@@ -99,14 +102,16 @@ public:
     template<typename T>
     void push_back(const T &v) { get_vector<T>().push_back (v); }
     template<typename T, class... Args>
-    void emplace_back (Args &&... args) {get_vector<T>().emplace_back (std::forward<Args>(args)...);}
+    void emplace_back (Args &&... args) {throw std::runtime_error("not implemented");}
+    // void emplace_back (Args &&... args) {get_vector<T>().emplace_back (std::forward<Args>(args)...);}
     template<typename T, typename ITR, class... Args>
-    void emplace (ITR pos, Args &&... args) { get_vector<T>().emplace (pos, std::forward<Args>(args)...); }
+    void emplace (ITR pos, Args &&... args) {throw std::runtime_error("not implemented");}
+    // void emplace (ITR pos, Args &&... args) { get_vector<T>().emplace (pos, std::forward<Args>(args)...); }
 
     template<typename T>
     void reserve (size_type r)  { get_vector<T>().reserve (r); }
     template<typename T>
-    void shrink_to_fit () { get_vector<T>().shrink_to_fit (); }
+    void shrink_to_fit () { /*get_vector<T>().shrink_to_fit ();*/ }
 
     template<typename T>
     size_type size () const { return (get_vector<T>().size()); }
@@ -115,15 +120,17 @@ public:
 
     template<typename T>
     void erase(size_type pos) {
+        /*
         auto    &vec = get_vector<T>();
         vec.erase (vec.begin() + pos);
+        */
     }
 
     template<typename T>
     void resize(size_type count)  { get_vector<T>().resize (count); }
 
     template<typename T>
-    void resize(size_type count, const T &v)  { get_vector<T>().resize (count, v); }
+    void resize(size_type count, const T &v)  { throw std::runtime_error("not implemented"); }
 
     template<typename T>
     void pop_back()  { get_vector<T>().pop_back (); }
@@ -132,22 +139,24 @@ public:
     bool empty() const noexcept  { return (get_vector<T>().empty ()); }
 
     template<typename T>
-    T &at(size_type idx)  { return (get_vector<T>().at (idx)); }
+    T front() { return (get_vector<T>().front()); }
+    template<typename T>
+    T back() { return (get_vector<T>().back()); }
+    template<typename T>
+    T at(uint64_t i) { return (get_vector<T>().at(i)); }
 
     template<typename T>
-    const T &at(size_type idx) const  { return (get_vector<T>().at (idx)); }
-
+    T &at(size_type idx)  { throw std::runtime_error("not implemented"); }
     template<typename T>
-    T &back()  { return (get_vector<T>().back ()); }
-
+    const T &at(size_type idx) const  { throw std::runtime_error("not implemented"); }
     template<typename T>
-    const T &back() const  { return (get_vector<T>().back ()); }
-
+    T &back()  { throw std::runtime_error("not implemented"); }
     template<typename T>
-    T &front()  { return (get_vector<T>().front ()); }
-
+    const T &back() const  { throw std::runtime_error("not implemented"); }
     template<typename T>
-    const T &front() const  { return (get_vector<T>().front ()); }
+    T &front()  { throw std::runtime_error("not implemented"); }
+    template<typename T>
+    const T &front() const  { throw std::runtime_error("not implemented"); }
 
   	template <typename T>
 	class Null {};
@@ -195,8 +204,8 @@ public:
 private:
 
     template<typename T>
-    inline static std::unordered_map<const HeteroVector *, std::vector<T>>
-        vectors_ {  };
+    inline static std::unordered_map<const HeteroVector *, RCacheVector<T>>
+        vectors_ {};
 
     std::vector<std::function<void(HeteroVector &)>>    clear_functions_;
     std::vector<std::function<void(const HeteroVector &,

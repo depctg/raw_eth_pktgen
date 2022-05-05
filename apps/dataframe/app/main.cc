@@ -260,8 +260,8 @@ int main(int argc, char * argv[])
     auto df  = load_data();
     times[0] = std::chrono::steady_clock::now();
     print_number_vendor_ids_and_unique(df);
-    /*
     times[1] = std::chrono::steady_clock::now();
+    /*
     print_passage_counts_by_vendor_id(df, 1);
     times[2] = std::chrono::steady_clock::now();
     print_passage_counts_by_vendor_id(df, 2);

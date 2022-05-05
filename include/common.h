@@ -36,7 +36,10 @@ extern "C" {
 enum {
     TRANS_TYPE_UDP = 0,
     TRANS_TYPE_RC,
-    TRANS_TYPE_RC_SERVER
+    TRANS_TYPE_RC_SERVER,
+    TRANS_TYPE_SHM,
+    TRANS_TYPE_SHM_SERVER,
+    TRANS_TYPE_SHM_EXECUTOR,
 };
 
 extern void *sbuf, *rbuf;

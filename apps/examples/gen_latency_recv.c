@@ -8,10 +8,16 @@
 
 int main(int argc, char * argv[]) {
     int msg_size = 16;
-	init(TRANS_TYPE_RC_SERVER, "tcp://*:3456");
+    if (argc != 2) {
+        printf("Usage: %s <connection-key\n", argv[0]);
+        return 1;
+    }
+    printf("before init\n");
+	init(TRANS_TYPE_RC_SERVER, argv[1]);
+    printf("after init\n");
 
-    const unsigned int max_recvs = 64;
-    const unsigned int inflights = max_recvs / 2;
+    const unsigned int max_recvs = 128;
+    const unsigned int inflights = 64;
 	struct ibv_wc wc[max_recvs];
 
     unsigned int post_recvs = 0, poll_recvs = 0;
@@ -21,7 +27,7 @@ int main(int argc, char * argv[]) {
     post_recvs += inflights;
 
 	while (1) {
-        int n = ibv_poll_cq(cq, inflights, wc);
+        int n = poll_cq(cq, inflights, wc);
 
         // process the requests
         for (int i = 0; i < n; i++) {

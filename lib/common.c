@@ -455,3 +455,7 @@ int poll(uint64_t wr_id) {
     return 0;
 }
 
+int poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc) {
+    return ibv_poll_cq(cq, num_entries, wc);
+}
+

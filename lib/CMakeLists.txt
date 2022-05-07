@@ -9,7 +9,7 @@ add_library(common OBJECT
 include_directories(PRIVATE include)
 
 target_include_directories(common PUBLIC ../include)
-target_link_libraries(common PUBLIC ibverbs nng)
+target_link_libraries(common PUBLIC ibverbs nng m)
 
 if(COMMON_IMPL_SHM)
     set(COMMON_EXE_SHM_EXECUTOR common-shm-executor)

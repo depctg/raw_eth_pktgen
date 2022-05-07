@@ -7,9 +7,17 @@
 
 struct ringbuf {
     atomic_uint commitp, executep, ackp, stashp;
+    atomic_ulong commit_id, execute_id;
+    struct {
+        uint64_t addr;
+        uint64_t wrid;
+        size_t size, _pad;
+    } reqs[RINGBUF_CAP];
+    /*
     uint64_t addr[RINGBUF_CAP];
     uint64_t wrid[RINGBUF_CAP];
     size_t size[RINGBUF_CAP];
+    */
 };
 
 // TODO: amotic
@@ -32,18 +40,26 @@ static inline void ringbuf_commit(struct ringbuf * buf,
     unsigned idx = buf->commitp;
     atomic_store(&buf->commitp, next);
 
+    /*
     buf->addr[idx] = addr;
     buf->wrid[idx] = wrid;
     buf->size[idx] = size;
+    */
+    buf->reqs[idx].addr = addr;
+    buf->reqs[idx].wrid = wrid;
+    buf->reqs[idx].size = size;
 }
 
 static inline void ringbuf_execute(struct ringbuf * buf, unsigned n) { 
     // if (unlikely(buf->execp == buf->commitp)) return;
     unsigned cur,next;
+    // uint64_t id;
     do {
         cur = buf->executep;
         next = (cur + n) % RINGBUF_CAP;
+        // id = buf->wrid[cur];
     } while (!atomic_compare_exchange_weak(&buf->executep, &cur, next));
+    // buf->execute_id = id;
 }
 
 /* shared data for shm
@@ -65,6 +81,6 @@ static const size_t aligned_datasize = sizeof(struct shared_data);
 static const size_t shmsize = aligned_datasize * 2;
 
 /* transfer functions */
-void execute_transfer();
+extern struct shared_data *ldata, *rdata;
 
 #endif

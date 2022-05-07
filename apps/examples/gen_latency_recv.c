@@ -16,8 +16,8 @@ int main(int argc, char * argv[]) {
 	init(TRANS_TYPE_RC_SERVER, argv[1]);
     printf("after init\n");
 
-    const unsigned int max_recvs = 128;
-    const unsigned int inflights = 64;
+    const unsigned int max_recvs = 64;
+    const unsigned int inflights = 32;
 	struct ibv_wc wc[max_recvs];
 
     unsigned int post_recvs = 0, poll_recvs = 0;

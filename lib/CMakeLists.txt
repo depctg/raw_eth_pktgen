@@ -16,6 +16,6 @@ if(COMMON_IMPL_SHM)
     message("Build common library with shm. binary ${COMMON_EXE_SHM_EXECUTOR} can be built")
 
     add_executable(${COMMON_EXE_SHM_EXECUTOR} apps/shm_executor.c)
-    target_link_libraries(${COMMON_EXE_SHM_EXECUTOR} common)
+    target_link_libraries(${COMMON_EXE_SHM_EXECUTOR} common pthread)
 endif()
 

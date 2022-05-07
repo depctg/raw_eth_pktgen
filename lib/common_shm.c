@@ -39,8 +39,7 @@ int init(int type, const char * key_str) {
 
 	shmid = shmget(shmkey, shmsize,
             // SHM_HUGETLB | SHM_HUGE_1GB | IPC_CREAT | SHM_R | SHM_W);
-            // SHM_HUGETLB | IPC_CREAT | SHM_R | SHM_W);
-            IPC_CREAT | SHM_R | SHM_W);
+            SHM_HUGETLB | IPC_CREAT | SHM_R | SHM_W);
 	if (shmid < 0) {
 		perror("shmget");
 		exit(1);
@@ -88,46 +87,6 @@ int steer_udp(uint16_t steer_port, uint16_t src_port) {
     return -1;
 }
 
-static inline int _execute_directed(
-        struct ringbuf *s, struct shared_data * sbase,
-        struct ringbuf *r, struct shared_data * rbase) {
-    unsigned send_idx = s->executep;
-    unsigned recv_idx = r->executep;
-    /*
-    printf("execute p: %d %d, %ul <- %ul id: %d %d\n",
-            send_idx, recv_idx,
-            r->addr[recv_idx], s->addr[send_idx], 
-            s->wrid[send_idx], r->wrid[recv_idx]
-          );
-    */
-    if (unlikely(r->size[recv_idx] < s->size[send_idx]))
-        return -1;
-    memcpy(
-        (char *)rbase + r->addr[recv_idx],
-        (char *)sbase + s->addr[send_idx],
-        s->size[send_idx]);
-    ringbuf_execute(s, 1);
-    ringbuf_execute(r, 1);
-    return 0;
-}
-
-void execute_transfer() {
-    // TODO: error handling
-    while (1) {
-        /*
-        printf("check SEND %d/%d/%d %d/%d/%d RECV %d/%d/%d %d/%d/%d\n",
-                data_sq(ldata)->commitp, data_sq(ldata)->executep, data_sq(ldata)->ackp,
-                data_rq(ldata)->commitp, data_rq(ldata)->executep, data_rq(ldata)->ackp,
-                data_sq(rdata)->commitp, data_sq(rdata)->executep, data_sq(rdata)->ackp,
-                data_rq(rdata)->commitp, data_rq(rdata)->executep, data_rq(rdata)->ackp);
-        */
-        if (ringbuf_avaliable(data_sq(ldata)) && ringbuf_avaliable(data_rq(rdata)))
-            _execute_directed(data_sq(ldata), ldata, data_rq(rdata), rdata);
-        if (ringbuf_avaliable(data_sq(rdata)) && ringbuf_avaliable(data_rq(ldata)))
-            _execute_directed(data_sq(rdata), rdata, data_rq(ldata), ldata);
-    }
-}
-
 uint64_t send_async(void *buf, size_t size) {
     uint64_t id = 0;
     uint64_t offset = (char *)buf - (char *)ldata;
@@ -170,13 +129,15 @@ int poll(uint64_t wr_id) {
 
     while (poll_id < wr_id) {
         struct ringbuf *buf;
-        for (int i = 0; i < 2; i++) {
+        // Poll RQ first
+        for (int i = 1; i >= 0; i--) {
             buf = &ldata->ringbufs[i];
             if (buf->ackp != buf->executep) {
                 buf->ackp = buf->executep;
                 unsigned lastexec = ringbuf_ptrprev(buf,executep);
-                uint64_t id = buf->wrid[lastexec];
+                uint64_t id = buf->reqs[lastexec].wrid;
                 if (id > poll_id) poll_id = id;
+                // if (buf->execute_id > poll_id) poll_id = buf->execute_id;
             }
         }
     };
@@ -191,7 +152,7 @@ int poll_cq(struct ibv_cq *cq, int n, struct ibv_wc *wc) {
         buf = &ldata->ringbufs[i];
         for (; buf->ackp != buf->executep && cnt < n;
                buf->ackp = (buf->ackp+1) % RINGBUF_CAP) {
-            wc[cnt].wr_id = buf->wrid[buf->ackp];
+            wc[cnt].wr_id = buf->reqs[buf->ackp].wrid;
             wc[cnt].status = 0;
             cnt++;
         }

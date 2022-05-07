@@ -11,7 +11,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # compiler flags 
-add_compile_options(-Wall)
+add_compile_options(-Wall -march=native)
 add_compile_definitions(
     _POSIX_C_SOURCE=199309L
     _GNU_SOURCE

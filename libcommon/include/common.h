@@ -36,7 +36,10 @@ extern "C" {
 enum {
     TRANS_TYPE_UDP = 0,
     TRANS_TYPE_RC,
-    TRANS_TYPE_RC_SERVER
+    TRANS_TYPE_RC_SERVER,
+    TRANS_TYPE_SHM,
+    TRANS_TYPE_SHM_SERVER,
+    TRANS_TYPE_SHM_EXECUTOR,
 };
 
 extern void *sbuf, *rbuf;
@@ -59,6 +62,7 @@ uint64_t recv(void * buf, size_t size);
 uint64_t recv_async(void * buf, size_t size);
 
 int poll(uint64_t wr_id);
+int poll_cq(struct ibv_cq *cq, int n, struct ibv_wc *wc);
 
 // RDMA_info exchange
 struct conn_info {

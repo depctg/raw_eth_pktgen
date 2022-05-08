@@ -21,6 +21,20 @@ constexpr static uint64_t b_offset = kNumEntries * sizeof(uint64_t);
 constexpr static uint64_t c_offset = 2 * kNumEntries * sizeof(uint64_t);
 constexpr static size_t req_size = batch_size + sizeof(struct req);
 
+static std::chrono::time_point<std::chrono::steady_clock> timebase;
+
+void synctime_send() {
+    auto t0 = chrono::steady_clock::now();
+    send(sbuf, sizeof(req));
+    recv(rbuf, sizeof(req));
+    auto t1 = chrono::steady_clock::now();
+    timebase = t0 + (t1 - t0) / 2;
+}
+
+static inline void set_timestamp(struct req * r) {
+    auto duration = chrono::duration_cast<chrono::nanoseconds>(chrono::steady_clock::now() - timebase).count();
+    r->timestamp = duration;
+}
 
 void prepareAry(uint64_t *ary)
 {

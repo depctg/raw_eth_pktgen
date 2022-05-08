@@ -11,6 +11,19 @@ constexpr uint64_t sbuf_reserve = 480 << 20;
 constexpr uint64_t batch_size = 4096;
 constexpr uint64_t net_lat = 0; /*us*/
 
+static std::chrono::time_point<std::chrono::steady_clock> timebase;
+
+void synctime_recv() {
+    recv(rbuf, sizeof(req));
+    timebase = chrono::steady_clock::now();
+    send(sbuf, sizeof(req));
+}
+
+static inline auto get_target_timestamp(struct req * r, duration_t extra_delay) {
+    chrono::nanoseconds diff{r->timestamp}, extra{extra_delay};
+    return timebase + diff + extra;
+}
+
 void sbuf_populate(uint64_t offset, size_t size, void *dat_buf)
 {
   memcpy((char *) sbuf + offset, dat_buf, size);

@@ -8,7 +8,11 @@
 
 int main(int argc, char * argv[]) {
     int msg_size = 16;
-	init(TRANS_TYPE_RC, "tcp://localhost:3456");
+    if (argc != 2) {
+        printf("Usage: %s <connection-key\n", argv[0]);
+        return 1;
+    }
+	init(TRANS_TYPE_RC, argv[1]);
 
     // first round
     for (int i = 0; i < ARRAY_SIZE; i++) {

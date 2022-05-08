@@ -193,7 +193,9 @@ class RCacheVector {
 
     // void disable_prefetch();
     // void enable_prefetch();
-    // void static_prefetch(Index_t start, Index_t step, uint32_t num);
+    void prefetch(Index_t start, Index_t num) {
+
+    }
 };
 
 #endif

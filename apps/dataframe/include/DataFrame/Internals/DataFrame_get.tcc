@@ -235,8 +235,32 @@ V &DataFrame<I, H>::visit (const char *name, V &visitor)  {
     size_type       i = 0;
 
     visitor.pre();
-    for (; i < min_s; ++i)
+    for (; i < min_s; ++i) {
         visitor (indices_.at(i), vec.at(i));
+    }
+    for (; i < idx_s; ++i)  {
+        T   nan_val = _get_nan<T>();
+
+        visitor (indices_.at(i), nan_val);
+    }
+    visitor.post();
+
+    return (visitor);
+}
+
+template<typename I, typename  H>
+template<typename T, typename V>
+V &DataFrame<I, H>::visit_prefetch (const char *name, V &visitor, uint64_t prefetch_size)  {
+
+    auto            &vec = get_column<T>(name);
+    const size_type idx_s = indices_.size();
+    const size_type min_s = std::min<size_type>(vec.size(), idx_s);
+    size_type       i = 0;
+
+    visitor.pre();
+    for (; i < min_s; ++i) {
+        visitor (indices_.at(i), vec.at(i));
+    }
     for (; i < idx_s; ++i)  {
         T   nan_val = _get_nan<T>();
 

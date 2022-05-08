@@ -1714,6 +1714,19 @@ public:  // Visitors
         return(const_cast<DataFrame *>(this)->visit<T, V>(name, visitor));
     }
 
+    template<typename T, typename V>
+    V &
+    visit_prefetch(const char *name, V &visitor, uint64_t prefetch_size);
+
+    template<typename T, typename V>
+    V &
+    visit_prefetch(const char *name, V &visitor, uint64_t prefetch_size) const  {
+
+        return(const_cast<DataFrame *>(this)->visit_prefetch<T, V>(name, visitor, prefetch_size));
+    }
+
+
+
     // These are identical to above visit() but could execute asynchronously.
     // NOTE: It should be safe to run multiple visits on different columns
     //       at the same time (as long as the index column is not being

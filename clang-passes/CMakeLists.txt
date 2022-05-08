@@ -1,22 +1,18 @@
 project(clang-passes)
 
-set (LLVM_ROOT "../external/llvm-project" CACHE PATH "LLVM project repo root")
-list(INSERT CMAKE_PREFIX_PATH 0 "${LLVM_ROOT}/clang")
-list(INSERT CMAKE_PREFIX_PATH 0 "${LLVM_ROOT}/llvm")
-set(LLVM_SOURCE_DIR ${LLVM_ROOT}/llvm)
+set (LLVM_ROOT "../external/llvm-project/build/lib" CACHE PATH "LLVM project repo root")
 
 # load local llvm over system one
-find_package(LLVM REQUIRED CONFIG)
+list(APPEND CMAKE_MODULE_PATH "${LLVM_ROOT}/cmake/llvm")
+list(APPEND CMAKE_MODULE_PATH "${LLVM_ROOT}/cmake/clang")
+find_package(Clang REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}, PATH ${LLVM_SOURCE_DIR}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-find_package(Clang REQUIRED CONFIG)
-message(STATUS "Found LLVM ${CLANG_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${CLANG_DIR}")
+include(AddLLVM)
+include(AddClang)
 
-
-include_directories(${LLVM_INCLUDE_DIRS})
-separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+include_directories(SYSTEM "${LLVM_INCLUDE_DIRS};${CLANG_INCLUDE_DIRS}")
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
 # Detailed executable 

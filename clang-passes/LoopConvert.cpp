@@ -5,6 +5,11 @@
 // Declares llvm::cl::extrahelp.
 #include "llvm/Support/CommandLine.h"
 
+#include "clang/ASTMatchers/ASTMatchers.h"
+#include "clang/ASTMatchers/ASTMatchFinder.h"
+
+using namespace clang;
+using namespace clang::ast_matchers;
 using namespace clang::tooling;
 using namespace llvm;
 
@@ -20,6 +25,18 @@ static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 // A help message for this specific tool can be added afterwards.
 static cl::extrahelp MoreHelp("\nMore help text...\n");
 
+StatementMatcher LoopMatcher =
+  forStmt(hasLoopInit(declStmt(hasSingleDecl(varDecl(
+    hasInitializer(integerLiteral(equals(0)))))))).bind("forLoop");
+
+class LoopPrinter : public MatchFinder::MatchCallback {
+public :
+  virtual void run(const MatchFinder::MatchResult &Result) {
+    if (const ForStmt *FS = Result.Nodes.getNodeAs<clang::ForStmt>("forLoop"))
+      FS->dump();
+  }
+};
+
 int main(int argc, const char **argv) {
   auto ExpectedParser = CommonOptionsParser::create(argc, argv, MyToolCategory);
   if (!ExpectedParser) {
@@ -30,5 +47,11 @@ int main(int argc, const char **argv) {
   CommonOptionsParser& OptionsParser = ExpectedParser.get();
   ClangTool Tool(OptionsParser.getCompilations(),
                  OptionsParser.getSourcePathList());
-  return Tool.run(newFrontendActionFactory<clang::SyntaxOnlyAction>().get());
+
+  LoopPrinter Printer;
+  MatchFinder Finder;
+  Finder.addMatcher(LoopMatcher, &Printer);
+
+  return Tool.run(newFrontendActionFactory(&Finder).get());
 }
+

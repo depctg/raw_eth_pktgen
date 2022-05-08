@@ -1,43 +1,26 @@
 #include <iostream>
 #include "common.h"
 #include "greeting.h"
+#include "remoteKVS.hpp"
 #include <assert.h>
 #include <string>
-#include "sleepus.hpp"
 
 using namespace std;
 
-constexpr uint64_t sbuf_reserve = 480 << 20;
-constexpr uint64_t batch_size = 4096;
-constexpr uint64_t net_lat = 0; /*us*/
+static uint64_t max_size = (480 << 20);
+static uint32_t cache_line_size = 8192;
 
-void sbuf_populate(uint64_t offset, size_t size, void *dat_buf)
+int main(int argc, char * argv[]) 
 {
-  memcpy((char *) sbuf + offset, dat_buf, size);
-}
-
-void print_payload(void *dat_buf, size_t size)
-{
-  cout << "Payload: ";
-  uint64_t *ps = (uint64_t *)dat_buf;
-  for (int i = 0; i < size / sizeof(uint64_t); ++i)
-  {
-    cout << ps[i] << " ";
-  }
-  cout << endl;
-}
-
-int main(int argc, char **argv)
-{
-  init(TRANS_TYPE_RC_SERVER, argv[1]);
+	init(TRANS_TYPE_RC_SERVER, argv[1]);
   cout << "Start processing requests" << endl;
-
+  KVS *kvs = new KVS(sbuf, max_size, cache_line_size);
   const unsigned int max_recvs = 64;
   const unsigned int inflights = max_recvs / 2;
   struct ibv_wc wc[max_recvs];
   unsigned int post_recvs = 0, poll_recvs = 0;
-
-  size_t req_size = sizeof(struct req) + batch_size;
+  // vanilla req-response 
+  size_t req_size = sizeof(struct req) + cache_line_size;
   for (int i = 0; i < inflights; i++)
     recv_async((char *)rbuf + i*req_size, req_size);
   post_recvs += inflights;
@@ -53,18 +36,14 @@ int main(int argc, char **argv)
         // cout << "Req: " << r->addr << " " << r->size << " " << r->type << endl;
 
         // if fetch type
-        if (r->type)
-        {
-          // print_payload((char *) sbuf + r->addr, r->size);
-          wait_until_us(net_lat);
-          send_async((char *) sbuf + r->addr, r->size);
-        }
+        if (r->type) 
+          kvs->handle_req_fetch(r);
         else
         {
+          // cout << "Req: " << r->addr << " " << r->size << " " << r->type << endl;
           // recv playload
-          // print_payload(r+1, r->size);
-          wait_until_us(net_lat);
-          sbuf_populate(r->addr, r->size, r+1);
+          // recv(r+1, sizeof(char) * cache_line_size);
+          kvs->handle_req_update(r);
         }
       }
     }

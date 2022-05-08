@@ -73,9 +73,7 @@ class RCacheVector {
     }
 
    public:
-    explicit RCacheVector() {
-        RCacheVector(0);
-    }
+    explicit RCacheVector() : RCacheVector(0) {}
 
    RCacheVector(uint64_t atleast_cap) {
       if (!ctable) throw std::runtime_error("RCacheVector_init_cache_table first");

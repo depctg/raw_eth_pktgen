@@ -123,10 +123,6 @@ public:  // Load/append/remove interfaces
     RCacheVector<T> &
     create_column(const char *name);
 
-    template<typename T>
-    std::vector<T> &
-    create_column(const char *name) { throw std::runtime_error("orphan"); }
-
     // It removes a column named name.
     // The actual data vector is not deleted, but the column is dropped from
     // DataFrame
@@ -237,20 +233,20 @@ public:  // Load/append/remove interfaces
     size_type
     load_column(const char *name,
                 RCacheVector<T> &&data,
-                nan_policy padding = nan_policy::pad_with_nans);
+                nan_policy padding = nan_policy::pad_with_nans) { throw std::runtime_error("not supported"); }
 
     template<typename T>
     size_type
     load_column(const char *name,
                 std::vector<T> &&data,
-                nan_policy padding = nan_policy::pad_with_nans) { throw std::runtime_error("orphan"); }
+                nan_policy padding = nan_policy::pad_with_nans);
 
 
 
     template<typename T>
     size_type
     load_column(const char *name,
-                const RCacheVector<T> &data,
+                const std::vector<T> &data,
                 nan_policy padding = nan_policy::pad_with_nans);
 
     // This method creates a column similar to above, but assumes data is
@@ -2196,7 +2192,7 @@ public:  // Utilities and miscellaneous
     // NOTE: It is the responsibility of the programmer to make sure
     //       IndexType type is big enough to contain the frequency.
     //
-    static std::vector<IndexType>
+    static RCacheVector<IndexType>
     gen_datetime_index(const char *start_datetime,
                        const char *end_datetime,
                        time_frequency t_freq,

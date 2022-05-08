@@ -236,11 +236,11 @@ V &DataFrame<I, H>::visit (const char *name, V &visitor)  {
 
     visitor.pre();
     for (; i < min_s; ++i)
-        visitor (indices_[i], vec[i]);
+        visitor (indices_.at(i), vec.at(i));
     for (; i < idx_s; ++i)  {
         T   nan_val = _get_nan<T>();
 
-        visitor (indices_[i], nan_val);
+        visitor (indices_.at(i), nan_val);
     }
     visitor.post();
 

@@ -27,6 +27,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "vec.hpp"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -446,7 +448,7 @@ struct  _IdxParserFunctor_<bool>  {
 
 template<typename T>
 inline static void
-_generate_ts_index_(std::vector<T> &index_vec,
+_generate_ts_index_(RCacheVector<T> &index_vec,
                     DateTime &start_di,
                     time_frequency t_freq,
                     long increment)  {
@@ -493,7 +495,7 @@ _generate_ts_index_(std::vector<T> &index_vec,
 
 template<>
 inline void
-_generate_ts_index_<DateTime>(std::vector<DateTime> &index_vec,
+_generate_ts_index_<DateTime>(RCacheVector<DateTime> &index_vec,
                               DateTime &start_di,
                               time_frequency t_freq,
                               long increment)  {

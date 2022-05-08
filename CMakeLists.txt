@@ -28,6 +28,5 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 # targets
 add_subdirectory(libcommon)
-add_subdirectory(clang-passes)
 add_subdirectory(apps)
 

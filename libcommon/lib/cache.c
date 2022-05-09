@@ -76,7 +76,7 @@ void hashPrint(HashStruct *hs)
 {
 	HashStruct *cur;
 	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
-			printf("tag %d, offset %" PRIu64 "\n" , cur->tag, cur->bptr->rbuf_offset);
+			printf("tag %d, present %d\n" , cur->tag, cur->bptr->present);
 	}
 }
 
@@ -125,8 +125,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	table->accesses += 1;
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
-	// hashPrint(table->map);/
+	printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
+	hashPrint(table->map);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
@@ -158,7 +158,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			// touch -> hot
 			addHot(table->dll, tgt->bptr);
 		}
-		fetch_sync(tgt->bptr, table->amba);
+		fetch_sync(tgt->bptr, table->amba, table->tag_shifts);
 		tgt->bptr->present = 1;
 		// printf("Fetched ");
 		// linePrint(table->amba->line_pool + rbuf_offset, table->cache_line_size);
@@ -201,7 +201,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 			// printf("Write to evicted, tag: %" PRIu64"\n", tgt->bptr->tag);
 			// remote has stale version, pull and write-back
 			tgt->bptr->rbuf_offset = rbuf_offset;
-			fetch_sync(tgt->bptr, table->amba);
+			fetch_sync(tgt->bptr, table->amba, table->tag_shifts);
 			tgt->bptr->dirty = 1;
 			addHot(table->dll, tgt->bptr);
 		}
@@ -255,18 +255,34 @@ void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 		uint64_t cur_length = min(s-written_l, table->cache_line_size);
 		write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
 		ftag ++;
+		written_l += cur_length;
 	}
 	return;
 }
 
-void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, void *dat_buf, uint64_t s)
+void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s)
 {
-	update_sync(dat_buf, addr, s, table->amba);
+	HashStruct *tgt;
+	HASH_FIND_INT(table->map, &tag, tgt);
+	// if not accessed
 	// create dummy block entry in map
-	HashStruct *tgt = (HashStruct *) malloc(sizeof (HashStruct));
-	tgt->bptr = newBlock(-1, tag, 0, 0);
-	tgt->tag = (int) tag;
-	HASH_ADD_INT(table->map, tag, tgt);
+	// eviction dll will not have this entry
+	// since this memory cannot be evicted
+	if (tgt == NULL)
+	{
+		tgt = (HashStruct *) malloc(sizeof (HashStruct));
+		tgt->bptr = newBlock(-1, tag, 0, 0);
+		tgt->tag = (int) tag;
+		HASH_ADD_INT(table->map, tag, tgt);
+	} 
+	else if (tgt->bptr->present)
+	{
+		// locally presented
+		// merge locally and write to remote
+		// will not change dirty status of local cache line
+		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
+	}
+	update_sync(dat_buf, addr, s, table->amba);
 }
 
 void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
@@ -280,7 +296,7 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	// write first segment
 	uint64_t line_offset = addr & table->tag_mask;
 	uint64_t cur_length = min(s - written_l, table->cache_line_size - line_offset);
-	_remote_write(table, addr + written_l, ftag, (char *) dat_buf + written_l, cur_length);
+	_remote_write(table, addr + written_l, ftag, line_offset, (char *) dat_buf + written_l, cur_length);
 	ftag ++;
 	written_l += cur_length;
 
@@ -289,8 +305,9 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	{
 		// line offset = 0 for these lines
 		uint64_t cur_length = min(s - written_l, table->cache_line_size);
-		_remote_write(table, addr + written_l, ftag, (char *) dat_buf + written_l, cur_length);
+		_remote_write(table, addr + written_l, ftag, 0, (char *) dat_buf + written_l, cur_length);
 		ftag ++;
+		written_l += cur_length;
 	}
 	return;
 }

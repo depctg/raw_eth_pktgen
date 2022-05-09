@@ -47,7 +47,8 @@ int main(int argc, char * argv[]) {
       {
         int idx = (poll_recvs ++) % max_recvs;
         struct req *r = (struct req *) ((char *)rbuf + idx*req_size);
-        cout << "Req " << r->addr << ", size " << r->size << ", type " << r->type << endl;
+        const char *type = r->type == 1 ? "Fetch" : "Update";
+        cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
 
         // if fetch type
         if (r->type) 

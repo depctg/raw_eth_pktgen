@@ -187,14 +187,14 @@ void ret_sid(Ambassador *a, uint32_t sid)
 	a->frees += 1;
 }
 
-void fetch_sync(Block *b, Ambassador *a)
+void fetch_sync(Block *b, Ambassador *a, uint8_t tag_shifts)
 {
 	uint32_t send_buf_nid = get_sid(a);
 	struct req *r = (struct req *) (a->reqs + send_buf_nid * a->req_size);
-	r->addr = b->tag;
+	r->addr = b->tag << tag_shifts;
 	r->size = a->cache_line_size;
 	r->type = 1;
-	send(r, a->req_size);
+	send(r, sizeof(struct req));
 	recv(a->line_pool + b->rbuf_offset, a->cache_line_size);
 	ret_sid(a, send_buf_nid);
 }

@@ -61,7 +61,7 @@ int main(int argc, char * argv[]) {
   MPLD *p6 = (MPLD *) cache_access(cache, sizeof(MPLD) * 9);
   cout << p6->A << " " << p6->B << endl;
 
-  // Write another payload to local
+  // Write another payload to local, addr = 16 * 16, tag = 2
   // Since max size is 2 cache line, now all occupied
   // write at new position will cause one cache line to be evicted
   // LRU will evict the first cache line, tag = 0
@@ -77,4 +77,31 @@ int main(int argc, char * argv[]) {
   // addr of p3 is 16 * 3 + 16 * 3
   MPLD *p3 = (MPLD *) cache_access(cache, sizeof(MPLD) * 6);
   cout << p3->A << " " << p3->B << endl;
+
+  // Write to remote 
+  // No cache line will be evicted, the eviction status will not be changed
+  // will merge with local cache line if presented -> dirty status remains intact
+  // Write drp to addr 16 * 16 + 16, tag = 2, line_ofst = 16
+  // right after rp, in the same cache line (presented)
+  MPLD *drp = (MPLD *) malloc(sizeof(MPLD));
+  drp->A = 12;
+  drp->B = 22;
+  uint64_t addr = kCacheLineSize * 2 + sizeof(MPLD);
+  remote_write_n(cache, addr, drp, sizeof(MPLD));
+  MPLD *read_from_local = (MPLD *) cache_access(cache, addr);
+  cout << read_from_local->A << " " << read_from_local->B << endl;
+
+  // write to remote
+  // Write to un-presented cache line, tag = 3
+  // no eviction, mamerialized when do local access
+  // In this case all presented cache lines are clean
+  // No send operation performed when evicting
+  MPLD *drp_new = (MPLD *) malloc(sizeof(MPLD));
+  drp_new->A = 13;
+  drp_new->B = 24;
+  uint64_t addr_new = kCacheLineSize * 3;
+  remote_write_n(cache, addr_new, drp_new, sizeof(MPLD));
+  MPLD *read_from_remote = (MPLD *) cache_access(cache, addr_new);
+  cout << read_from_remote->A << " " << read_from_remote->B << endl;
+  
 }

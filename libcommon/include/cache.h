@@ -78,7 +78,7 @@ Ambassador *newAmbassador(uint32_t ring_size, uint64_t cls, void *req_buffer, vo
 uint32_t get_sid(Ambassador *a);
 void ret_sid(Ambassador *a, uint32_t sid);
 
-void fetch_sync(Block *b, Ambassador *a);
+void fetch_sync(Block *b, Ambassador *a, uint8_t tag_shifts);
 void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a);
 // not implemented
 send_rel fetch_async(Block *b, Ambassador *a);

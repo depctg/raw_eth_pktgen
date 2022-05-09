@@ -10,8 +10,8 @@
 #include <cstdlib>
 #include <fstream>
 
-constexpr static uint64_t batch_size = 8 << 20;
-constexpr static int iter_ahead = 1;
+constexpr static uint64_t batch_size = 4 << 10;
+constexpr static int iter_ahead = 0;
 constexpr static uint64_t iterations = 32;
 
 static inline void pre_ahead(struct req *r, uint64_t *wr_ids)

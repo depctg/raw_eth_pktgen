@@ -7,8 +7,8 @@
 
 using namespace std;
 
-constexpr uint64_t kNumEntries = 64 << 20;
-constexpr uint64_t batch_size = 8 << 10;
+constexpr uint64_t kNumEntries = 16 << 20;
+constexpr uint64_t batch_size = 4 << 10;
 constexpr uint64_t net_lat = 0; /*us*/
 
 static std::chrono::time_point<std::chrono::steady_clock> timebase;
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
   while (1)
   {
-    int n = ibv_poll_cq(cq, inflights, wc);
+    int n = poll_cq(cq, inflights, wc);
     for (int i = 0; i < n; ++i)
     {
       if (wc[i].status == 0 && wc[i].wr_id != 0)

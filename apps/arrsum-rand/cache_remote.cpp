@@ -26,7 +26,7 @@ int main(int argc, char * argv[])
   post_recvs += inflights;
   while (1)
   {
-    int n = ibv_poll_cq(cq, inflights, wc);
+    int n = poll_cq(cq, inflights, wc);
     for (int i = 0; i < n; ++i)
     {
       if (wc[i].status == 0 && wc[i].wr_id != 0)

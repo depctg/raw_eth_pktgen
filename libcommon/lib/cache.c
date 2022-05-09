@@ -12,6 +12,8 @@
 #include "greeting.h"
 #include "uthash.h"
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
 static inline uint64_t _async_request_sge(
         Block *b, Ambassador *a, uint64_t tag, int type
     ) {
@@ -170,12 +172,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	return table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset;
 }
 
-// Write at location addr, size 8B
-void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
+void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, size_t l)
 {
-	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
-	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if is a new cache entry or evicted line
@@ -184,9 +182,7 @@ void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 		// claim room on rbuf for this cache line
 		uint64_t rbuf_offset;
 		if (!claim(table->fq, &rbuf_offset))
-		{
 			rbuf_offset = popVictim(table->dll, table);
-		}
 		// new to remote
 		// write-back
 		if (tgt == NULL)
@@ -209,12 +205,23 @@ void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 			addHot(table->dll, tgt->bptr);
 		}
 		// write to rbuf
-		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, sizeof(uint64_t));
+		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, l);
 		tgt->bptr->present = 1;
-		return;
 	}
-	memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, sizeof(uint64_t));
-	tgt->bptr->dirty = 1;
+	else
+	{
+		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, l);
+		tgt->bptr->dirty = 1;
+	}
+	return;
+}
+
+// Write at location addr, size 8B
+void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
+{
+	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
+	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
+	write_to_CL(table, tag, line_offset, dat_buf, sizeof(uint64_t));
 }
 
 // write one line into cache
@@ -222,38 +229,33 @@ void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf)
 {
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
-	if (tgt == NULL || !tgt->bptr->present)
+	write_to_CL(table, tag, 0, dat_buf, table->cache_line_size);
+}
+
+void cache_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l)
+{
+	// first cache line tag of addr
+	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
+	// last tag
+	uint64_t ltag = ((addr + l) & table->tag_mask) >> table->tag_shifts;
+	uint64_t written_l = 0;
+
+	// write first cache line
+	uint64_t line_offset = addr & table->tag_mask;
+	size_t cur_length = min(l-written_l, table->cache_line_size - line_offset);
+	write_to_CL(table, ftag, line_offset, (char *)dat_buf + written_l, cur_length);
+	ftag ++;
+	written_l += cur_length;
+
+	// write rest lines
+	while (ftag <= ltag)
 	{
-		// claim room for line
-		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset))
-		{
-			rbuf_offset = popVictim(table->dll, table);
-		}
-		if (tgt == NULL)
-		{
-			tgt = (HashStruct *) malloc(sizeof(HashStruct));
-			tgt->bptr = newBlock(rbuf_offset, tag, 0, /* dirty */ 1);
-			tgt->tag = (int) tag;
-			// insert as hot
-			HASH_ADD_INT(table->map, tag, tgt);
-			addHot(table->dll, tgt->bptr);
-		}
-		else
-		{
-			// remote contains stale version
-			// no need to pull
-			tgt->bptr->rbuf_offset = rbuf_offset;
-			tgt->bptr->dirty = 1;
-			addHot(table->dll, tgt->bptr);
-		}
-		// write to rbuf
-		memcpy(table->amba->line_pool + rbuf_offset, dat_buf, table->cache_line_size);
-		tgt->bptr->present = 1;
-		return;
+		// line offset = 0 for these lines
+		size_t cur_length = min(l-written_l, table->cache_line_size);
+		write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
+		ftag ++;
 	}
-	memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset, dat_buf, table->cache_line_size);
-	tgt->bptr->dirty = 1;
+	return;
 }
 
 void remote_write(CacheTable *table, uint64_t tag, void *dat_buf)
@@ -264,4 +266,15 @@ void remote_write(CacheTable *table, uint64_t tag, void *dat_buf)
 	tgt->bptr = newBlock(-1, tag, 0, 0);
 	tgt->tag = (int) tag;
 	HASH_ADD_INT(table->map, tag, tgt);
+}
+
+void remote_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l)
+{
+	// first cache line tag of addr
+	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
+	// last tag
+	uint64_t ltag = ((addr + l) & table->tag_mask) >> table->tag_shifts;
+	uint64_t written_l = 0;
+
+	// write first cache line
 }

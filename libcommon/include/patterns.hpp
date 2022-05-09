@@ -101,7 +101,7 @@ int zipf(double alpha, int n)
   while ((z == 0) || (z == 1));
 
   // Map z to the value
-  low = 1, high = n, mid;
+  low = 1; high = n;
   do {
     mid = floor((low+high)/2);
     if (sum_probs[mid] >= z && sum_probs[mid-1] < z) {

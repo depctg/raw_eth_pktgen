@@ -115,25 +115,37 @@ CacheTable *createCacheTable(
 	void *recv_buffer
 );
 
-
 // pop LRU, update if dirty
 uint64_t popVictim(BlockDLL *dll, CacheTable *table);
 
-// public interfaces:
-// cache_access : 1 B
-// cache_write : 1B
-// remote_write : 1 CLS
+/* public interfaces: */
 
+// access arbitrary addr
+// return a pointer to real rbuf
 char *cache_access(CacheTable *table, uint64_t addr);
 
-// write one byte
+// write to cache line indexed by {tag} 
+// |<---------- cache line size ---------->|
+// | line offset | write {l} size | intact | 
+void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, size_t l);
+
+// write one byte to arbitrary addr
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
 
-// insert one line
+// insert one line at tag (start addr of a cache line)
 void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
 
+// write arbitrary length to arbitrary addr
+void cache_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l);
+
 // write one cache line directly to remote
-void remote_write(CacheTable *table, uint64_t addr, void *dat_buf);
+void remote_write(CacheTable *table, uint64_t tag, void *dat_buf);
+
+// write arbitrary length to remote arbitrary addr
+void remote_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l);
+
+// prefetch arbitrary length from arbitrary remote addr
+void prefetch(CacheTable *table, uint64_t addr, size_t l);
 
 #ifdef __cplusplus
 }

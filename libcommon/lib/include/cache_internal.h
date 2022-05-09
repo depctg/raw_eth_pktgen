@@ -17,7 +17,7 @@ extern "C"
 #include "greeting.h"
 #include "uthash.h"
 
-Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty)
+Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty, uint64_t wr_id, uint32_t sid)
 {
 	Block *b = (Block *)malloc(sizeof(Block));
 	b->rbuf_offset = offset;
@@ -25,6 +25,8 @@ Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty)
 	b->prev = b->next = NULL;
 	b->present = present;
 	b->dirty = dirty;
+	b->wr_id = wr_id;
+	b->sid = sid;
 	return b;
 }
 
@@ -98,6 +100,19 @@ void touch(BlockDLL *dll, Block *b)
 		b->next->prev = b;
 		dll->head = b;
 	}
+}
+
+void protect(BlockDLL *dll, Block *b)
+{
+	if (!dll->head || !b)
+		return;
+	if (dll->head == b)
+		dll->head = b->next;
+	if (b->next)
+		b->next->prev = b->prev;
+	if (b->prev)
+		b->prev->next = b->next;
+	return;
 }
 
 FreeQueue* initQueue(uint64_t max_size, uint32_t cache_line_size)
@@ -187,15 +202,15 @@ void ret_sid(Ambassador *a, uint32_t sid)
 	a->frees += 1;
 }
 
-void fetch_sync(Block *b, Ambassador *a, uint8_t tag_shifts)
+void fetch_sync(uint64_t addr, uint64_t rbuf_offset, Ambassador *a)
 {
 	uint32_t send_buf_nid = get_sid(a);
 	struct req *r = (struct req *) (a->reqs + send_buf_nid * a->req_size);
-	r->addr = b->tag << tag_shifts;
+	r->addr = addr;
 	r->size = a->cache_line_size;
 	r->type = 1;
 	send(r, sizeof(struct req));
-	recv(a->line_pool + b->rbuf_offset, a->cache_line_size);
+	recv(a->line_pool + rbuf_offset, a->cache_line_size);
 	ret_sid(a, send_buf_nid);
 }
 
@@ -211,6 +226,17 @@ void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a)
 	// send(r+1, a->cache_line_size);
 	send(r, sizeof(struct req) + size);
 	ret_sid(a, send_buf_nid);
+}
+
+uint64_t fetch_async(uint64_t addr, uint64_t rbuf_offset, Ambassador *a, uint32_t *sid)
+{
+	uint32_t send_buf_nid = get_sid(a);
+	struct req *r = (struct req *) (a->reqs + send_buf_nid * a->req_size);
+	r->addr = addr;
+	r->size = a->cache_line_size;
+	r->type = 1;
+	send_async(r, sizeof(struct req));
+	return recv_async(a->line_pool + rbuf_offset, a->cache_line_size);
 }
 
 #ifdef __cplusplus

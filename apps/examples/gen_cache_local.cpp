@@ -104,4 +104,18 @@ int main(int argc, char * argv[]) {
   MPLD *read_from_remote = (MPLD *) cache_access(cache, addr_new);
   cout << read_from_remote->A << " " << read_from_remote->B << endl;
   
+  // Prefetch will asynchronously fetch a cache line
+  // Try write to remote directly and pre-fetch it
+  MPLD *pflp = (MPLD *) malloc(kCacheLineSize);
+  for (int i = 0; i < kCacheLineSize / sizeof(MPLD); ++i)
+  {
+    pflp[i].A = i + 1;
+    pflp[i].B = i << 1;
+  }
+  uint64_t addr_pf = 5 * kCacheLineSize; // tag = 5
+  remote_write_n(cache, addr_pf, pflp, kCacheLineSize);
+  prefetch(cache, addr_pf);
+
+  MPLD *pflp2 = (MPLD *) cache_access(cache, addr_pf + 2 * sizeof(MPLD));
+  cout << pflp2->A << " " << pflp2->B << endl;
 }

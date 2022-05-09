@@ -145,7 +145,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		{
 			tgt = (HashStruct *) malloc(sizeof *tgt);
 			// create new block, not present yet
-			tgt->bptr = newBlock(rbuf_offset, tag, 0, 0);
+			tgt->bptr = newBlock(rbuf_offset, tag, 0, 0, -1, -1);
 			tgt->tag = (int) tag;
 			// inser to map as hot 
 			addHot(table->dll, tgt->bptr);
@@ -158,14 +158,25 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			// touch -> hot
 			addHot(table->dll, tgt->bptr);
 		}
-		fetch_sync(tgt->bptr, table->amba, table->tag_shifts);
+		fetch_sync(tag << table->tag_shifts, rbuf_offset, table->amba);
 		tgt->bptr->present = 1;
 		// printf("Fetched ");
 		// linePrint(table->amba->line_pool + rbuf_offset, table->cache_line_size);
 		return table->amba->line_pool + rbuf_offset + line_offset;
 	} 
+	else if (tgt->bptr->wr_id != -1 && tgt->bptr->sid != -1)
+	{
+		// polling prefetch
+		poll(tgt->bptr->wr_id);
+		ret_sid(table->amba, tgt->bptr->sid);
+		tgt->bptr->dirty = 0;
+		tgt->bptr->wr_id = -1;
+		tgt->bptr->sid = -1;
+		addHot(table->dll, tgt->bptr);
+	}
 	// if find target, touch and return
-	touch(table->dll, tgt->bptr);
+	else
+		touch(table->dll, tgt->bptr);
 
 	// printf("Found ");
 	// linePrint(table->amba->line_pool + tgt->bptr->rbuf_offset, table->cache_line_size);
@@ -190,7 +201,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 		{
 			memset(table->amba->line_pool + rbuf_offset, 0, sizeof(char) * table->cache_line_size);
 			tgt = (HashStruct *) malloc(sizeof(HashStruct));
-			tgt->bptr = newBlock(rbuf_offset, tag, 0, /* dirty */ 1);
+			tgt->bptr = newBlock(rbuf_offset, tag, 0, /* dirty */ 1, -1, -1);
 			tgt->tag = (int) tag;
 			// insert as hot
 			HASH_ADD_INT(table->map, tag, tgt);
@@ -201,13 +212,24 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 			// printf("Write to evicted, tag: %" PRIu64"\n", tgt->bptr->tag);
 			// remote has stale version, pull and write-back
 			tgt->bptr->rbuf_offset = rbuf_offset;
-			fetch_sync(tgt->bptr, table->amba, table->tag_shifts);
+			fetch_sync(tag << table->tag_shifts, rbuf_offset, table->amba);
 			tgt->bptr->dirty = 1;
 			addHot(table->dll, tgt->bptr);
 		}
 		// write to rbuf
 		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->present = 1;
+	}
+	else if (tgt->bptr->wr_id != -1 && tgt->bptr->sid != -1)
+	{
+		// polling prefetch
+		poll(tgt->bptr->wr_id);
+		ret_sid(table->amba, tgt->bptr->sid);
+		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
+		tgt->bptr->dirty = 1;
+		tgt->bptr->wr_id = -1;
+		tgt->bptr->sid = -1;
+		addHot(table->dll, tgt->bptr);
 	}
 	else
 	{
@@ -253,7 +275,8 @@ void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	{
 		// line offset = 0 for these lines
 		uint64_t cur_length = min(s-written_l, table->cache_line_size);
-		write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
+		if (cur_length > 0)
+			write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
 		ftag ++;
 		written_l += cur_length;
 	}
@@ -270,8 +293,8 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 	// since this memory cannot be evicted
 	if (tgt == NULL)
 	{
-		tgt = (HashStruct *) malloc(sizeof (HashStruct));
-		tgt->bptr = newBlock(-1, tag, 0, 0);
+		tgt = (HashStruct *) malloc(sizeof(HashStruct));
+		tgt->bptr = newBlock(-1, tag, 0, 0, -1, -1);
 		tgt->tag = (int) tag;
 		HASH_ADD_INT(table->map, tag, tgt);
 	} 
@@ -305,9 +328,50 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	{
 		// line offset = 0 for these lines
 		uint64_t cur_length = min(s - written_l, table->cache_line_size);
-		_remote_write(table, addr + written_l, ftag, 0, (char *) dat_buf + written_l, cur_length);
+		if (cur_length > 0)
+			_remote_write(table, addr + written_l, ftag, 0, (char *) dat_buf + written_l, cur_length);
 		ftag ++;
 		written_l += cur_length;
 	}
 	return;
+}
+
+// dont call two same prefetches twice
+// the overlapped pre-fetch will be cancelled
+void prefetch(CacheTable *table, uint64_t addr)
+{
+	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
+	HashStruct *tgt;
+	HASH_FIND_INT(table->map, &tag, tgt);
+	if (tgt == NULL || !tgt->bptr->present)
+	{
+		// claim room for this cache line
+		uint64_t rbuf_offset;
+		if (!claim(table->fq, &rbuf_offset))
+			rbuf_offset = popVictim(table->dll, table);
+		// prefetch
+		uint32_t sid;
+		uint64_t wr_id = fetch_async(addr, rbuf_offset, table->amba, &sid);
+		if (tgt == NULL)
+		{
+			memset(table->amba->line_pool + rbuf_offset, 0, sizeof(char) * table->cache_line_size);
+			tgt = (HashStruct *) malloc(sizeof(HashStruct));
+			tgt->bptr = newBlock(rbuf_offset, tag, 1, 0, wr_id, sid);
+		}
+		else
+		{
+			tgt->bptr->rbuf_offset = rbuf_offset;
+			tgt->bptr->present = 1;
+			tgt->bptr->wr_id = wr_id;
+			tgt->bptr->sid = sid;
+		}
+	}
+	else
+	{
+		uint32_t sid;
+		uint64_t wr_id = fetch_async(addr, tgt->bptr->rbuf_offset, table->amba, &sid);
+		tgt->bptr->wr_id = wr_id;
+		tgt->bptr->sid = sid;
+		protect(table->dll, tgt->bptr);
+	}
 }

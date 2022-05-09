@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
 
+link_libraries(common)
+
 # We use:
 # - InstallBasicPackageFiles
 #       (http://robotology.github.io/ycm/gh-pages/v0.8/
@@ -198,118 +200,103 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
 #
 # Note that if your library depends from other libraries, you are probably
 # required to used the install_basic_package_files() DEPENDENCIES option.
-include(InstallBasicPackageFiles)
-if (UNIX)
-  install_basic_package_files(${PROJECT_NAME}
-                              VERSION ${${PROJECT_NAME}_VERSION}
-                              COMPATIBILITY AnyNewerVersion
-                              EXPORT ${PROJECT_NAME}
-                              VARS_PREFIX ${PROJECT_NAME}
-                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-endif (UNIX)
-if (MSVC)
-  install_basic_package_files(${PROJECT_NAME}
-                              VERSION ${${PROJECT_NAME}_VERSION}
-                              COMPATIBILITY AnyNewerVersion
-                              EXPORT ${PROJECT_NAME}
-                              VARS_PREFIX ${PROJECT_NAME}
-                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /wd4251")
-endif(MSVC)
-
-# Add the uninstall target
-include(AddUninstallTarget)
+#include(InstallBasicPackageFiles)
+#if (UNIX)
+#  install_basic_package_files(${PROJECT_NAME}
+#                              VERSION ${${PROJECT_NAME}_VERSION}
+#                              COMPATIBILITY AnyNewerVersion
+#                              EXPORT ${PROJECT_NAME}
+#                              VARS_PREFIX ${PROJECT_NAME}
+#                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+#endif (UNIX)
+#if (MSVC)
+#  install_basic_package_files(${PROJECT_NAME}
+#                              VERSION ${${PROJECT_NAME}_VERSION}
+#                              COMPATIBILITY AnyNewerVersion
+#                              EXPORT ${PROJECT_NAME}
+#                              VARS_PREFIX ${PROJECT_NAME}
+#                              NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /wd4251")
+#endif(MSVC)
+#
+## Add the uninstall target
+#include(AddUninstallTarget)
 
 # Build the app binary
-add_executable(main  app/main.cc)
+add_executable(${app}-main app/main.cc)
+add_executable(${app}-vec_remote app/vec_remote.cc)
 
-# Link the DataFrame library to the app binary
-target_link_libraries(main DataFrame)
+target_link_libraries(${app}-main DataFrame)
 
 # Build the test binary
-add_executable(dataframe_tester  test/dataframe_tester.cc)
-add_executable(dataframe_tester_2  test/dataframe_tester_2.cc)
-add_executable(dataframe_performance  test/dataframe_performance.cc)
-add_executable(vectors_tester    test/vectors_tester.cc)
-add_executable(vector_ptr_view_tester test/vector_ptr_view_tester.cc)
-add_executable(date_time_tester  test/date_time_tester.cc)
-add_executable(gen_rand_tester  test/gen_rand_tester.cc)
-
+#add_executable(dataframe_tester  test/dataframe_tester.cc)
+#add_executable(dataframe_tester_2  test/dataframe_tester_2.cc)
+#add_executable(dataframe_performance  test/dataframe_performance.cc)
+#add_executable(vectors_tester    test/vectors_tester.cc)
+#add_executable(vector_ptr_view_tester test/vector_ptr_view_tester.cc)
+#add_executable(date_time_tester  test/date_time_tester.cc)
+#add_executable(gen_rand_tester  test/gen_rand_tester.cc)
 # Link the DataFrame library to the test binary
-target_link_libraries(dataframe_tester DataFrame)
-target_link_libraries(dataframe_tester common)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(dataframe_tester_2 DataFrame)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(dataframe_performance DataFrame)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(vectors_tester DataFrame)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(vector_ptr_view_tester DataFrame)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(date_time_tester DataFrame)
-
-# Link the DataFrame library to the test binary
-target_link_libraries(gen_rand_tester DataFrame)
+#target_link_libraries(dataframe_tester DataFrame)
+#target_link_libraries(dataframe_tester common)
+#target_link_libraries(dataframe_tester_2 DataFrame)
+#target_link_libraries(dataframe_performance DataFrame)
+#target_link_libraries(vectors_tester DataFrame)
+#target_link_libraries(vector_ptr_view_tester DataFrame)
+#target_link_libraries(date_time_tester DataFrame)
+#target_link_libraries(gen_rand_tester DataFrame)
 
 if (UNIX)
   # Find pthreads library
   set(THREADS_PREFER_PTHREAD_FLAG ON)
   find_package(Threads REQUIRED)
-  target_link_libraries(main Threads::Threads)
-  target_link_libraries(dataframe_tester Threads::Threads)
-  target_link_libraries(dataframe_tester_2 Threads::Threads)
-  target_link_libraries(dataframe_performance Threads::Threads)
-  target_link_libraries(vectors_tester Threads::Threads)
-  target_link_libraries(vector_ptr_view_tester Threads::Threads)
-  target_link_libraries(date_time_tester Threads::Threads)
-  target_link_libraries(gen_rand_tester Threads::Threads)
+  target_link_libraries(${app}-main Threads::Threads)
+  #target_link_libraries(dataframe_tester Threads::Threads)
+  #target_link_libraries(dataframe_tester_2 Threads::Threads)
+  #target_link_libraries(dataframe_performance Threads::Threads)
+  #target_link_libraries(vectors_tester Threads::Threads)
+  #target_link_libraries(vector_ptr_view_tester Threads::Threads)
+  #target_link_libraries(date_time_tester Threads::Threads)
+  #target_link_libraries(gen_rand_tester Threads::Threads)
 endif (UNIX)
 
 if (UNIX AND NOT APPLE)
-  target_link_libraries(main rt)
-  target_link_libraries(dataframe_tester rt)
-  target_link_libraries(dataframe_tester_2 rt)
-  target_link_libraries(dataframe_performance rt)
-  target_link_libraries(vectors_tester rt)
-  target_link_libraries(vector_ptr_view_tester rt)
-  target_link_libraries(date_time_tester rt)
-  target_link_libraries(gen_rand_tester rt)
+  target_link_libraries(${app}-main rt)
+  #target_link_libraries(dataframe_tester rt)
+  #target_link_libraries(dataframe_tester_2 rt)
+  #target_link_libraries(dataframe_performance rt)
+  #target_link_libraries(vectors_tester rt)
+  #target_link_libraries(vector_ptr_view_tester rt)
+  #target_link_libraries(date_time_tester rt)
+  #target_link_libraries(gen_rand_tester rt)
 endif()
 
 # Enable ctest, testing so we can see if unit tests pass or fail in CI
-enable_testing()
-add_test(NAME dataframe_tester
-         COMMAND dataframe_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester>)
+#enable_testing()
+#add_test(NAME dataframe_tester
+#         COMMAND dataframe_tester
+#         WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester>)
 
 # For some unknown reason to me, these tests sigfaults in AppVeyor
 #
-if (NOT MSVC)
-  add_test(NAME dataframe_tester_2
-           COMMAND dataframe_tester_2
-           WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester_2>)
-
-  add_test(NAME vectors_tester
-           COMMAND vectors_tester
-           WORKING_DIRECTORY $<TARGET_FILE_DIR:vectors_tester>)
-endif(NOT MSVC)
-
-add_test(NAME vector_ptr_view_tester
-         COMMAND vector_ptr_view_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:vector_ptr_view_tester>)
-add_test(NAME date_time_tester
-         COMMAND date_time_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:date_time_tester>)
-
-add_test(NAME gen_rand_tester
-         COMMAND gen_rand_tester
-         WORKING_DIRECTORY $<TARGET_FILE_DIR:gen_rand_tester>)
+#if (NOT MSVC)
+#  add_test(NAME dataframe_tester_2
+#           COMMAND dataframe_tester_2
+#           WORKING_DIRECTORY $<TARGET_FILE_DIR:dataframe_tester_2>)
+#
+#  add_test(NAME vectors_tester
+#           COMMAND vectors_tester
+#           WORKING_DIRECTORY $<TARGET_FILE_DIR:vectors_tester>)
+#endif(NOT MSVC)
+#add_test(NAME vector_ptr_view_tester
+#         COMMAND vector_ptr_view_tester
+#         WORKING_DIRECTORY $<TARGET_FILE_DIR:vector_ptr_view_tester>)
+#add_test(NAME date_time_tester
+#         COMMAND date_time_tester
+#         WORKING_DIRECTORY $<TARGET_FILE_DIR:date_time_tester>)
+#add_test(NAME gen_rand_tester
+#         COMMAND gen_rand_tester
+#         WORKING_DIRECTORY $<TARGET_FILE_DIR:gen_rand_tester>)
 
 message("-- Copying files for testing")
 # Ctest require this files in the build dir, on all platforms

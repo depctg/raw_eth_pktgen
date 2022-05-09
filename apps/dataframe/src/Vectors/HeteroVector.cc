@@ -44,8 +44,7 @@ HeteroVector::HeteroVector ()  {
 // ----------------------------------------------------------------------------
 
 HeteroVector::HeteroVector (const HeteroVector &that)  { *this = that; }
-HeteroVector::HeteroVector (HeteroVector &&that) noexcept { *this = std::move(that); }
-
+HeteroVector::HeteroVector (HeteroVector &&that) noexcept  { *this = std::move(that); }
 // ----------------------------------------------------------------------------
 
 HeteroVector &HeteroVector::operator= (const HeteroVector &rhs)  {

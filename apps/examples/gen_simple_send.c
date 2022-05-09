@@ -14,6 +14,10 @@ int main(int argc, char * argv[]) {
         exit(1);
     }
 	init(TRANS_TYPE_RC, argv[1]);
-
+    int *ary = (int *) sbuf;
+    for (int i = 0; i < msg_size / 4; ++ i)
+    {
+        ary[i] = i;
+    }
     send(sbuf, msg_size);
 }

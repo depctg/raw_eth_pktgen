@@ -172,8 +172,9 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	return table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset;
 }
 
-void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, size_t l)
+void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s)
 {
+	// printf("tag %" PRIu64 ", lofst %" PRIu64 ", size %" PRIu64 "\n", tag, line_offset, s);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if is a new cache entry or evicted line
@@ -205,18 +206,18 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 			addHot(table->dll, tgt->bptr);
 		}
 		// write to rbuf
-		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, l);
+		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->present = 1;
 	}
 	else
 	{
-		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, l);
+		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->dirty = 1;
+		touch(table->dll, tgt->bptr);
 	}
 	return;
 }
 
-// Write at location addr, size 8B
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
 {
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
@@ -232,17 +233,17 @@ void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf)
 	write_to_CL(table, tag, 0, dat_buf, table->cache_line_size);
 }
 
-void cache_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l)
+void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 {
 	// first cache line tag of addr
 	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
 	// last tag
-	uint64_t ltag = ((addr + l) & table->tag_mask) >> table->tag_shifts;
+	uint64_t ltag = ((addr + s) & table->addr_mask) >> table->tag_shifts;
 	uint64_t written_l = 0;
-
+	// printf("ftag %" PRIu64 ", ltag %" PRIu64 "\n", ftag, ltag);
 	// write first cache line
 	uint64_t line_offset = addr & table->tag_mask;
-	size_t cur_length = min(l-written_l, table->cache_line_size - line_offset);
+	uint64_t cur_length = min(s-written_l, table->cache_line_size - line_offset);
 	write_to_CL(table, ftag, line_offset, (char *)dat_buf + written_l, cur_length);
 	ftag ++;
 	written_l += cur_length;
@@ -251,16 +252,16 @@ void cache_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l)
 	while (ftag <= ltag)
 	{
 		// line offset = 0 for these lines
-		size_t cur_length = min(l-written_l, table->cache_line_size);
+		uint64_t cur_length = min(s-written_l, table->cache_line_size);
 		write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
 		ftag ++;
 	}
 	return;
 }
 
-void remote_write(CacheTable *table, uint64_t tag, void *dat_buf)
+void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, void *dat_buf, uint64_t s)
 {
-	update_sync(dat_buf, tag, table->amba);
+	update_sync(dat_buf, addr, s, table->amba);
 	// create dummy block entry in map
 	HashStruct *tgt = (HashStruct *) malloc(sizeof (HashStruct));
 	tgt->bptr = newBlock(-1, tag, 0, 0);
@@ -268,13 +269,28 @@ void remote_write(CacheTable *table, uint64_t tag, void *dat_buf)
 	HASH_ADD_INT(table->map, tag, tgt);
 }
 
-void remote_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l)
+void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 {
 	// first cache line tag of addr
 	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
 	// last tag
-	uint64_t ltag = ((addr + l) & table->tag_mask) >> table->tag_shifts;
+	uint64_t ltag = ((addr + s) & table->addr_mask) >> table->tag_shifts;
 	uint64_t written_l = 0;
 
-	// write first cache line
+	// write first segment
+	uint64_t line_offset = addr & table->tag_mask;
+	uint64_t cur_length = min(s - written_l, table->cache_line_size - line_offset);
+	_remote_write(table, addr + written_l, ftag, (char *) dat_buf + written_l, cur_length);
+	ftag ++;
+	written_l += cur_length;
+
+	// write rest segments
+	while (ftag <= ltag)
+	{
+		// line offset = 0 for these lines
+		uint64_t cur_length = min(s - written_l, table->cache_line_size);
+		_remote_write(table, addr + written_l, ftag, (char *) dat_buf + written_l, cur_length);
+		ftag ++;
+	}
+	return;
 }

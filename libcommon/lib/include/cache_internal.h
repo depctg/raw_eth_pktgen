@@ -51,7 +51,7 @@ uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 	victim->present = 0;
 	if (victim->dirty) {
 		// printf("Dirty ! Need flush\n");
-		update_sync(table->amba->line_pool + victim->rbuf_offset, victim->tag, table->amba);
+		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba);
 		victim->dirty = 0;
 	}
 	return victim->rbuf_offset;
@@ -199,17 +199,17 @@ void fetch_sync(Block *b, Ambassador *a)
 	ret_sid(a, send_buf_nid);
 }
 
-void update_sync(void *dat_buf, uint64_t tag, Ambassador *a)
+void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a)
 {
 	uint32_t send_buf_nid = get_sid(a);
 	struct req *r = (struct req *) (a->reqs + send_buf_nid * a->req_size);
-	r->addr = tag;
-	r->size = a->cache_line_size;
+	r->addr = addr;
+	r->size = size;
 	r->type = 0;
-	memcpy(r+1, dat_buf, sizeof(char) * a->cache_line_size);
+	memcpy(r+1, dat_buf, size);
 	// send(r, sizeof(struct req));
 	// send(r+1, a->cache_line_size);
-	send(r, a->req_size);
+	send(r, sizeof(struct req) + size);
 	ret_sid(a, send_buf_nid);
 }
 

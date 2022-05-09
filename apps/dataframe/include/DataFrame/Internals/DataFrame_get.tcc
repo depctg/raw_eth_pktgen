@@ -35,6 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <random>
 #include <unordered_set>
 
+#include "vec.hpp"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -158,10 +160,10 @@ get_row(size_type row_num, const std::array<const char *, N> col_names) const {
 
 template<typename I, typename  H>
 template<typename T>
-std::vector<T> DataFrame<I, H>::
+RCacheVector<T> DataFrame<I, H>::
 get_col_unique_values(const char *name) const  {
 
-    const std::vector<T>    &vec = get_column<T>(name);
+    const auto    &vec = get_column<T>(name);
     auto                    hash_func =
         [](std::reference_wrapper<const T> v) -> std::size_t  {
             return(std::hash<T>{}(v.get()));
@@ -177,7 +179,7 @@ get_col_unique_values(const char *name) const  {
         decltype(hash_func),
         decltype(equal_func)>   table(vec.size(), hash_func, equal_func);
     bool                        counted_nan = false;
-    std::vector<T>              result;
+    RCacheVector<T>              result;
 
     result.reserve(vec.size());
     for (auto citer : vec)  {
@@ -225,6 +227,8 @@ template<typename I, typename  H>
 template<typename T, typename V>
 V &DataFrame<I, H>::visit (const char *name, V &visitor)  {
 
+    // TODO: modify all the visitors
+
     auto            &vec = get_column<T>(name);
     const size_type idx_s = indices_.size();
     const size_type min_s = std::min<size_type>(vec.size(), idx_s);
@@ -232,11 +236,11 @@ V &DataFrame<I, H>::visit (const char *name, V &visitor)  {
 
     visitor.pre();
     for (; i < min_s; ++i)
-        visitor (indices_[i], vec[i]);
+        visitor (indices_.at(i), vec.at(i));
     for (; i < idx_s; ++i)  {
         T   nan_val = _get_nan<T>();
 
-        visitor (indices_[i], nan_val);
+        visitor (indices_.at(i), nan_val);
     }
     visitor.post();
 
@@ -743,6 +747,8 @@ template<typename I, typename  H>
 template<typename ... Ts>
 DataFrame<I, H>
 DataFrame<I, H>::get_data_by_idx (Index2D<IndexType> range) const  {
+
+    // TODO: implement iterator
 
     const auto  &lower =
         std::lower_bound (indices_.begin(), indices_.end(), range.begin);

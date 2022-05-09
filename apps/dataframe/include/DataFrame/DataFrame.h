@@ -42,6 +42,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tuple>
 #include <typeindex>
 
+#include <stdexcept>
+#include "vec.hpp"
+
 // ----------------------------------------------------------------------------
 
 namespace hmdf
@@ -96,7 +99,7 @@ private:
     // Data fields
     //
     DataVecVec      data_ { };       // Vector of Heterogeneous vectors
-    IndexVecType    indices_ { };    // Vector
+    IndexVecType    indices_;
     ColumnTable     column_tb_ { };  // Hash table of name -> vector index
 
     inline static SpinLock *lock_ { nullptr };    // It is null by default
@@ -117,7 +120,7 @@ public:  // Load/append/remove interfaces
     //   Type of column being added
     //
     template<typename T>
-    std::vector<T> &
+    RCacheVector<T> &
     create_column(const char *name);
 
     // It removes a column named name.
@@ -186,6 +189,10 @@ public:  // Load/append/remove interfaces
     size_type
     load_index(IndexVecType &&idx);
 
+    template<typename U>
+    size_type
+    load_index(std::vector<U> &&idx) { throw std::runtime_error("orphan"); }
+
     // It copies the data from iterators begin to end to the named column.
     // If column does not exist, it will be created. If the column exists,
     // it will be over written.
@@ -225,8 +232,16 @@ public:  // Load/append/remove interfaces
     template<typename T>
     size_type
     load_column(const char *name,
+                RCacheVector<T> &&data,
+                nan_policy padding = nan_policy::pad_with_nans) { throw std::runtime_error("not supported"); }
+
+    template<typename T>
+    size_type
+    load_column(const char *name,
                 std::vector<T> &&data,
                 nan_policy padding = nan_policy::pad_with_nans);
+
+
 
     template<typename T>
     size_type
@@ -1092,7 +1107,7 @@ public: // Read/access and slicing interfaces
     //   Data type of the named column
     //
     template<typename T>
-    [[nodiscard]] std::vector<T>
+    [[nodiscard]] RCacheVector<T>
     get_col_unique_values(const char *name) const;
 
     // It returns a DataFrame (including the index and data columns)
@@ -2177,7 +2192,7 @@ public:  // Utilities and miscellaneous
     // NOTE: It is the responsibility of the programmer to make sure
     //       IndexType type is big enough to contain the frequency.
     //
-    static std::vector<IndexType>
+    static RCacheVector<IndexType>
     gen_datetime_index(const char *start_datetime,
                        const char *end_datetime,
                        time_frequency t_freq,

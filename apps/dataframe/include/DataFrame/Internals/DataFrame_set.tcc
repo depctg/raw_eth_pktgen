@@ -38,7 +38,7 @@ namespace hmdf
 
 template<typename I, typename  H>
 template<typename T>
-std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
+RCacheVector<T> &DataFrame<I, H>::create_column (const char *name)  {
 
     static_assert(std::is_base_of<HeteroVector, DataVec>::value,
                   "Only a StdDataFrame can call create_column()");
@@ -52,9 +52,10 @@ std::vector<T> &DataFrame<I, H>::create_column (const char *name)  {
 
     DataVec         &hv = data_.back();
     const SpinGuard guard(lock_);
-    std::vector<T>  &vec = hv.template get_vector<T>();
+    RCacheVector<T>  &vec = hv.template get_vector<T>();
 
     // vec.resize(indices_.size(), _get_nan<T>());
+    vec.resize(indices_.size());
     return (vec);
 }
 
@@ -198,7 +199,7 @@ DataFrame<I, H>::load_index(IndexVecType &&idx)  {
 // ----------------------------------------------------------------------------
 
 template<typename I, typename  H>
-std::vector<I> DataFrame<I, H>::
+RCacheVector<I> DataFrame<I, H>::
 gen_datetime_index(const char *start_datetime,
                    const char *end_datetime,
                    time_frequency t_freq,
@@ -209,7 +210,7 @@ gen_datetime_index(const char *start_datetime,
                                      DT_DATE_STYLE::AME_STYLE, tz);
     const DateTime          end_di(end_datetime, DT_DATE_STYLE::AME_STYLE, tz);
     const double            diff = end_di.diff_seconds(start_di);
-    std::vector<IndexType>  index_vec;
+    RCacheVector<IndexType>  index_vec;
 
     switch(t_freq)  {
     case time_frequency::annual:
@@ -339,7 +340,10 @@ load_column (const char *name,
     }
 
     vec_ptr->clear();
-    vec_ptr->insert (vec_ptr->end(), range.begin, range.end);
+    // vec_ptr->insert (vec_ptr->end(), range.begin, range.end);
+    for (auto x = range.begin; x != range.end; ++x) {
+        vec_ptr->push_back(*x);
+    }
 
     size_type   ret_cnt = s;
 
@@ -409,7 +413,7 @@ load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
     }
 
     const auto      iter = column_tb_.find (name);
-    std::vector<T>  *vec_ptr = nullptr;
+    RCacheVector<T>  *vec_ptr = nullptr;
 
     if (iter == column_tb_.end())
         vec_ptr = &(create_column<T>(name));
@@ -420,7 +424,10 @@ load_column (const char *name, std::vector<T> &&data, nan_policy padding)  {
         vec_ptr = &(hv.template get_vector<T>());
     }
 
-    *vec_ptr = std::move(data);
+    // *vec_ptr = std::move(data);
+    for (T& d : data) {
+        vec_ptr->push_back(d);
+    }
     return (ret_cnt);
 }
 

@@ -79,7 +79,7 @@ uint32_t get_sid(Ambassador *a);
 void ret_sid(Ambassador *a, uint32_t sid);
 
 void fetch_sync(Block *b, Ambassador *a);
-void update_sync(void *dat_buf, uint64_t tag, Ambassador *a);
+void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a);
 // not implemented
 send_rel fetch_async(Block *b, Ambassador *a);
 uint64_t update_async(Block *b, Ambassador *a);
@@ -126,23 +126,21 @@ char *cache_access(CacheTable *table, uint64_t addr);
 
 // write to cache line indexed by {tag} 
 // |<---------- cache line size ---------->|
-// | line offset | write {l} size | intact | 
-void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, size_t l);
+// | line offset | write {s} size | intact | 
+void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s);
 
 // write one byte to arbitrary addr
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
 
+// write arbitrary length to arbitrary addr
+void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
+
 // insert one line at tag (start addr of a cache line)
 void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
 
-// write arbitrary length to arbitrary addr
-void cache_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l);
-
-// write one cache line directly to remote
-void remote_write(CacheTable *table, uint64_t tag, void *dat_buf);
-
 // write arbitrary length to remote arbitrary addr
-void remote_update(CacheTable *table, uint64_t addr, void *dat_buf, size_t l);
+// obsence and clean in local
+void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
 
 // prefetch arbitrary length from arbitrary remote addr
 void prefetch(CacheTable *table, uint64_t addr, size_t l);

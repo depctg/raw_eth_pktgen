@@ -10,9 +10,9 @@
 #include <cstdlib>
 #include <fstream>
 
-constexpr static uint64_t batch_size = 4 << 10;
+constexpr static uint64_t batch_size = 1 << 10;
 constexpr static int iter_ahead = 0;
-constexpr static uint64_t iterations = 32;
+constexpr static uint64_t iterations = 64;
 
 static inline void pre_ahead(struct req *r, uint64_t *wr_ids)
 {
@@ -30,7 +30,7 @@ static inline void pre_ahead(struct req *r, uint64_t *wr_ids)
 
 static void do_sth(void *buf)
 {
-  stop_watch<chrono::microseconds>(500);
+  stop_watch<chrono::microseconds>(1);
 }
 
 using namespace std;
@@ -48,7 +48,13 @@ int main(int argc, char **argv)
   const int num_buf = 32;
   uint64_t *wr_ids = (uint64_t *) malloc(sizeof(uint64_t) * num_buf);
   struct req *reqs = (struct req *) sbuf;
-  recv(rbuf, sizeof(struct req));
+
+  for (int i = 0; i < 100; ++i)
+  {
+    send_async(reqs, sizeof(struct req));
+    uint64_t id = recv_async(rbuf, batch_size);
+    poll(id);
+  }
 
   auto start = chrono::steady_clock::now();
   auto p0_start = chrono::high_resolution_clock::now();

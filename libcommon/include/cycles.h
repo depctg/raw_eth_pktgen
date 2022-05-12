@@ -1,7 +1,7 @@
 #ifndef _CYCLES_H_
 #define _CYCLES_H_
 // rdtsc
-const static unsigned CPU_F = 1768;
+const static unsigned CPU_F = 2317;
 
 typedef struct Clock {
 	unsigned low0, high0, low1, high1;
@@ -44,3 +44,5 @@ inline void wait_until_cycles(unsigned long long wc) {
 		if (time_gap(c, start) > wc) break;
 	}
 }
+
+#endif

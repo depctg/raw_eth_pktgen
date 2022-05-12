@@ -15,5 +15,9 @@ int main(int argc, char * argv[]) {
     }
 	init(TRANS_TYPE_RC_SERVER, argv[1]);
 
-    recv(rbuf, msg_size);
+    recv(rbuf, msg_size * 10);
+    for (int i = 0; i < msg_size / 4; ++ i)
+    {
+        printf("%d\n", *((int *)rbuf + i));
+    }
 }

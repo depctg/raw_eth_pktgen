@@ -116,7 +116,7 @@ int init(int type, const char * server_url) {
 	qp_flags = IBV_QP_STATE | IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
 
     qp_attr.qp_state = IBV_QPS_RTR;
-    qp_attr.path_mtu = IBV_MTU_1024;
+    qp_attr.path_mtu = IBV_MTU_4096;
     qp_attr.rq_psn = 0;
     qp_attr.max_dest_rd_atomic = 1;
     qp_attr.min_rnr_timer = 0x12;

@@ -73,8 +73,9 @@ public:
   FreeSlots *slotManager;
   uint64_t max_size;
   uint32_t cache_line_size;
-  uint8_t tag_shifts;
+  uint64_t tag_mask;
   uint64_t addr_mask;
+  uint8_t tag_shifts;
 
   KVS(void* send_buf, uint64_t max_size, uint32_t cache_line_size): 
   cache_line_pool((char*)send_buf), 
@@ -86,7 +87,8 @@ public:
     map.set_empty_key(-1);
     map.set_deleted_key(-2);
     tag_shifts = log2(cache_line_size * sizeof(char));
-    addr_mask = ~(((uint64_t) 1 << tag_shifts) - 1);
+    tag_mask = ((uint64_t) 1 << tag_shifts) - 1;
+    addr_mask = ~(tag_mask);
   }
 
   // uint64_t manual_insert(void *line)
@@ -112,29 +114,33 @@ public:
     // no-copy
     // cout << "Fetch request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
     // print_line(cache_line_pool + map[r->addr]);
-    send(cache_line_pool + map[r->addr], cache_line_size);
+    uint64_t tag = (r->addr & addr_mask) >> tag_shifts;
+    send(cache_line_pool + map[tag], cache_line_size);
   }
 
   void handle_req_update(struct req* r)
   {
-    // print content inline
-    // cout << "Write request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
     // print_line(r+1);
+    uint64_t tag = (r->addr & addr_mask) >> tag_shifts;
+    uint64_t line_offset = (r->addr & tag_mask);
 
     // insert type
-    auto iter = map.find(r->addr);
+    auto iter = map.find(tag);
     if (iter != map.end())
     {
       // update existing
-      memcpy(cache_line_pool + iter->second, /* payload after req*/ r + 1, r->size);
+      memcpy(cache_line_pool + iter->second + line_offset, /* payload after req*/ r + 1, r->size);
     }
     else
     {
-      // insert new 1. request slot 2. memcpy from rbuf to sbuf
+      // insert new 
+      // 1. request slot 2. memcpy from rbuf to sbuf
+      // TODO: SGE to avoid copy
       uint64_t offset = slotManager->claim();
-      memcpy(cache_line_pool + offset, r+1, r->size); 
+      memset(cache_line_pool + offset, 0, cache_line_size);
+      memcpy(cache_line_pool + offset + line_offset, r+1, r->size); 
       // add to map
-      map[r->addr] = offset;
+      map[tag] = offset;
     }
   }
 

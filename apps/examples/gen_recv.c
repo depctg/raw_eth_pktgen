@@ -16,7 +16,7 @@ static inline int app_init() {
     }
 
     printf("Local sum %lld\n", sum);
-
+    
     return 0;
 }
 
@@ -57,7 +57,7 @@ int main(int argc, char * argv[]) {
 
 	while (1) {
         // here we do not want to poll by id, just call ibv_xxx
-        int n = ibv_poll_cq(cq, inflights, wc);
+        int n = poll_cq(cq, inflights, wc);
 
         // process the requests
         for (int i = 0; i < n; i++) {

@@ -5,6 +5,7 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include <algorithm>
 
 #include <stdexcept>
 
@@ -70,6 +71,10 @@ class RCacheVector {
     uint64_t where_offset(uint64_t i) {
         auto [chunk_idx, chunk_offset] = which_chunk(i);
         return chunk_idx * ctable->cache_line_size + chunk_offset*_data_size;
+    }
+
+    uint64_t last_chunk() {
+        return which_chunk(_size-1).first;
     }
 
    public:
@@ -190,8 +195,8 @@ class RCacheVector {
     // void disable_prefetch();
     // void enable_prefetch();
     void prefetch(Index_t i, uint64_t n) {
-        auto chunk_idx = which_chunk(i).first;
-        auto chunk_idx_end = which_chunk(i+n-1).first;
+        auto chunk_idx = std::min(last_chunk(), which_chunk(i).first);
+        auto chunk_idx_end = std::min(last_chunk(), which_chunk(i+n-1).first);
 
         for (auto c = chunk_idx; c <= chunk_idx_end; ++c) {
             cache_prefetch(ctable, _offset+c*ctable->cache_line_size);

@@ -125,8 +125,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	table->accesses += 1;
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-	printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
-	hashPrint(table->map);
+	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
+	// hashPrint(table->map);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch

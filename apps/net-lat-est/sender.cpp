@@ -5,7 +5,7 @@
 #include <memory>
 #include <cstdlib>
 
-constexpr static uint64_t packet_size = 8 << 20;
+constexpr static uint64_t packet_size = 2 << 20;
 constexpr static uint64_t num_iter = 100;
 
 using namespace std;
@@ -15,7 +15,7 @@ int main(int argc, char **argv)
   init(TRANS_TYPE_RC, argv[1]);
   uint64_t total_lat = 0;
   uint64_t *lats = (uint64_t *) malloc(num_iter * sizeof(uint64_t));
-  const uint64_t num_buf = 256;
+  const uint64_t num_buf = 128;
   struct req *reqs = (struct req *) sbuf;
 
   // pre-heat

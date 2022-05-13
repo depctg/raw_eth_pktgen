@@ -7,7 +7,7 @@
 #include "app.h"
 
 int main(int argc, char * argv[]) {
-    int msg_size = 16;
+    int msg_size = 256 << 10;
     if (argc != 2) {
         printf("Usage: %s <connection-key\n", argv[0]);
         return 1;

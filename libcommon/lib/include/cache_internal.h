@@ -209,7 +209,7 @@ void fetch_sync(uint64_t addr, uint64_t rbuf_offset, Ambassador *a)
 	r->addr = addr;
 	r->size = a->cache_line_size;
 	r->type = 1;
-	send(r, sizeof(struct req));
+	send(r, a->req_size);
 	recv(a->line_pool + rbuf_offset, a->cache_line_size);
 	ret_sid(a, send_buf_nid);
 }
@@ -224,7 +224,7 @@ void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a)
 	memcpy(r+1, dat_buf, size);
 	// send(r, sizeof(struct req));
 	// send(r+1, a->cache_line_size);
-	send(r, sizeof(struct req) + size);
+	send(r, a->req_size);
 	ret_sid(a, send_buf_nid);
 }
 

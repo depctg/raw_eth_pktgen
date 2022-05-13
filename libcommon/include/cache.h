@@ -150,7 +150,7 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 // pending cache lines will never be evicted
 // will be evictable after accessed once
 // TODO: use another thread to deal with polling
-void prefetch(CacheTable *table, uint64_t addr /* start address of a cache line */);
+void cache_prefetch(CacheTable *table, uint64_t addr /* start address of a cache line */);
 
 #ifdef __cplusplus
 }

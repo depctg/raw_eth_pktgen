@@ -173,10 +173,6 @@ class RCacheVector {
     const T back() { return nth_element(_size-1); }
     T at(uint64_t i) { return nth_element(i); }
 
-    // T& operator[](int i) {
-        // throw std::runtime_error("not supported");
-    // }
-
     // the only mutator
     void update(uint64_t i, T&& t) {
         if (i >= _size) throw std::runtime_error("update out of index");
@@ -193,8 +189,13 @@ class RCacheVector {
 
     // void disable_prefetch();
     // void enable_prefetch();
-    void prefetch(Index_t start, Index_t num) {
+    void prefetch(Index_t i, uint64_t n) {
+        auto chunk_idx = which_chunk(i).first;
+        auto chunk_idx_end = which_chunk(i+n-1).first;
 
+        for (auto c = chunk_idx; c <= chunk_idx_end; ++c) {
+            cache_prefetch(ctable, _offset+c*ctable->cache_line_size);
+        }
     }
 };
 

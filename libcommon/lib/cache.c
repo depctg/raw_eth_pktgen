@@ -74,6 +74,7 @@ CacheTable *createCacheTable(
 
 void hashPrint(HashStruct *hs)
 {
+	return;
 	HashStruct *cur;
 	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
 			printf("tag %d, present %d\n" , cur->tag, cur->bptr->present);
@@ -125,7 +126,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	table->accesses += 1;
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-	printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
+	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
 	hashPrint(table->map);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
@@ -338,7 +339,7 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 
 // dont call two same prefetches twice
 // the overlapped pre-fetch will be cancelled
-void prefetch(CacheTable *table, uint64_t addr)
+void cache_prefetch(CacheTable *table, uint64_t addr)
 {
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	HashStruct *tgt;

@@ -1770,6 +1770,16 @@ public:  // Visitors
                (name1, name2, visitor));
     }
 
+    template<typename T1, typename T2, typename V>
+    V &
+    visit_prefetch(const char *name1, const char *name2, V &visitor, uint64_t prefetch_size);
+
+    template<typename T1, typename T2, typename V>
+    V &
+    visit_prefetch(const char *name1, const char * name2, V &visitor, uint64_t prefetch_size) const  {
+        return(const_cast<DataFrame *>(this)->visit_prefetch<T1, T2, V>(name1, name2, visitor, prefetch_size));
+    }
+
     // These are identical to above visit() but could execute asynchronously.
     // NOTE: It should be safe to run multiple visits on different columns
     //       at the same time (as long as the index column is not being
@@ -2226,7 +2236,7 @@ public:  // Utilities and miscellaneous
     // increment:
     //   Increment by value
     //
-    static std::vector<IndexType>
+    static RCacheVector<IndexType>
     gen_sequence_index(const IndexType &start_value,
                        const IndexType &end_value,
                        long increment = 1);

@@ -3,32 +3,30 @@
 #include <DataFrame/RandGen.h>
 
 #include <iostream>
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
+#include <string>
 #include <map>
 #include <memory>
-#include <string>
 #include <getopt.h>
 
 #include "common.h"
 #include "cache.h"
 #include "vec.hpp"
 
-static uint64_t max_size = (480 << 20);
-static uint32_t cache_line_size = 8192;
-
 using namespace hmdf;
 
-typedef StdDataFrame<time_t> MyDataFrame;
+typedef StdDataFrame<uint64_t> MyDataFrame;
 
 static struct option long_options[] = {
     {"addr", required_argument, 0, 0},
-    {"prefetch_size", required_argument, 0, 0},
+    {"cache_size", required_argument, 0, 0},
+    {"cache_line_size", required_argument, 0, 0},
+    {"prefetch_n", required_argument, 0, 0},
+    {"index_size", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
 
@@ -36,6 +34,9 @@ int main(int argc, char * argv[])
 {
     char * addr = 0;
     uint64_t prefetch_size = 0;
+    uint64_t cache_line_size = 8192;
+    uint32_t cache_size = (480 << 20);
+    uint64_t index_size = 100;
 
     int opt= 0, long_index =0;
     while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
@@ -44,13 +45,16 @@ int main(int argc, char * argv[])
                 addr = optarg;
                 break;
             case 1:
-                prefetch_size = atoll(optarg);
+                cache_size = atoll(optarg);
                 break;
             case 2:
+                cache_line_size = atoll(optarg);
                 break;
             case 3:
+                prefetch_size = atoll(optarg);
                 break;
             case 4:
+                index_size = atoll(optarg);
                 break;
             default:
                 return -1;
@@ -59,84 +63,107 @@ int main(int argc, char * argv[])
 
     if (!addr) return -1;
 
-    auto kCacheSize = max_size;
-    auto kCacheLineSize = cache_line_size;
     init(TRANS_TYPE_RC, addr);
 
-    MyDataFrame::set_thread_level(1);
-
-    CacheTable *cache = createCacheTable(kCacheSize, kCacheLineSize, sbuf, rbuf);
+    CacheTable *cache = createCacheTable(cache_size, cache_line_size, sbuf, rbuf);
     RCacheVector_init_cache_table(cache);
 
-    MyDataFrame             df;
+    MyDataFrame::set_thread_level(1);
+    MyDataFrame df;
 
-    const size_t            index_sz =
-        df.load_index(
-            MyDataFrame::gen_datetime_index("01/01/1970",
-                                            "01/02/1970",
-                                            time_frequency::secondly,
-                                            1));
-    RandGenParams<double>   p;
+    const size_t index_sz = df.load_index(MyDataFrame::gen_sequence_index(0, index_size));
 
+    const char * col_data = "data", * col_data2 = "data2";
+    RandGenParams<double> p;
     p.mean = 1.0;  // Default
     p.std = 0.005;
+    df.load_column(col_data, gen_normal_dist<double>(index_sz, p));
+    p.mean = 2.0;
+    p.std = 0.003;
+    df.load_column(col_data2, gen_normal_dist<double>(index_sz, p));
+    // df.load_column("normal", gen_normal_dist<double>(index_sz, p));
+    // df.load_column("log_normal", gen_lognormal_dist<double>(index_sz));
+    // p.lambda = 1.5;
+    // df.load_column("exponential", gen_exponential_dist<double>(index_sz, p));
 
-    df.load_column("normal", gen_normal_dist<double>(index_sz, p));
-    df.load_column("log_normal", gen_lognormal_dist<double>(index_sz));
-    p.lambda = 1.5;
-    df.load_column("exponential", gen_exponential_dist<double>(index_sz, p));
+    std::cout << "Memory allocations done" << std::endl;
 
-    std::cout << "All memory allocations are done. Calculating means ..."
-              << std::endl;
+    // single col
+    MeanVisitor<double, uint64_t> v_mean; // uses 3 local var
+    NLargestVisitor<5, double> v_5nl; // uses std::array
+    StatsVisitor<double> v_stats, v_warmup; // uses 6 local var
 
-    MeanVisitor<double, time_t> n_mv;
-    MeanVisitor<double, time_t> ln_mv;
-    MeanVisitor<double, time_t> e_mv;
+    // double col
+    SLRegressionVisitor<double> v_slr; // uses 2 stats visitor
+    DotProdVisitor<double> v_dotp;
 
-    // doesn't work due to clone()
-    // auto    fut1 = df.visit_async<double>("normal", n_mv);
-    // auto    fut2 = df.visit_async<double>("log_normal", ln_mv);
-    // auto    fut3 = df.visit_async<double>("exponential", e_mv);
-    // fut1.get();
-    // fut2.get();
-    // fut3.get();
-
-    // auto    fut1 = df.visit<double>("normal", n_mv);
-    // auto    fut2 = df.visit<double>("log_normal", ln_mv);
-    // auto    fut3 = df.visit<double>("exponential", e_mv);
-
-    std::vector<std::chrono::time_point<std::chrono::steady_clock>> times();
-
-    if (prefetch) {
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut1 = df.visit_prefetch<double>("normal", n_mv, prefetch_size);
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut2 = df.visit_prefetch<double>("log_normal", ln_mv, prefetch_size);
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut3 = df.visit_prefetch<double>("exponential", e_mv, prefetch_size);
-        times.emplace(std::chrono::steady_clock::now());
-    } else {
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut1 = df.visit<double>("normal", n_mv);
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut2 = df.visit<double>("log_normal", ln_mv);
-        times.emplace(std::chrono::steady_clock::now());
-        auto    fut3 = df.visit<double>("exponential", e_mv);
-        times.emplace(std::chrono::steady_clock::now());
+    {
+        int warmup = 3;
+        while (warmup--) df.visit<double>(col_data, v_warmup);
     }
-    // std::cout << "Normal mean " << n_mv.get_result() << std::endl;
-    // std::cout << "Log Normal mean " << ln_mv.get_result() << std::endl;
-    // std::cout << "Exponential mean " << e_mv.get_result() << std::endl;
 
+    std::vector<std::pair<std::chrono::time_point<std::chrono::steady_clock>, std::string>> times;
 
-    for (uint32_t i = 1; i < std::size(times); i++) {
-        std::cout << "Step " << i << ": "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(times[i] - times[i - 1])
+    times.emplace_back(std::chrono::steady_clock::now(), "mean");
+    df.visit<double>(col_data, v_mean);
+    times.emplace_back(std::chrono::steady_clock::now(), "mean");
+
+    times.emplace_back(std::chrono::steady_clock::now(), "5nl");
+    df.visit<double>(col_data, v_5nl);
+    times.emplace_back(std::chrono::steady_clock::now(), "5nl");
+
+    times.emplace_back(std::chrono::steady_clock::now(), "stats");
+    df.visit<double>(col_data, v_stats);
+    times.emplace_back(std::chrono::steady_clock::now(), "stats");
+
+    times.emplace_back(std::chrono::steady_clock::now(), "slr");
+    df.visit<double, double>(col_data, col_data2, v_slr);
+    times.emplace_back(std::chrono::steady_clock::now(), "slr");
+
+    times.emplace_back(std::chrono::steady_clock::now(), "dotp");
+    df.visit<double, double>(col_data, col_data2, v_dotp);
+    times.emplace_back(std::chrono::steady_clock::now(), "dotp");
+
+    if (prefetch_size) {
+        // single col
+        MeanVisitor<double, uint64_t> v_mean; // uses 3 local var
+        NLargestVisitor<5, double> v_5nl; // uses std::array
+        StatsVisitor<double> v_stats, v_warmup; // uses 6 local var
+
+        // double col
+        SLRegressionVisitor<double> v_slr; // uses 2 stats visitor
+        DotProdVisitor<double> v_dotp;
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p mean");
+        df.visit_prefetch<double>(col_data, v_mean, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p mean");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p 5nl");
+        df.visit_prefetch<double>(col_data, v_5nl, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p 5nl");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p stats");
+        df.visit_prefetch<double>(col_data, v_stats, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p stats");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
+        df.visit_prefetch<double, double>(col_data, col_data2, v_slr, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p dotp");
+        df.visit_prefetch<double, double>(col_data, col_data2, v_dotp, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p dotp");
+    }
+
+    for (uint32_t i = 1; i < std::size(times); i+=2) {
+        std::cout << "Step " << times[i].second << ": "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(times[i].first - times[i - 1].first)
                          .count()
                   << " us" << std::endl;
     }
+
     std::cout << "Total: "
-              << std::chrono::duration_cast<std::chrono::microseconds>(times.back() - times.front()).count()
+              << std::chrono::duration_cast<std::chrono::microseconds>(times.back().first - times.front().first).count()
               << " us" << std::endl;
 
 

@@ -87,6 +87,22 @@ void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a);
 uint64_t fetch_async(uint64_t addr, uint64_t rbuf_offset, Ambassador *a, uint32_t *sid);
 // void update_async(Block *b, Ambassador *a);
 
+typedef struct AwaitBlock
+{
+	Block *b;
+	struct AwaitBlock *next;
+} AwaitBlock;
+
+typedef struct Inflights
+{
+	AwaitBlock *head, *tail;
+} Inflights;
+
+Inflights *initAwaits();
+// register block to sll
+void awaitFetch(Inflights *ins, Block *b);
+// poll awaiting prefetches
+void pollAwait(Inflights *ins, BlockDLL *dll, Ambassador *a);
 
 typedef struct CacheTable
 {
@@ -97,6 +113,7 @@ typedef struct CacheTable
 	uint64_t accesses;
 
 	Ambassador *amba;
+	Inflights *ins;
 
 	uint32_t cache_line_size;
 	uint8_t tag_shifts;
@@ -146,9 +163,11 @@ void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
 void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
 
 // prefetch arbitrary cache line
-// will overwrite if locally present
 // pending cache lines will never be evicted
-// will be evictable after accessed once
+// and will be evictable after accessed once
+
+// the overlapped pre-fetch will be cancelled
+// if is locally available, no pf will be performed
 // TODO: use another thread to deal with polling
 void prefetch(CacheTable *table, uint64_t addr /* start address of a cache line */);
 

@@ -65,6 +65,7 @@ CacheTable *createCacheTable(
 	cache->misses = 0;
 
 	cache->amba = newAmbassador(128, cache_line_size, req_buffer, recv_buffer);
+	cache->ins = initAwaits();
 
 	cache->map = NULL;
 	cache->dll = initBlockDLL();
@@ -91,18 +92,6 @@ void linePrint(char *line, uint32_t cache_line_size)
 	printf("end-----\n");
 }
 
-void dllPrint(Block *head)
-{
-	Block *cur = head;
-	printf("DLL: ");
-	while (cur)
-	{
-		printf("%" PRIu64 " ", cur->tag);
-		cur = cur->next;
-	}
-	printf("\n");
-}
-
 // Access virtual address {addr}
 // addr:
 // |  tag (64-L)b | LOFST (L)b  |
@@ -127,6 +116,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
 	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
 	// hashPrint(table->map);
+	// dllPrint(table->dll->head);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
@@ -156,6 +146,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			tgt->bptr->rbuf_offset = rbuf_offset;
 			tgt->bptr->dirty = 0;
 			// touch -> hot
+			// if (table->dll->tail)
+			// 	printf("%" PRIu64 "\n", table->dll->tail->tag);
 			addHot(table->dll, tgt->bptr);
 		}
 		fetch_sync(tag << table->tag_shifts, rbuf_offset, table->amba);
@@ -336,10 +328,10 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	return;
 }
 
-// dont call two same prefetches twice
-// the overlapped pre-fetch will be cancelled
 void prefetch(CacheTable *table, uint64_t addr)
 {
+	// poll previous prefetch if any
+	pollAwait(table->ins, table->dll, table->amba);
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
@@ -354,24 +346,41 @@ void prefetch(CacheTable *table, uint64_t addr)
 		uint64_t wr_id = fetch_async(addr, rbuf_offset, table->amba, &sid);
 		if (tgt == NULL)
 		{
-			memset(table->amba->line_pool + rbuf_offset, 0, sizeof(char) * table->cache_line_size);
+			// if not recorded ever
 			tgt = (HashStruct *) malloc(sizeof(HashStruct));
 			tgt->bptr = newBlock(rbuf_offset, tag, 1, 0, wr_id, sid);
+			tgt->tag = (int) tag;
+			HASH_ADD_INT(table->map, tag, tgt);
 		}
 		else
 		{
+			// if not at local
 			tgt->bptr->rbuf_offset = rbuf_offset;
 			tgt->bptr->present = 1;
 			tgt->bptr->wr_id = wr_id;
 			tgt->bptr->sid = sid;
 		}
+		awaitFetch(table->ins, tgt->bptr);
+		// printf("Prefetch tag: %" PRIu64 ", wr_id%" PRIu64 "\n", tag, wr_id);
 	}
 	else
 	{
-		uint32_t sid;
-		uint64_t wr_id = fetch_async(addr, tgt->bptr->rbuf_offset, table->amba, &sid);
-		tgt->bptr->wr_id = wr_id;
-		tgt->bptr->sid = sid;
-		protect(table->dll, tgt->bptr);
+		// if is overlapped pf, will never happen because
+		// we poll the pending at the beginning
+		// but let's wait anyway
+		if (tgt->bptr->wr_id != -1 && tgt->bptr->sid != -1) {
+			pollAwait(table->ins, table->dll, table->amba);
+			return;
+		}
+
+		// locally available but overwrite
+		// uint32_t sid;
+		// uint64_t wr_id = fetch_async(addr, tgt->bptr->rbuf_offset, table->amba, &sid);
+		// tgt->bptr->wr_id = wr_id;
+		// tgt->bptr->sid = sid;
+		// protect(table->dll, tgt->bptr);
+
+		// locally available but not overwrite
+		touch(table->dll, tgt->bptr);
 	}
 }

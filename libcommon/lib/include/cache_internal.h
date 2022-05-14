@@ -37,6 +37,18 @@ BlockDLL *initBlockDLL()
 	return d;
 }
 
+void dllPrint(Block *head)
+{
+	Block *cur = head;
+	printf("DLL: ");
+	while (cur)
+	{
+		printf("%" PRIu64 " ", cur->tag);
+		cur = cur->next;
+	}
+	printf("\n");
+}
+
 uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 {
 	if (!dll->tail) {
@@ -56,6 +68,9 @@ uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba);
 		victim->dirty = 0;
 	}
+	// printf("Evict: %" PRIu64 ", get %" PRIu64 "\n", victim->tag, victim->rbuf_offset);
+	victim->prev = NULL;
+	victim->next = NULL;
 	return victim->rbuf_offset;
 }
 
@@ -204,6 +219,7 @@ void ret_sid(Ambassador *a, uint32_t sid)
 
 void fetch_sync(uint64_t addr, uint64_t rbuf_offset, Ambassador *a)
 {
+	// printf("Fetch addr: %" PRIu64 "\n", addr);
 	uint32_t send_buf_nid = get_sid(a);
 	struct req *r = (struct req *) (a->reqs + send_buf_nid * a->req_size);
 	r->addr = addr;
@@ -237,6 +253,57 @@ uint64_t fetch_async(uint64_t addr, uint64_t rbuf_offset, Ambassador *a, uint32_
 	r->type = 1;
 	send_async(r, sizeof(struct req));
 	return recv_async(a->line_pool + rbuf_offset, a->cache_line_size);
+}
+
+Inflights *initAwaits()
+{
+	Inflights *ins = (Inflights *) malloc(sizeof(Inflights));
+	ins->head = ins->tail = NULL;
+	return ins;
+}
+
+void awaitFetch(Inflights *ins, Block *b)
+{
+	AwaitBlock *ab = (AwaitBlock *) malloc(sizeof(AwaitBlock));
+	ab->b = b;
+	ab->next = NULL;
+
+	if (ins->tail == NULL)
+	{
+		ins->head = ins->tail = ab;
+		return;
+	}
+	ins->tail->next = ab;
+	ins->tail = ab;
+}
+
+void pollAwait(Inflights *ins, BlockDLL *dll, Ambassador *a)
+{
+	// if no awaiting fetches
+	if (ins->head == NULL)
+		return;
+
+	AwaitBlock *tmp;
+	while (ins->head != NULL)
+	{
+		AwaitBlock *cur = ins->head;
+		Block *b = cur->b;
+		if (b->wr_id != -1 && b->sid != -1)
+		{
+			// polling prefetch
+			// printf("Polling tag: %" PRIu64 "\n", b->tag);
+			poll(b->wr_id);
+			ret_sid(a, b->sid);
+			b->dirty = 0;
+			b->wr_id = -1;
+			b->sid = -1;
+			addHot(dll, b);
+		}
+		tmp = cur->next;
+		free(cur);
+		ins->head = tmp;
+	}
+	ins->tail = NULL;
 }
 
 #ifdef __cplusplus

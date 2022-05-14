@@ -9,7 +9,7 @@ using namespace std;
 
 constexpr static uint64_t max_size = 256 << 20;
 constexpr static uint64_t array_size = 1 << 20;
-constexpr static uint32_t cache_line_size = 2<<20;
+constexpr static uint32_t cache_line_size = 4 << 10;
 
 // data resides in sbuf for non-copy
 void app_init(KVS *kvs)
@@ -48,7 +48,7 @@ int main(int argc, char * argv[])
   // }
 
   // notify start
-  send((char *)sbuf + max_size + sizeof(uint64_t), cache_line_size);
+  send((char *)sbuf, cache_line_size);
   
   size_t req_size = sizeof(struct req) + cache_line_size;
 

@@ -15,3 +15,15 @@ cache_exp_remoteKVS () {
 cache_exp_access () {
     sudo stdbuf -o0 ./$1 tcp://localhost:$2
 }
+
+shm_recv() {
+    numactl -N 0 -m 0 ./$1 $2
+}
+
+shm_send() {
+    stdbuf -o0 numactl -N 0 -m 0 ./$1 $2
+}
+
+shm_exec() {
+    numactl -N 0 -m 0 ./common-shm-executor $1
+}

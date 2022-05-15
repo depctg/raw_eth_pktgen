@@ -7,17 +7,17 @@
 
 using namespace std;
 
-static uint64_t max_size = 256 << 20;
-static uint32_t cache_line_size = 8192;
-static uint32_t ary_size = 8 << 20;
+constexpr static uint64_t max_size = 256 << 20;
+constexpr static uint64_t array_size = 1 << 20;
+constexpr static uint32_t cache_line_size = 4 << 10;
 
 // data resides in sbuf for non-copy
-void app_init(KVS *kvs, uint32_t ary_size)
+void app_init(KVS *kvs)
 {
   // manutal insertion
-  uint64_t *dummy = new (kvs->cache_line_pool) uint64_t[ary_size];
+  uint64_t *dummy = new (kvs->cache_line_pool) uint64_t[array_size];
   const uint32_t item_perline = cache_line_size * sizeof(char) / sizeof(uint64_t);
-  const size_t num_lines = ary_size / item_perline;
+  const size_t num_lines = array_size / item_perline;
   for (size_t i = 0; i < num_lines; i++)
   {
     for (uint32_t j = 0; j < item_perline; j++)
@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
 	init(TRANS_TYPE_RC_SERVER, argv[1]);
   cout << "Start processing requests" << endl;
   KVS *kvs = new KVS(sbuf, max_size, cache_line_size);
-  app_init(kvs, ary_size);
+  app_init(kvs);
 
   // cout << "In pool" << endl;
   // for (size_t i = 0; i < ary_size; ++i)
@@ -48,22 +48,22 @@ int main(int argc, char * argv[])
   // }
 
   // notify start
-  send((char *)sbuf + max_size + sizeof(uint64_t), 1);
-  // vanilla req-response 
+  send((char *)sbuf, cache_line_size);
+  
+  size_t req_size = sizeof(struct req) + cache_line_size;
+
   while (1)
   {
-    recv(rbuf, sizeof(struct req) + cache_line_size);
+    recv(rbuf, req_size);
     struct req *r = (struct req *) rbuf;
-    // cout << "Req: " << r->addr << " " << r->size << " " << r->type << endl;
+    // const char *type = r->type == 1 ? "Fetch" : "Update";
+    // cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
 
     // if fetch type
     if (r->type) 
-    {
       kvs->handle_req_fetch(r);
-    }
     else
     {
-      // recv playload
       kvs->handle_req_update(r);
     }
   }

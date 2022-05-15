@@ -99,10 +99,10 @@ public:
   //   return offset;
   // }
 
-  void print_line(void *line)
+  void print_line(void *line, size_t length)
   {
     uint64_t *u64l = (uint64_t *) line;
-    for (uint8_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++i)
+    for (uint8_t i = 0; i < length * sizeof(char) / sizeof(uint64_t); ++i)
     {
       cout << u64l[i] << " ";
     }
@@ -113,8 +113,8 @@ public:
   {
     // no-copy
     // cout << "Fetch request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
-    // print_line(cache_line_pool + map[r->addr]);
     uint64_t tag = (r->addr & addr_mask) >> tag_shifts;
+    // print_line(cache_line_pool + map[tag], 24);
     send(cache_line_pool + map[tag], cache_line_size);
   }
 

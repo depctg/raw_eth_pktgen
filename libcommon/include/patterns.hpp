@@ -61,6 +61,9 @@ vector<size_t> gen_access_pattern_normal(size_t n_access, size_t array_size,
   return pattern;
 }
 
+// vector<size_t> gen_access_pattern_stride_tile(size_t n_access, size_t stride, size_t tile_size) {
+// }
+
 
 #define  FALSE          0       // Boolean false
 #define  TRUE           1       // Boolean true

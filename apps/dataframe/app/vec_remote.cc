@@ -43,7 +43,6 @@ int main(int argc, char * argv[])
                 return -1;
         }
     }
-
     if (!addr) return -1;
 
   init(TRANS_TYPE_RC_SERVER, addr);

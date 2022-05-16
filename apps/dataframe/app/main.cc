@@ -65,6 +65,8 @@ int main(int argc, char * argv[])
 
     init(TRANS_TYPE_RC, addr);
 
+    std::cout << "Connected. Prepare data" << std::endl;
+
     CacheTable *cache = createCacheTable(cache_size, cache_line_size, sbuf, rbuf);
     RCacheVector_init_cache_table(cache);
 
@@ -86,7 +88,7 @@ int main(int argc, char * argv[])
     // p.lambda = 1.5;
     // df.load_column("exponential", gen_exponential_dist<double>(index_sz, p));
 
-    std::cout << "Memory allocations done" << std::endl;
+    std::cout << "Memory allocation bytes: " << index_sz * 2 * sizeof(double) << std::endl;
 
     // single col
     MeanVisitor<double, uint64_t> v_mean; // uses 3 local var
@@ -104,36 +106,7 @@ int main(int argc, char * argv[])
 
     std::vector<std::pair<std::chrono::time_point<std::chrono::steady_clock>, std::string>> times;
 
-    times.emplace_back(std::chrono::steady_clock::now(), "mean");
-    df.visit<double>(col_data, v_mean);
-    times.emplace_back(std::chrono::steady_clock::now(), "mean");
-
-    times.emplace_back(std::chrono::steady_clock::now(), "5nl");
-    df.visit<double>(col_data, v_5nl);
-    times.emplace_back(std::chrono::steady_clock::now(), "5nl");
-
-    times.emplace_back(std::chrono::steady_clock::now(), "stats");
-    df.visit<double>(col_data, v_stats);
-    times.emplace_back(std::chrono::steady_clock::now(), "stats");
-
-    times.emplace_back(std::chrono::steady_clock::now(), "slr");
-    df.visit<double, double>(col_data, col_data2, v_slr);
-    times.emplace_back(std::chrono::steady_clock::now(), "slr");
-
-    times.emplace_back(std::chrono::steady_clock::now(), "dotp");
-    df.visit<double, double>(col_data, col_data2, v_dotp);
-    times.emplace_back(std::chrono::steady_clock::now(), "dotp");
-
     if (prefetch_size) {
-        // single col
-        MeanVisitor<double, uint64_t> v_mean; // uses 3 local var
-        NLargestVisitor<5, double> v_5nl; // uses std::array
-        StatsVisitor<double> v_stats, v_warmup; // uses 6 local var
-
-        // double col
-        SLRegressionVisitor<double> v_slr; // uses 2 stats visitor
-        DotProdVisitor<double> v_dotp;
-
         times.emplace_back(std::chrono::steady_clock::now(), "p mean");
         df.visit_prefetch<double>(col_data, v_mean, prefetch_size);
         times.emplace_back(std::chrono::steady_clock::now(), "p mean");
@@ -146,21 +119,44 @@ int main(int argc, char * argv[])
         df.visit_prefetch<double>(col_data, v_stats, prefetch_size);
         times.emplace_back(std::chrono::steady_clock::now(), "p stats");
 
-        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
-        df.visit_prefetch<double, double>(col_data, col_data2, v_slr, prefetch_size);
-        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
-
         times.emplace_back(std::chrono::steady_clock::now(), "p dotp");
         df.visit_prefetch<double, double>(col_data, col_data2, v_dotp, prefetch_size);
         times.emplace_back(std::chrono::steady_clock::now(), "p dotp");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
+        df.visit_prefetch<double, double>(col_data, col_data2, v_slr, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "p slr");
+    } else {
+        times.emplace_back(std::chrono::steady_clock::now(), "mean");
+        df.visit<double>(col_data, v_mean);
+        times.emplace_back(std::chrono::steady_clock::now(), "mean");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "5nl");
+        df.visit<double>(col_data, v_5nl);
+        times.emplace_back(std::chrono::steady_clock::now(), "5nl");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "stats");
+        df.visit<double>(col_data, v_stats);
+        times.emplace_back(std::chrono::steady_clock::now(), "stats");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "dotp");
+        df.visit<double, double>(col_data, col_data2, v_dotp);
+        times.emplace_back(std::chrono::steady_clock::now(), "dotp");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "slr");
+        df.visit<double, double>(col_data, col_data2, v_slr);
+        times.emplace_back(std::chrono::steady_clock::now(), "slr");
     }
 
+    std::cerr << prefetch_size;
     for (uint32_t i = 1; i < std::size(times); i+=2) {
-        std::cout << "Step " << times[i].second << ": "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(times[i].first - times[i - 1].first)
-                         .count()
+        auto p = std::chrono::duration_cast<std::chrono::microseconds>(times[i].first - times[i - 1].first).count();
+        std::cout << times[i].second << ": "
+                  << p
                   << " us" << std::endl;
+        std::cerr << "\t" << p;
     }
+    std::cerr << std::endl;
 
     std::cout << "Total: "
               << std::chrono::duration_cast<std::chrono::microseconds>(times.back().first - times.front().first).count()

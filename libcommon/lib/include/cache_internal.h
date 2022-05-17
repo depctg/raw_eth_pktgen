@@ -51,7 +51,10 @@ void dllPrint(Block *head)
 
 uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 {
+	// first poll pending prefetch if any
+	pollAwait(table->ins, dll, table->amba);
 	if (!dll->tail) {
+		// victim list is empty but need eviction
 		fprintf(stderr, "Eviction of empty cache pool\n");
 		exit(1);
 	}

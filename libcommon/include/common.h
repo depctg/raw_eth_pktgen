@@ -18,17 +18,17 @@ extern "C" {
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 2
-#define DEVICE_NAME "mlx5_0"
+#define DEVICE_NAME "mlx5_1"
 #define DEVICE_GID 3
 #define PORT_NUM 1
 
-#define CQ_NUM_DESC 64
+#define CQ_NUM_DESC 128
 
 /* size for local buffers, 512M */
-#define SEND_BUF_SIZE 1024 * 1024 * 512
-#define RECV_BUF_SIZE 1024 * 1024 * 512
+#define SEND_BUF_SIZE (512 << 20)
+#define RECV_BUF_SIZE (512 << 20)
 
-#define MAX_POLL 64
+#define MAX_POLL 128
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)

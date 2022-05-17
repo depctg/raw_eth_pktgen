@@ -4,7 +4,7 @@
 #include "greeting.h"
 #include <memory>
 
-constexpr static uint64_t packet_size = 8 << 20;
+constexpr static uint64_t packet_size = 4194304;
 using namespace std;
 
 int main(int argc, char **argv)

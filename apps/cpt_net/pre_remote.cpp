@@ -7,9 +7,9 @@
 
 using namespace std;
 
-constexpr uint64_t kNumEntries = 64 << 20;
-constexpr uint64_t batch_size = 4 << 10;
-constexpr uint64_t net_lat = 0; /*us*/
+constexpr static uint64_t kNumEntries = 32 << 20;
+constexpr static uint64_t batch_size = 512;
+constexpr static uint64_t net_lat = 0; /*us*/
 
 static std::chrono::time_point<std::chrono::steady_clock> timebase;
 
@@ -48,6 +48,8 @@ int main(int argc, char **argv)
 
   struct req *reqs = (struct req *) rbuf;
 
+  // notify
+  send(sbuf, sizeof(struct req));
 
   for (int i = 0; i < inflights; i++)
     recv_async(reqs + i, sizeof(struct req));
@@ -62,6 +64,8 @@ int main(int argc, char **argv)
       {
         int idx = (poll_recvs ++) % max_recvs;
         struct req *r = reqs + idx;
+        // const char *type = r->type == 1 ? "Fetch" : "Update";
+        // cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
         send_async((char *) sbuf + r->addr, r->size);
       }
     }

@@ -7,10 +7,10 @@
 #include "clock.hpp"
 #include <assert.h>
 
-constexpr static uint64_t max_size = 4 << 20;
-constexpr static uint64_t array_size = 1 << 20;
-constexpr static uint32_t cache_line_size = 4 << 10;
-constexpr static uint64_t num_access_times = 2 << 20;
+constexpr static uint64_t max_size = 1 << 11;
+constexpr static uint64_t array_size = 1 << 10;
+constexpr static uint32_t cache_line_size = 1 << 8;
+constexpr static uint64_t num_access_times = 1 << 10;
 constexpr static uint64_t seed = 2333;
 constexpr static uint64_t tile = 1;
 constexpr static uint64_t sigma = 8388608;
@@ -48,6 +48,9 @@ int main(int argc, char * argv[]) {
         prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
         // do_sth(l);
         // cout << access_pattern[i] << " " << *l << endl;
+        if (access_pattern[i] != *l)
+            cout << access_pattern[i] << " " << *l << endl;
+        // assert(access_pattern[i] == *l);
     }
 
     auto end = chrono::steady_clock::now();

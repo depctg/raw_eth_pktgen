@@ -8,8 +8,8 @@
 using namespace std;
 
 constexpr static uint64_t max_size = 256 << 20;
-constexpr static uint64_t array_size = 1 << 20;
-constexpr static uint32_t cache_line_size = 4 << 10;
+constexpr static uint64_t array_size = 1 << 10;
+constexpr static uint32_t cache_line_size = 1 << 8;
 
 // data resides in sbuf for non-copy
 void app_init(KVS *kvs)

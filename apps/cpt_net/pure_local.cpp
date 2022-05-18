@@ -5,7 +5,7 @@
 // #include "cycles.h"
 
 constexpr static uint64_t kNumEntries = 32 << 20;
-constexpr static uint64_t per_batch = 16 << 20;
+constexpr static uint64_t per_batch = (8 << 20) / 8;
 constexpr static uint64_t num_batch = kNumEntries / per_batch;
 static uint64_t sum = 0;
 
@@ -48,7 +48,6 @@ int main()
     {
       // sum += ary[kNumEntries - (i * per_batch + j) - 1];
       sum += ary[i * per_batch + j];
-      sum ^= ary[i * per_batch + j];
       // sum &= ary[j];
       // stop_watch<chrono::nanoseconds>(0);
       // wait_until_cycles(2);

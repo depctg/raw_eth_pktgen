@@ -5,8 +5,8 @@
 #include <memory>
 #include <cstdlib>
 
-constexpr static uint64_t packet_size = 2 << 20;
-constexpr static uint64_t num_iter = 100;
+constexpr static uint64_t packet_size = 4194304;
+constexpr static uint64_t num_iter = 1000;
 
 using namespace std;
 using namespace std::chrono;

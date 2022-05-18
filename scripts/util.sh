@@ -8,11 +8,11 @@ run_program () {
     sudo stdbuf -o0 ./$1 -addr tcp://localhost:$2 -job $3 -array_size $4 -n_runs $5 -size_batch $6 -pre_stride $7
 }
 
-cache_exp_remoteKVS () {
+rdma_recv () {
     sudo ./$1 tcp://*:$2
 }
 
-cache_exp_access () {
+rdma_send () {
     sudo stdbuf -o0 ./$1 tcp://localhost:$2
 }
 

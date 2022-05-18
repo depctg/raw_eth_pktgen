@@ -122,6 +122,8 @@ class RCacheVector {
         // TODO: release old offset
     }
 
+    uint32_t chunk_num_entries() const {return _chunk_num_entries;}
+
     uint64_t capacity() const { return _capacity; }
     uint64_t size() const {return _size;}
     bool empty() const {return !_size;}
@@ -199,6 +201,17 @@ class RCacheVector {
         auto chunk_idx_end = std::min(last_chunk(), which_chunk(i+n-1).first);
 
         for (auto c = chunk_idx; c <= chunk_idx_end; ++c) {
+            cache_prefetch(ctable, _offset+c*ctable->cache_line_size);
+        }
+    }
+    void prefetch_nlines(Index_t i, uint64_t n) {
+        auto clast = last_chunk();
+        auto ccur = which_chunk(i).first;
+        if (clast < ccur) return;
+
+        auto cend = std::min(last_chunk(), which_chunk(ccur+n-1).first);
+
+        for (auto c = ccur; c <= cend; ++c) {
             cache_prefetch(ctable, _offset+c*ctable->cache_line_size);
         }
     }

@@ -26,6 +26,7 @@ static struct option long_options[] = {
     {"cache_size", required_argument, 0, 0},
     {"cache_line_size", required_argument, 0, 0},
     {"prefetch_n", required_argument, 0, 0},
+    {"prefetch_nline", required_argument, 0, 0},
     {"index_size", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
@@ -34,6 +35,7 @@ int main(int argc, char * argv[])
 {
     char * addr = 0;
     uint64_t prefetch_size = 0;
+    uint64_t prefetch_size_line = 0;
     uint64_t cache_line_size = 8192;
     uint32_t cache_size = (480 << 20);
     uint64_t index_size = 100;
@@ -54,6 +56,9 @@ int main(int argc, char * argv[])
                 prefetch_size = atoll(optarg);
                 break;
             case 4:
+                prefetch_size_line = atoll(optarg);
+                break;
+            case 5:
                 index_size = atoll(optarg);
                 break;
             default:
@@ -106,7 +111,27 @@ int main(int argc, char * argv[])
 
     std::vector<std::pair<std::chrono::time_point<std::chrono::steady_clock>, std::string>> times;
 
-    if (prefetch_size) {
+    if (prefetch_size_line) {
+        times.emplace_back(std::chrono::steady_clock::now(), "pl mean");
+        df.visit_prefetch_nlines<double>(col_data, v_mean, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "pl mean");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "pl 5nl");
+        df.visit_prefetch_nlines<double>(col_data, v_5nl, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "pl 5nl");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "pl stats");
+        df.visit_prefetch_nlines<double>(col_data, v_stats, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "pl stats");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "pl dotp");
+        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_dotp, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "pl dotp");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "pl slr");
+        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_slr, prefetch_size);
+        times.emplace_back(std::chrono::steady_clock::now(), "pl slr");
+    } else if (prefetch_size) {
         times.emplace_back(std::chrono::steady_clock::now(), "p mean");
         df.visit_prefetch<double>(col_data, v_mean, prefetch_size);
         times.emplace_back(std::chrono::steady_clock::now(), "p mean");
@@ -148,7 +173,11 @@ int main(int argc, char * argv[])
         times.emplace_back(std::chrono::steady_clock::now(), "slr");
     }
 
-    std::cerr << prefetch_size;
+    std::cerr << index_size * 2 * sizeof(double) << "\t"
+              << prefetch_size << "\t"
+              << prefetch_size_line << "\t"
+              << cache_line_size << "\t"
+              << cache_size;
     for (uint32_t i = 1; i < std::size(times); i+=2) {
         auto p = std::chrono::duration_cast<std::chrono::microseconds>(times[i].first - times[i - 1].first).count();
         std::cout << times[i].second << ": "
@@ -158,9 +187,9 @@ int main(int argc, char * argv[])
     }
     std::cerr << std::endl;
 
-    std::cout << "Total: "
-              << std::chrono::duration_cast<std::chrono::microseconds>(times.back().first - times.front().first).count()
-              << " us" << std::endl;
+    // std::cout << "Total: "
+            //   << std::chrono::duration_cast<std::chrono::microseconds>(times.back().first - times.front().first).count()
+            //   << " us" << std::endl;
 
 
     return (0);

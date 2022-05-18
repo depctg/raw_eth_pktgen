@@ -260,7 +260,31 @@ V &DataFrame<I, H>::visit_prefetch (const char *name, V &visitor, uint64_t prefe
     visitor.pre();
     for (; i < min_s; ++i) {
         // no way to ensure no overlapped prefetching
-        if ((i % prefetch_size) == 0) vec.prefetch(i, prefetch_size);
+        if (i % prefetch_size == 0) vec.prefetch(i, prefetch_size);
+        visitor (indices_.at(i), vec.at(i));
+    }
+    for (; i < idx_s; ++i)  {
+        T   nan_val = _get_nan<T>();
+
+        visitor (indices_.at(i), nan_val);
+    }
+    visitor.post();
+
+    return (visitor);
+}
+
+template<typename I, typename  H>
+template<typename T, typename V>
+V &DataFrame<I, H>::visit_prefetch_nlines (const char *name, V &visitor, uint64_t prefetch_size)  {
+
+    auto            &vec = get_column<T>(name);
+    const size_type idx_s = indices_.size();
+    const size_type min_s = std::min<size_type>(vec.size(), idx_s);
+    size_type       i = 0;
+
+    visitor.pre();
+    for (; i < min_s; ++i) {
+        if (i % vec.chunk_num_entries() == 0) vec.prefetch_nlines(i, prefetch_size);
         visitor (indices_.at(i), vec.at(i));
     }
     for (; i < idx_s; ++i)  {
@@ -351,11 +375,48 @@ visit_prefetch (const char *name1, const char *name2, V &visitor, uint64_t prefe
     visitor.pre();
     for (; i < min_s; ++i) {
         // no way to ensure no overlapped prefetching
-        if ((i % prefetch_size) == 0) {
+        if (i % prefetch_size == 0) {
             vec1.prefetch(i, prefetch_size);
         }
-        if ((i % prefetch_size) == 0) {
+        if (i % prefetch_size == 0) {
             vec2.prefetch(i, prefetch_size);
+        }
+        visitor (indices_.at(i), vec1.at(i), vec2.at(i));
+    }
+    for (; i < idx_s; ++i)  {
+        T1  nan_val1 = _get_nan<T1>();
+        T2  nan_val2 = _get_nan<T2>();
+
+        visitor (indices_.at(i),
+                 i < data_s1 ? vec1.at(i) : nan_val1,
+                 i < data_s2 ? vec2.at(i) : nan_val2);
+    }
+    visitor.post();
+
+    return (visitor);
+}
+
+template<typename I, typename  H>
+template<typename T1, typename T2, typename V>
+V &DataFrame<I, H>::
+visit_prefetch_nlines (const char *name1, const char *name2, V &visitor, uint64_t prefetch_size)  {
+
+    auto            &vec1 = get_column<T1>(name1);
+    auto            &vec2 = get_column<T2>(name2);
+    const size_type idx_s = indices_.size();
+    const size_type data_s1 = vec1.size();
+    const size_type data_s2 = vec2.size();
+    const size_type min_s = std::min<size_type>({ idx_s, data_s1, data_s2 });
+    size_type       i = 0;
+
+    visitor.pre();
+    for (; i < min_s; ++i) {
+        // no way to ensure no overlapped prefetching
+        if (i % vec1.chunk_num_entries() == 0) {
+            vec1.prefetch_nlines(i, prefetch_size);
+        }
+        if (i % vec2.chunk_num_entries() == 0) {
+            vec2.prefetch_nlines(i, prefetch_size);
         }
         visitor (indices_.at(i), vec1.at(i), vec2.at(i));
     }

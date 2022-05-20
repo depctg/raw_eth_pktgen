@@ -8,6 +8,9 @@
 
 #include "cache_internal.h"
 #include "common.h"
+#include "mem_block.h"
+#include "mem_slicer.h"
+#include "ambassador.h"
 #include "cache.h"
 #include "greeting.h"
 #include "uthash.h"
@@ -135,10 +138,10 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		{
 			tgt = (HashStruct *) malloc(sizeof *tgt);
 			// create new block, not present yet
-			tgt->bptr = newBlock(rbuf_offset, tag, 0, 0, -1, -1);
+			tgt->bptr = newBlock(rbuf_offset, tag, 0, 0, -1, -1, 0);
 			tgt->tag = (int) tag;
 			// inser to map as hot 
-			addHot(table->dll, tgt->bptr);
+			add_to_head(table->dll, tgt->bptr);
 			HASH_ADD_INT(table->map, tag, tgt);
 		}
 		else
@@ -148,7 +151,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			// touch -> hot
 			// if (table->dll->tail)
 			// 	printf("%" PRIu64 "\n", table->dll->tail->tag);
-			addHot(table->dll, tgt->bptr);
+			add_to_head(table->dll, tgt->bptr);
 		}
 		fetch_sync(tag << table->tag_shifts, rbuf_offset, table->amba);
 		tgt->bptr->present = 1;
@@ -164,7 +167,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		tgt->bptr->dirty = 0;
 		tgt->bptr->wr_id = -1;
 		tgt->bptr->sid = -1;
-		addHot(table->dll, tgt->bptr);
+		add_to_head(table->dll, tgt->bptr);
 	}
 	// if find target, touch and return
 	else
@@ -193,11 +196,11 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 		{
 			memset(table->amba->line_pool + rbuf_offset, 0, sizeof(char) * table->cache_line_size);
 			tgt = (HashStruct *) malloc(sizeof(HashStruct));
-			tgt->bptr = newBlock(rbuf_offset, tag, 0, /* dirty */ 1, -1, -1);
+			tgt->bptr = newBlock(rbuf_offset, tag, 0, /* dirty */ 1, -1, -1, 0);
 			tgt->tag = (int) tag;
 			// insert as hot
 			HASH_ADD_INT(table->map, tag, tgt);
-			addHot(table->dll, tgt->bptr);
+			add_to_head(table->dll, tgt->bptr);
 		}
 		else
 		{
@@ -206,7 +209,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 			tgt->bptr->rbuf_offset = rbuf_offset;
 			fetch_sync(tag << table->tag_shifts, rbuf_offset, table->amba);
 			tgt->bptr->dirty = 1;
-			addHot(table->dll, tgt->bptr);
+			add_to_head(table->dll, tgt->bptr);
 		}
 		// write to rbuf
 		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, s);
@@ -221,7 +224,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 		tgt->bptr->dirty = 1;
 		tgt->bptr->wr_id = -1;
 		tgt->bptr->sid = -1;
-		addHot(table->dll, tgt->bptr);
+		add_to_head(table->dll, tgt->bptr);
 	}
 	else
 	{
@@ -286,7 +289,7 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 	if (tgt == NULL)
 	{
 		tgt = (HashStruct *) malloc(sizeof(HashStruct));
-		tgt->bptr = newBlock(-1, tag, 0, 0, -1, -1);
+		tgt->bptr = newBlock(-1, tag, 0, 0, -1, -1, 0);
 		tgt->tag = (int) tag;
 		HASH_ADD_INT(table->map, tag, tgt);
 	} 
@@ -348,7 +351,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 		{
 			// if not recorded ever
 			tgt = (HashStruct *) malloc(sizeof(HashStruct));
-			tgt->bptr = newBlock(rbuf_offset, tag, 1, 0, wr_id, sid);
+			tgt->bptr = newBlock(rbuf_offset, tag, 1, 0, wr_id, sid, 0);
 			tgt->tag = (int) tag;
 			HASH_ADD_INT(table->map, tag, tgt);
 		}

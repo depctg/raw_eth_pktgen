@@ -2,6 +2,9 @@ add_library(common OBJECT
     cache.c
     net.c
     packet.c
+    ambassador.c
+    mem_block.c
+    mem_slicer.c
     $<IF:$<BOOL:${COMMON_IMPL_SHM}>, common_shm.c, common.c>
     )
 

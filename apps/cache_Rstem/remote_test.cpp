@@ -51,13 +51,12 @@ int main(int argc, char * argv[])
   send((char *)sbuf, cache_line_size);
   
   size_t req_size = sizeof(struct req) + cache_line_size;
-
   while (1)
   {
     recv(rbuf, req_size);
     struct req *r = (struct req *) rbuf;
-    // const char *type = r->type == 1 ? "Fetch" : "Update";
-    // cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
+    const char *type = r->type == 1 ? "Fetch" : "Update";
+    cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
 
     // if fetch type
     if (r->type) 

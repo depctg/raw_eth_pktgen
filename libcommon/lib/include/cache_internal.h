@@ -23,7 +23,7 @@ extern "C"
 uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 {
 	// first poll pending prefetch if any
-	pollAwait(table->ins, dll, table->amba);
+	pollAwait(0, table->ins, dll, table->amba);
 	if (!dll->tail) {
 		// victim list is empty but need eviction
 		fprintf(stderr, "Eviction of empty cache pool\n");
@@ -46,57 +46,6 @@ uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 	victim->prev = NULL;
 	victim->next = NULL;
 	return victim->rbuf_offset;
-}
-
-Inflights *initAwaits()
-{
-	Inflights *ins = (Inflights *) malloc(sizeof(Inflights));
-	ins->head = ins->tail = NULL;
-	return ins;
-}
-
-void awaitFetch(Inflights *ins, Block *b)
-{
-	AwaitBlock *ab = (AwaitBlock *) malloc(sizeof(AwaitBlock));
-	ab->b = b;
-	ab->next = NULL;
-
-	if (ins->tail == NULL)
-	{
-		ins->head = ins->tail = ab;
-		return;
-	}
-	ins->tail->next = ab;
-	ins->tail = ab;
-}
-
-void pollAwait(Inflights *ins, BlockDLL *dll, Ambassador *a)
-{
-	// if no awaiting fetches
-	if (ins->head == NULL)
-		return;
-
-	AwaitBlock *tmp;
-	while (ins->head != NULL)
-	{
-		AwaitBlock *cur = ins->head;
-		Block *b = cur->b;
-		if (b->wr_id != -1 && b->sid != -1)
-		{
-			// polling prefetch
-			// printf("Polling tag: %" PRIu64 "\n", b->tag);
-			poll(b->wr_id);
-			ret_sid(a, b->sid);
-			b->dirty = 0;
-			b->wr_id = -1;
-			b->sid = -1;
-			add_to_head(dll, b);
-		}
-		tmp = cur->next;
-		free(cur);
-		ins->head = tmp;
-	}
-	ins->tail = NULL;
 }
 
 #ifdef __cplusplus

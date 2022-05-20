@@ -22,13 +22,13 @@ extern "C" {
 #define DEVICE_GID 3
 #define PORT_NUM 1
 
-#define CQ_NUM_DESC 128
+#define CQ_NUM_DESC 64
 
 /* size for local buffers, 512M */
 #define SEND_BUF_SIZE (512 << 20)
 #define RECV_BUF_SIZE (512 << 20)
 
-#define MAX_POLL 128
+#define MAX_POLL 64
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)

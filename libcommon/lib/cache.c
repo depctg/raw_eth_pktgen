@@ -14,6 +14,7 @@
 #include "cache.h"
 #include "greeting.h"
 #include "uthash.h"
+#include "prefetcher.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -118,8 +119,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
 	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
-	// hashPrint(table->map);
-	// dllPrint(table->dll->head);
+	hashPrint(table->map);
+	dllPrint(table->dll->head);
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
@@ -162,15 +163,11 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	else if (tgt->bptr->wr_id != -1 && tgt->bptr->sid != -1)
 	{
 		// polling prefetch
-		poll(tgt->bptr->wr_id);
-		ret_sid(table->amba, tgt->bptr->sid);
-		tgt->bptr->dirty = 0;
-		tgt->bptr->wr_id = -1;
-		tgt->bptr->sid = -1;
-		add_to_head(table->dll, tgt->bptr);
+		pollAwait(tgt->bptr->wr_id, table->ins, table->dll, table->amba);
+		// printAwaits(table->ins);
 	}
-	// if find target, touch and return
 	else
+		// if find target, touch and return
 		touch(table->dll, tgt->bptr);
 
 	// printf("Found ");
@@ -334,7 +331,8 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 void prefetch(CacheTable *table, uint64_t addr)
 {
 	// poll previous prefetch if any
-	pollAwait(table->ins, table->dll, table->amba);
+	// printAwaits(table->ins);
+	pollAwait(0, table->ins, table->dll, table->amba);
 	uint64_t tag = (addr & table->addr_mask) >> table->tag_shifts;
 	HashStruct *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
@@ -372,7 +370,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 		// we poll the pending at the beginning
 		// but let's wait anyway
 		if (tgt->bptr->wr_id != -1 && tgt->bptr->sid != -1) {
-			pollAwait(table->ins, table->dll, table->amba);
+			pollAwait(0, table->ins, table->dll, table->amba);
 			return;
 		}
 

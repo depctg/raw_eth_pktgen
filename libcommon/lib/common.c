@@ -407,7 +407,7 @@ uint64_t recv(void * buf, size_t size) {
 
 	ret = ibv_post_recv(qp, &wr, &bad_wr);
 	if (ret != 0) {
-		fprintf(stderr, "failed in post recv\n");
+		fprintf(stderr, "failed in post recv, code: %d\n", ret);
 		exit(1);
 	}
 

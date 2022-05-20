@@ -9,6 +9,7 @@
 #include "mem_block.h"
 #include "mem_slicer.h"
 #include "ambassador.h"
+#include "prefetcher.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -19,23 +20,6 @@ enum {
     CACHE_WRITE = 0,
     CACHE_READ = 1,
 };
-
-typedef struct AwaitBlock
-{
-	Block *b;
-	struct AwaitBlock *next;
-} AwaitBlock;
-
-typedef struct Inflights
-{
-	AwaitBlock *head, *tail;
-} Inflights;
-
-Inflights *initAwaits();
-// register block to sll
-void awaitFetch(Inflights *ins, Block *b);
-// poll awaiting prefetches
-void pollAwait(Inflights *ins, BlockDLL *dll, Ambassador *a);
 
 typedef struct CacheTable
 {

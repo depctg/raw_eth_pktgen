@@ -5,6 +5,7 @@ add_library(common OBJECT
     ambassador.c
     mem_block.c
     mem_slicer.c
+    prefetcher.c
     $<IF:$<BOOL:${COMMON_IMPL_SHM}>, common_shm.c, common.c>
     )
 

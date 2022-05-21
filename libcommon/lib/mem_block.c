@@ -8,23 +8,22 @@
 #include "uthash.h"
 #include "mem_block.h"
 
-Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty, uint64_t wr_id, uint32_t sid, uint16_t weight)
+Block *newBlock(uint64_t rbuf_offset, uint64_t tag, enum BLOCK_STATUS bs, uint8_t dirty, uint64_t wr_id, uint16_t weight)
 {
 	Block *b = (Block *)malloc(sizeof(Block));
-	b->rbuf_offset = offset;
+	b->rbuf_offset = rbuf_offset;
 	b->tag = tag;
 	b->prev = b->next = NULL;
-	b->present = present;
-	b->dirty = dirty;
 	b->wr_id = wr_id;
-	b->sid = sid;
+	b->status = bs;
+	b->dirty = dirty;
   b->weight = weight;
 	return b;
 }
 
-HashStruct *new_entry(uint64_t tag, Block *bptr)
+HashBlock *new_entry(uint64_t tag, Block *bptr)
 {
-  HashStruct *e = (HashStruct *) malloc(sizeof(HashStruct));
+  HashBlock *e = (HashBlock *) malloc(sizeof(HashBlock));
   e->bptr = bptr;
   e->tag = (int) tag;
   return e;

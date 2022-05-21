@@ -114,7 +114,7 @@ public:
     // no-copy
     // cout << "Fetch request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
     uint64_t tag = (r->addr & addr_mask) >> tag_shifts;
-    // print_line(cache_line_pool + map[tag], 24);
+    // print_line(cache_line_pool + map[tag], cache_line_size);
     send(cache_line_pool + map[tag], cache_line_size);
   }
 

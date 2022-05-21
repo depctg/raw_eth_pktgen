@@ -20,10 +20,9 @@ extern "C"
 #include "mem_slicer.h"
 #include "ambassador.h"
 
-uint64_t popVictim(BlockDLL *dll, CacheTable *table)
-{
+uint64_t popVictim(BlockDLL *dll, CacheTable *table) {
 	// first poll pending prefetch if any
-	pollAwait(0, table->ins, dll, table->amba);
+	cq_consumer(0, table->amba, dll);
 	if (!dll->tail) {
 		// victim list is empty but need eviction
 		fprintf(stderr, "Eviction of empty cache pool\n");
@@ -36,10 +35,10 @@ uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 	dll->tail = dll->tail->prev;
 	if (dll->tail)
 		dll->tail->next = NULL;
-	victim->present = 0;
+	victim->status = absent;
 	if (victim->dirty) {
 		// printf("Dirty ! Need flush\n");
-		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba);
+		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba, table->dll);
 		victim->dirty = 0;
 	}
 	// printf("Evict: %" PRIu64 ", get %" PRIu64 "\n", victim->tag, victim->rbuf_offset);
@@ -47,6 +46,7 @@ uint64_t popVictim(BlockDLL *dll, CacheTable *table)
 	victim->next = NULL;
 	return victim->rbuf_offset;
 }
+
 
 #ifdef __cplusplus
 }

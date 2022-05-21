@@ -6,11 +6,29 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "uthash.h"
+#include "mem_block.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+/* Hashtable of sending bufs
+will return sid if consumed cq is a send_req */
+typedef struct HashSid {
+	int wr_id;
+	uint32_t sid;
+	UT_hash_handle hh;
+} HashSid;
+
+/* Hashtable of recv reqs
+update block states when cq is polled */
+
+typedef struct HashRid {
+	int wr_id;
+	Block *bptr;
+	UT_hash_handle hh;
+} HashRid;
 
 /* Entry point of communication with remote memory server */
 typedef struct Ambassador
@@ -19,11 +37,14 @@ typedef struct Ambassador
 	char *line_pool;
 	uint64_t cache_line_size;
 	size_t req_size; /* sizeof(char) * line_size + sizeof(struct req) */
+	HashSid *wrid_sid;
+	HashRid *wrid_bptr;
 
 	uint32_t *snid;
 	uint32_t ring_size;
 	uint32_t front, end, frees;
 } Ambassador;
+
 Ambassador *newAmbassador(uint32_t ring_size, uint64_t cls, void *req_buffer, void *recv_buffer);
 
 /* request for send buf */
@@ -31,11 +52,13 @@ uint32_t get_sid(Ambassador *a);
 /* return send buf */
 void ret_sid(Ambassador *a, uint32_t sid);
 
-void fetch_sync(uint64_t addr, uint64_t rbuf_offset, Ambassador *a);
-void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a);
+void fetch_sync(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts);
+void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, BlockDLL *dll);
 
 /* return wr_id of async wr */
-uint64_t fetch_async(uint64_t addr, uint64_t rbuf_offset, Ambassador *a, uint32_t *sid);
+uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts);
+
+void cq_consumer(uint64_t wr_id, Ambassador *a, BlockDLL *dll);
 
 #ifdef __cplusplus
 }

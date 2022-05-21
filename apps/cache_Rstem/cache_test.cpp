@@ -9,7 +9,7 @@
 
 constexpr static uint64_t max_size = 4 << 10;
 constexpr static uint64_t array_size = 1 << 10;
-constexpr static uint32_t cache_line_size = 1 << 8;
+constexpr static uint32_t cache_line_size = 1 << 4;
 constexpr static uint64_t num_access_times = 1 << 20;
 constexpr static uint64_t seed = 2333;
 constexpr static uint64_t tile = 1;
@@ -43,13 +43,13 @@ int main(int argc, char * argv[]) {
         uint64_t addr = access_pattern[i] * sizeof(uint64_t);
         uint64_t tag = (addr & cache->addr_mask) >> cache->tag_shifts;
         uint64_t line_offset /* bytes */ = (addr & cache->tag_mask);
-        cout << i << "Access: " << addr << " tag " << tag << " ofst " << line_offset << endl;
+        // cout << i << "Access: " << addr << " tag " << tag << " ofst " << line_offset << endl;
+        // prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
         uint64_t *l = (uint64_t *)cache_access(cache, addr);
-        prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
+        // cout << access_pattern[i] << " " << *l << " " << l << endl;
         // do_sth(l);
-        cout << access_pattern[i] << " " << *l << endl;
-        // if (access_pattern[i] != *l)
-        //     cout << access_pattern[i] << " " << *l << endl;
+        if (access_pattern[i] != *l)
+            cout << access_pattern[i] << " " << *l << endl;
         // assert(access_pattern[i] == *l);
     }
 

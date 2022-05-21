@@ -9,7 +9,7 @@ using namespace std;
 
 constexpr static uint64_t max_size = 256 << 20;
 constexpr static uint64_t array_size = 1 << 10;
-constexpr static uint32_t cache_line_size = 1 << 8;
+constexpr static uint32_t cache_line_size = 1 << 4;
 
 // data resides in sbuf for non-copy
 void app_init(KVS *kvs)
@@ -55,8 +55,8 @@ int main(int argc, char * argv[])
   {
     recv(rbuf, req_size);
     struct req *r = (struct req *) rbuf;
-    const char *type = r->type == 1 ? "Fetch" : "Update";
-    cout << "Req " << r->addr << ", size " << r->size << ", type " << type << endl;
+    // const char *type = r->type == 1 ? "Fetch" : "Update";
+    // cout << "Req " << r->addr << ", tag " << (r->addr >> kvs->tag_shifts)  << ", size " << r->size << ", type " << type << endl;
 
     // if fetch type
     if (r->type) 

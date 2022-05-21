@@ -12,6 +12,8 @@ extern "C"
 {
 #endif
 
+enum BLOCK_STATUS {present, pending, absent};
+
 /* Basic memory block - a cache line */
 typedef struct Block
 {
@@ -19,23 +21,22 @@ typedef struct Block
   uint64_t tag;
   struct Block *prev, *next;
   uint64_t wr_id;
-  uint32_t sid;
   uint16_t weight;
-  uint8_t present;
+  enum BLOCK_STATUS status;
   uint8_t dirty;
 } Block;
 
 /* create new block */
-Block *newBlock(uint64_t offset, uint64_t tag, uint8_t present, uint8_t dirty, uint64_t wr_id, uint32_t sid, uint16_t weight);
+Block *newBlock(uint64_t rbuf_offset, uint64_t tag, enum BLOCK_STATUS bs, uint8_t dirty, uint64_t wr_id, uint16_t weight);
 
-typedef struct HashStruct
+typedef struct HashBlock
 {
 	int tag;
 	Block *bptr;
 	UT_hash_handle hh;
-} HashStruct;
+} HashBlock;
 
-HashStruct *new_entry(uint64_t tag, Block *bptr);
+HashBlock *new_entry(uint64_t tag, Block *bptr);
 
 /* Doubly linked list of memory blocks */
 typedef struct BlockDLL

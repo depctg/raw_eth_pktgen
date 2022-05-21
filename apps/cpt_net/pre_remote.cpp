@@ -8,7 +8,7 @@
 using namespace std;
 
 constexpr static uint64_t kNumEntries = 32 << 20;
-constexpr static uint64_t batch_size = 512;
+constexpr static uint64_t batch_size = 1 << 20;
 constexpr static uint64_t net_lat = 0; /*us*/
 
 static std::chrono::time_point<std::chrono::steady_clock> timebase;

@@ -36,8 +36,7 @@ typedef struct CacheTable
 	uint8_t tag_shifts;
 
 	// a hashmap of blocks
-	// Block **map;
-	HashStruct *map;
+	HashBlock *map;
 	// a dll of blocks
 	BlockDLL *dll;
 	// a queue of free slots

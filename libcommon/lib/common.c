@@ -302,7 +302,7 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 
 	/* inline ? */
 	wr.send_flags = 0;
-	wr.wr_id = 0;
+	wr.wr_id = ++post_id;
 
 #if SEND_INLINE
     size_t size = 0;

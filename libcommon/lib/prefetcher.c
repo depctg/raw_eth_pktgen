@@ -27,37 +27,6 @@ void awaitFetch(Inflights *ins, Block *b)
 	ins->tail = ab;
 }
 
-void pollAwait(uint64_t wr_id, Inflights *ins, BlockDLL *dll, Ambassador *a)
-{
-	// printAwaits(ins);
-	// if no awaiting fetches
-	if (ins->head == NULL || (wr_id > 0 && ins->head->b->wr_id > wr_id))
-		return;
-
-	AwaitBlock *tmp;
-	while (ins->head != NULL && (wr_id == 0 || ins->head->b->wr_id <= wr_id))
-	{
-		AwaitBlock *cur = ins->head;
-		Block *b = cur->b;
-		if (b->wr_id != -1 && b->sid != -1)
-		{
-			// polling prefetch
-			// printf("Polling tag: %" PRIu64 "\n", b->tag);
-			poll(b->wr_id);
-			ret_sid(a, b->sid);
-			b->dirty = 0;
-			b->wr_id = -1;
-			b->sid = -1;
-			add_to_head(dll, b);
-		}
-		tmp = cur->next;
-		free(cur);
-		ins->head = tmp;
-	}
-  if (ins->head == NULL)
-    ins->tail = NULL;
-}
-
 void printAwaits(Inflights *ins)
 {
   AwaitBlock *cur = ins->head;

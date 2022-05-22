@@ -51,6 +51,11 @@ extern struct ibv_context *context;
 extern uint64_t post_id;
 extern uint64_t poll_id;
 
+extern uint64_t send_post_id;
+extern uint64_t send_poll_id;
+extern uint64_t recv_post_id;
+extern uint64_t recv_poll_id;
+
 int init(int type, const char * server_url);
 int steer();
 

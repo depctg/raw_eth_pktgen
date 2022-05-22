@@ -18,6 +18,11 @@ struct ibv_context *context = NULL;
 uint64_t post_id = 0;
 uint64_t poll_id = 0;
 
+uint64_t send_post_id = 0;
+uint64_t send_poll_id = 0;
+uint64_t recv_post_id = 0;
+uint64_t recv_poll_id = 0;
+
 int init(int type, const char * server_url) {
 	struct ibv_pd *pd;
 
@@ -302,7 +307,7 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 
 	/* inline ? */
 	wr.send_flags = 0;
-	wr.wr_id = ++post_id;
+	wr.wr_id = ++send_post_id;
 
 #if SEND_INLINE
     size_t size = 0;
@@ -321,8 +326,8 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 		fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));
 		exit(1);
 	}
-
-	return post_id;
+	post_id ++;
+	return send_post_id;
 }
 
 uint64_t send_async(void *buf, size_t size) {
@@ -428,14 +433,14 @@ uint64_t recv_async(void * buf, size_t size) {
 	wr.sg_list = &sge;
 	wr.next = NULL;
 
-	wr.wr_id = ++post_id;
+	wr.wr_id = ++recv_post_id;
 	ret = ibv_post_recv(qp, &wr, &bad_wr);
 	if (unlikely(ret) != 0) {
 		fprintf(stderr, "failed in post recv\n");
 		exit(1);
 	}
-
-	return post_id;
+	post_id ++;
+	return recv_post_id;
 }
 
 int poll(uint64_t wr_id) {

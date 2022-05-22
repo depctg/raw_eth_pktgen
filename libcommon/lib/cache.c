@@ -80,7 +80,7 @@ void hashPrint(HashBlock *hs)
 {
 	HashBlock *cur;
 	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
-			printf("tag %d, present %d\n" , cur->tag, cur->bptr->status);
+			printf("tag %d, status %d\n" , cur->tag, cur->bptr->status);
 	}
 }
 
@@ -161,7 +161,9 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	else if (tgt->bptr->status == pending)
 	{
 		// polling pending wr_id
-		cq_consumer(tgt->bptr->wr_id, table->amba, table->dll);
+		// printf("Access pending wr_id: %" PRIu64 "\n", tgt->bptr->wr_id);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
+		// hashPrint(table->map);
 	}
 	else
 		// if find target, touch and return
@@ -210,7 +212,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 	else if (tgt->bptr->status == pending)
 	{
 		// polling pending 
-		cq_consumer(tgt->bptr->wr_id, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
 		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->dirty = 1;
 	}
@@ -290,7 +292,7 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 	}
 	else if (tgt->bptr->status == pending)
 	{
-		cq_consumer(tgt->bptr->wr_id, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
 		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 	}
 	update_sync(dat_buf, addr, s, table->amba, table->dll);
@@ -329,6 +331,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 	uint64_t tag = addr >> table->tag_shifts;
 	HashBlock *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
+	// printf("Prefetch addr, tag: %" PRIu64 ", %" PRIu64 "\n", addr, (addr & table->addr_mask) >> table->tag_shifts);
 	if (tgt == NULL || tgt->bptr->status == absent)
 	{
 		// claim room for this cache line
@@ -357,7 +360,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 	}
 	else if (tgt->bptr->status == pending)
 	{
-		cq_consumer(tgt->bptr->wr_id, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
 	}
 	else
 	{
@@ -371,4 +374,5 @@ void prefetch(CacheTable *table, uint64_t addr)
 		// locally available but not overwrite
 		touch(table->dll, tgt->bptr);
 	}
+	// hashPrint(table->map);
 }

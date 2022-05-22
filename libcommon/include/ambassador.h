@@ -13,6 +13,8 @@ extern "C"
 {
 #endif
 
+enum CQ_OPT {SEND, RECV};
+
 /* Hashtable of sending bufs
 will return sid if consumed cq is a send_req */
 typedef struct HashSid {
@@ -58,7 +60,7 @@ void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, Blo
 /* return wr_id of async wr */
 uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts);
 
-void cq_consumer(uint64_t wr_id, Ambassador *a, BlockDLL *dll);
+void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, BlockDLL *dll);
 
 #ifdef __cplusplus
 }

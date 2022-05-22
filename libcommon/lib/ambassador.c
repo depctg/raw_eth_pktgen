@@ -89,7 +89,7 @@ void fetch_sync(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts)
 	HASH_ADD_INT(a->wrid_bptr, wr_id, hr);
 	b->wr_id = rk;
 	// fetchedPrint(a->line_pool + b->rbuf_offset, a->cache_line_size);
-	cq_consumer(rk, a, dll);
+	cq_consumer(rk, RECV, a, dll);
 }
 
 void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, BlockDLL *dll)
@@ -108,7 +108,7 @@ void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, Blo
 	hs->wr_id = (int) sk;
 	hs->sid = send_buf_nid;
 	HASH_ADD_INT(a->wrid_sid, wr_id, hs); 
-	cq_consumer(sk, a, dll);
+	cq_consumer(sk, SEND, a, dll);
 }
 
 uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts)
@@ -121,6 +121,7 @@ uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts)
 	// send_async(r, sizeof(struct req));
 	uint64_t sk = send_async(r, a->req_size);
 	uint64_t rk = recv_async(a->line_pool + b->rbuf_offset, a->cache_line_size);
+	// printf("Fetch async tag %" PRIu64 ",wrids %" PRIu64 ", %" PRIu64 "\n", b->tag, sk, rk);
 	// update hashtable
 	HashSid *hs = (HashSid *) malloc(sizeof(HashSid));
 	hs->wr_id = (int) sk;
@@ -136,21 +137,27 @@ uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts)
 }
 
 /* if wr_id is 0, consume the entire cq */
-void cq_consumer(uint64_t wr_id, Ambassador *a, BlockDLL *dll) {
-	if (wr_id != 0 && poll_id >= wr_id)
+void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, BlockDLL *dll){
+	// printf("Polling wr_id %" PRIu64 ", op type %d\n", wr_id, opt);
+	if (poll_id >= post_id)
 		return;
 
 	struct ibv_wc wcs[MAX_POLL];
-	while ((wr_id == 0 || poll_id < wr_id) && poll_id < post_id) {
+	while (poll_id < post_id) {
+		if (wr_id != 0 && opt == SEND && wr_id <= send_poll_id)
+			break;
+		if (wr_id != 0 && opt == RECV && wr_id <= recv_poll_id)
+			break;
 		int n = ibv_poll_cq(cq, MAX_POLL, wcs);
 		for (int i = 0; i < n; ++ i) {
-			if (wcs[i].status == 0 && wcs[i].wr_id > poll_id) {
-				uint64_t wr_id = wcs[i].wr_id;
-				poll_id = wr_id;
+			if (wcs[i].status == 0) {
+				uint64_t polled_wr_id = wcs[i].wr_id;
+				// printf("Polled %" PRIu64 ", opt: %" PRIu64 "\n", polled_wr_id, wcs[i].opcode);
+				poll_id ++;
 				if (wcs[i].opcode == IBV_WC_SEND) {
 					// send complete
 					HashSid *tgt;
-					HASH_FIND_INT(a->wrid_sid, &wr_id, tgt);
+					HASH_FIND_INT(a->wrid_sid, &polled_wr_id, tgt);
 					if (tgt == NULL) {
 						printf("Finished send is not recorded, cant return sid\n");
 						exit(1);
@@ -158,10 +165,13 @@ void cq_consumer(uint64_t wr_id, Ambassador *a, BlockDLL *dll) {
 					ret_sid(a, tgt->sid);
 					HASH_DEL(a->wrid_sid, tgt);
 					free(tgt);
+					if (polled_wr_id > send_poll_id) {
+						send_poll_id = polled_wr_id;
+					}
 				} else {
 					// recv complete
 					HashRid *tgt;
-					HASH_FIND_INT(a->wrid_bptr, &wr_id, tgt);
+					HASH_FIND_INT(a->wrid_bptr, &polled_wr_id, tgt);
 					if (tgt == NULL) {
 						printf("Finished recv is not recorded, cant update block state\n");
 						exit(1);
@@ -173,6 +183,9 @@ void cq_consumer(uint64_t wr_id, Ambassador *a, BlockDLL *dll) {
 					add_to_head(dll, b);
 					HASH_DEL(a->wrid_bptr, tgt);
 					free(tgt);
+					if (polled_wr_id > recv_poll_id) {
+						recv_poll_id = polled_wr_id;
+					}
 				}
 			}
 		}

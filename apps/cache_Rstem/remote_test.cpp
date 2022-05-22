@@ -9,7 +9,7 @@ using namespace std;
 
 constexpr static uint64_t max_size = 256 << 20;
 constexpr static uint64_t array_size = 1 << 10;
-constexpr static uint32_t cache_line_size = 1 << 4;
+constexpr static uint32_t cache_line_size = 1 << 10;
 
 // data resides in sbuf for non-copy
 void app_init(KVS *kvs)
@@ -47,23 +47,36 @@ int main(int argc, char * argv[])
   //   cout << *((uint64_t*) kvs->cache_line_pool + i) << endl;
   // }
 
-  // notify start
-  send((char *)sbuf, cache_line_size);
-  
+  const unsigned int max_recvs = 64;
+  const unsigned int inflights = max_recvs / 2;
+  struct ibv_wc wc[max_recvs];
+  unsigned int post_recvs = 0, poll_recvs = 0;
+
   size_t req_size = sizeof(struct req) + cache_line_size;
+  for (int i = 0; i < inflights; i++)
+    recv_async((char *) rbuf + i * req_size, req_size);
+  post_recvs += inflights;
   while (1)
   {
-    recv(rbuf, req_size);
-    struct req *r = (struct req *) rbuf;
-    // const char *type = r->type == 1 ? "Fetch" : "Update";
-    // cout << "Req " << r->addr << ", tag " << (r->addr >> kvs->tag_shifts)  << ", size " << r->size << ", type " << type << endl;
-
-    // if fetch type
-    if (r->type) 
-      kvs->handle_req_fetch(r);
-    else
+    int n = poll_cq(cq, inflights, wc);
+    for (int i = 0; i < n; ++i)
     {
-      kvs->handle_req_update(r);
+      if (wc[i].status == 0 && wc[i].opcode == IBV_WC_RECV)
+      {
+        int idx = (poll_recvs ++) % max_recvs;
+        struct req *r = (struct req *) ((char *) rbuf + idx * req_size);
+        // const char *type = r->type == 1 ? "Fetch" : "Update";
+        // cout << "Req " << r->addr << ", tag " << (r->addr >> kvs->tag_shifts)  << ", size " << r->size << ", type " << type << endl;
+        if (r->type) 
+          kvs->handle_req_fetch(r);
+        else
+          kvs->handle_req_update(r);
+      }
+    }
+    while (post_recvs < poll_recvs + inflights)
+    {
+      int idx = (post_recvs ++) % max_recvs;
+      recv_async((char *) rbuf + idx * req_size, req_size);
     }
   }
 }

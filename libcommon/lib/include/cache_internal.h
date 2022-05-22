@@ -22,7 +22,7 @@ extern "C"
 
 uint64_t popVictim(BlockDLL *dll, CacheTable *table) {
 	// first poll pending prefetch if any
-	cq_consumer(0, table->amba, dll);
+	cq_consumer(0, RECV, table->amba, dll);
 	if (!dll->tail) {
 		// victim list is empty but need eviction
 		fprintf(stderr, "Eviction of empty cache pool\n");

@@ -148,9 +148,9 @@ void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, BlockDLL *dll){
 			break;
 		if (wr_id != 0 && opt == RECV && wr_id <= recv_poll_id)
 			break;
-		int n = ibv_poll_cq(cq, MAX_POLL, wcs);
+		int n = poll_cq(cq, MAX_POLL, wcs);
 		for (int i = 0; i < n; ++ i) {
-			if (wcs[i].status == 0) {
+			if (wcs[i].status == IBV_WC_SUCCESS) {
 				uint64_t polled_wr_id = wcs[i].wr_id;
 				// printf("Polled %" PRIu64 ", opt: %" PRIu64 "\n", polled_wr_id, wcs[i].opcode);
 				poll_id ++;

@@ -32,7 +32,7 @@ typedef struct CacheTable
 	Ambassador *amba;
 	Inflights *ins;
 
-	uint32_t cache_line_size;
+	uint64_t cache_line_size;
 	uint8_t tag_shifts;
 
 	// a hashmap of blocks
@@ -46,7 +46,7 @@ typedef struct CacheTable
 // max_size, cache_line_size (byte)
 CacheTable *createCacheTable(
 	uint64_t max_size,
-	uint32_t cache_line_size,
+	uint64_t cache_line_size,
 	void *req_buffer,
 	void *recv_buffer
 );

@@ -6,7 +6,7 @@
 #include <math.h>
 #include "mem_slicer.h"
 
-FreeQueue* initQueue(uint64_t max_size, uint32_t cache_line_size)
+FreeQueue* initQueue(uint64_t max_size, uint64_t cache_line_size)
 {
 	FreeQueue *fq = (FreeQueue *) malloc(sizeof(FreeQueue));
 	fq->capacity = max_size / cache_line_size;

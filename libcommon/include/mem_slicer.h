@@ -19,7 +19,7 @@ typedef struct FreeQueue
 	uint64_t* slots;
 } FreeQueue;
 
-FreeQueue *initQueue(uint64_t max_size, uint32_t cache_line_size);
+FreeQueue *initQueue(uint64_t max_size, uint64_t cache_line_size);
 
 int isFull(FreeQueue *fq);
 int isEmpty(FreeQueue *fq);

@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) {
         // cout << i << "Access: " << addr << " tag " << tag << " ofst " << line_offset << endl;
         if (i % per_line == 0)
         {
-            // prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
+            prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
             cout << i << " % " << num_access_times << endl;
         }
         uint64_t *l = (uint64_t *)cache_access(cache, addr);

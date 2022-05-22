@@ -53,7 +53,7 @@ static inline uint64_t _async_request_sge(
 
 CacheTable *createCacheTable(
 	uint64_t max_size,
-	uint32_t cache_line_size,
+	uint64_t cache_line_size,
 	void *req_buffer,
 	void *recv_buffer)
 {
@@ -84,7 +84,7 @@ void hashPrint(HashBlock *hs)
 	}
 }
 
-void linePrint(char *line, uint32_t cache_line_size)
+void linePrint(char *line, uint64_t cache_line_size)
 {
 	uint64_t *vline = (uint64_t *) line;
 	printf("line: \n");

@@ -68,7 +68,6 @@ CacheTable *createCacheTable(
 	cache->misses = 0;
 
 	cache->amba = newAmbassador(64, cache_line_size, req_buffer, recv_buffer);
-	cache->ins = initAwaits();
 
 	cache->map = NULL;
 	cache->dll = initBlockDLL();
@@ -354,7 +353,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 			tgt->bptr->status = pending;
 			tgt->bptr->wr_id = -1;
 		}
-		uint64_t wr_id = fetch_async(tgt->bptr, table->amba, table->tag_shifts);
+		uint64_t wr_id = fetch_async(tgt->bptr, table->amba, table->dll, table->tag_shifts);
 		// awaitFetch(table->ins, tgt->bptr);
 		// printf("Prefetch tag: %" PRIu64 ", wr_id%" PRIu64 "\n", tag, wr_id);
 	}

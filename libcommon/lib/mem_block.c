@@ -91,7 +91,7 @@ void touch(BlockDLL *dll, Block *b)
 	}
 }
 
-void protect(BlockDLL *dll, Block *b)
+void remove_from_dll(BlockDLL *dll, Block *b)
 {
 	if (!dll->head || !b)
 		return;
@@ -102,4 +102,23 @@ void protect(BlockDLL *dll, Block *b)
 	if (b->prev)
 		b->prev->next = b->next;
 	return;
+}
+
+Victim *initVictim(int range) {
+	Victim *v = (Victim *) malloc(sizeof(Victim));
+	v->weight_dll = (BlockDLL **) malloc(sizeof(BlockDLL *) * range);
+	for (int i = 0; i < range; ++i) {
+		v->weight_dll[i] = initBlockDLL();
+	}
+	return v;
+}
+
+void add_to_victim(Victim *v, Block *b) {
+	BlockDLL *dll = v->weight_dll[b->weight];
+	add_to_head(dll, b);
+}
+
+void remove_from_victim(Victim *v, Block *b) {
+	BlockDLL *dll_old = v->weight_dll[b->weight];
+	remove_from_dll(dll_old, b);
 }

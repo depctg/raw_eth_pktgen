@@ -9,7 +9,6 @@
 #include "mem_block.h"
 #include "mem_slicer.h"
 #include "ambassador.h"
-#include "prefetcher.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -30,7 +29,6 @@ typedef struct CacheTable
 	uint64_t accesses;
 
 	Ambassador *amba;
-	Inflights *ins;
 
 	uint64_t cache_line_size;
 	uint8_t tag_shifts;

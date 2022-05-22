@@ -58,9 +58,11 @@ void fetch_sync(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts);
 void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, BlockDLL *dll);
 
 /* return wr_id of async wr */
-uint64_t fetch_async(Block *b, Ambassador *a, uint8_t tag_shifts);
+uint64_t fetch_async(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts);
 
 void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, BlockDLL *dll);
+
+void check_wq(Ambassador *a, BlockDLL *dll);
 
 #ifdef __cplusplus
 }

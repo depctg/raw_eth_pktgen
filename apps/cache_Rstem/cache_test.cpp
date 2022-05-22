@@ -7,9 +7,9 @@
 #include "clock.hpp"
 #include <assert.h>
 
-constexpr static uint64_t max_size = 4 << 10;
+constexpr static uint64_t max_size = 1 << 10;
 constexpr static uint64_t array_size = 1 << 10;
-constexpr static uint64_t cache_line_size = 1 << 10;
+constexpr static uint64_t cache_line_size = 1 << 8;
 constexpr static uint64_t per_line = cache_line_size / (sizeof(uint64_t));
 constexpr static uint64_t num_access_times = 1 << 20;
 constexpr static uint64_t seed = 2333;
@@ -49,13 +49,13 @@ int main(int argc, char * argv[]) {
         if (i % per_line == 0)
         {
             prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
-            cout << i << " % " << num_access_times << endl;
+            // cout << i << " % " << num_access_times << endl;
         }
-        uint64_t *l = (uint64_t *)cache_access(cache, addr);
+        // uint64_t *l = (uint64_t *)cache_access(cache, addr);
         // cout << access_pattern[i] << " " << *l << " " << l << endl;
-        do_sth(l);
-        if (access_pattern[i] != *l)
-            cout << access_pattern[i] << " " << *l << endl;
+        // do_sth(l);
+        // if (access_pattern[i] != *l)
+        //     cout << access_pattern[i] << " " << *l << endl;
         // assert(access_pattern[i] == *l);
     }
 

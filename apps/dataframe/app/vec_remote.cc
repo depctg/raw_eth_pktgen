@@ -20,7 +20,7 @@ int main(int argc, char * argv[])
     char * addr = 0;
     uint64_t prefetch_size = 0;
     uint64_t cache_line_size = 8192;
-    uint32_t cache_size = (480 << 20);
+    uint64_t cache_size = (480 << 20);
     uint64_t index_size = 100;
 
     int opt= 0, long_index =0;
@@ -46,7 +46,7 @@ int main(int argc, char * argv[])
     if (!addr) return -1;
 
   init(TRANS_TYPE_RC_SERVER, addr);
-  KVS *kvs = new KVS(sbuf, cache_size, cache_line_size);
+  KVS *kvs = new KVS(sbuf, rbuf, cache_size, cache_line_size);
 
   size_t req_size = sizeof(struct req) + cache_line_size;
 

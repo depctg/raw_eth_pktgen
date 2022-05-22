@@ -10,7 +10,7 @@
 #include "clock.hpp"
 
 constexpr static uint64_t kNumEntries = 32 << 20;
-constexpr static uint64_t batch_size = 512;
+constexpr static uint64_t batch_size = 1 << 20;
 constexpr static int iter_ahead = 0;
 constexpr static uint64_t per_batch = batch_size / sizeof(uint64_t);
 constexpr static uint64_t num_batch = kNumEntries / per_batch;

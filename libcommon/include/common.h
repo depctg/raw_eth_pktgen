@@ -22,13 +22,13 @@ extern "C" {
 #define DEVICE_GID 3
 #define PORT_NUM 1
 
-#define CQ_NUM_DESC 128
+#define CQ_NUM_DESC 64
 
 /* size for local buffers, 512M */
 #define SEND_BUF_SIZE (512 << 20)
 #define RECV_BUF_SIZE (512 << 20)
 
-#define MAX_POLL 128
+#define MAX_POLL 64
 
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
@@ -50,6 +50,11 @@ extern struct ibv_context *context;
 
 extern uint64_t post_id;
 extern uint64_t poll_id;
+
+extern uint64_t send_post_id;
+extern uint64_t send_poll_id;
+extern uint64_t recv_post_id;
+extern uint64_t recv_poll_id;
 
 int init(int type, const char * server_url);
 int steer();

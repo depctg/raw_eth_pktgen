@@ -25,7 +25,7 @@ void do_sth(void *i)
 using namespace std;
 int main(int argc, char * argv[]) {
 	init(TRANS_TYPE_RC, argv[1]);
-    CacheTable *cache = createCacheTable(max_size, cache_line_size, sbuf, rbuf);
+    CacheTable *cache = createCacheTable(max_size, cache_line_size, sbuf, rbuf, 0, add_to_LFU, touch_LFU, pop_LFU);
 
     // vector<size_t> access_pattern = gen_access_pattern_normal(num_access_times, array_size / 2, 1, sigma, 2333);
     // vector<size_t> access_pattern = gen_access_pattern_uniform(num_access_times, array_size, tile, seed);
@@ -48,14 +48,14 @@ int main(int argc, char * argv[]) {
         // cout << i << "Access: " << addr << " tag " << tag << " ofst " << line_offset << endl;
         if (i % per_line == 0)
         {
-            prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
+            // prefetch(cache, ((addr & cache->addr_mask) + (1 << cache->tag_shifts)) % (array_size * sizeof(uint64_t)));
             // cout << i << " % " << num_access_times << endl;
         }
-        // uint64_t *l = (uint64_t *)cache_access(cache, addr);
+        uint64_t *l = (uint64_t *)cache_access(cache, addr);
         // cout << access_pattern[i] << " " << *l << " " << l << endl;
-        // do_sth(l);
-        // if (access_pattern[i] != *l)
-        //     cout << access_pattern[i] << " " << *l << endl;
+        do_sth(l);
+        if (access_pattern[i] != *l)
+            cout << access_pattern[i] << " " << *l << endl;
         // assert(access_pattern[i] == *l);
     }
 

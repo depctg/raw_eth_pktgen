@@ -8,6 +8,7 @@
 #include "common.h"
 #include "mem_block.h"
 #include "mem_slicer.h"
+#include "replacement.h"
 #include "ambassador.h"
 
 #ifdef __cplusplus
@@ -35,8 +36,8 @@ typedef struct CacheTable
 
 	// a hashmap of blocks
 	HashBlock *map;
-	// a dll of blocks
-	BlockDLL *dll;
+	// Replacement Policy
+	Policy *rplc;
 	// a queue of free slots
 	FreeQueue *fq;
 } CacheTable;
@@ -46,11 +47,14 @@ CacheTable *createCacheTable(
 	uint64_t max_size,
 	uint64_t cache_line_size,
 	void *req_buffer,
-	void *recv_buffer
+	void *recv_buffer,
+	int max_weight,
+	void (*fresh_add)(struct Policy *, Block *b),
+	void (*access_existing)(struct Policy *, Block *b),
+	Block *(*pop_victim)(struct Policy *)
 );
 
-// pop LRU, update if dirty
-uint64_t popVictim(BlockDLL *dll, CacheTable *table);
+uint64_t pop_for_rbuf(CacheTable *table);
 
 /* public interfaces: */
 
@@ -75,6 +79,7 @@ void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
 // write arbitrary length to remote arbitrary addr
 // obsence and clean in local
 void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
+
 
 // prefetch arbitrary cache line
 // pending cache lines will never be evicted

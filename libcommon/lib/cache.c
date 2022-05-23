@@ -55,7 +55,11 @@ CacheTable *createCacheTable(
 	uint64_t max_size,
 	uint64_t cache_line_size,
 	void *req_buffer,
-	void *recv_buffer)
+	void *recv_buffer,
+	int max_weight,
+	void (*fresh_add)(struct Policy *, Block *b),
+	void (*access_existing)(struct Policy *, Block *b),
+	Block *(*pop_victim)(struct Policy *))
 {
 	CacheTable *cache = (CacheTable *)malloc(sizeof(CacheTable));
 	uint8_t lbts = log2(cache_line_size * sizeof(char));
@@ -70,7 +74,7 @@ CacheTable *createCacheTable(
 	cache->amba = newAmbassador(64, cache_line_size, req_buffer, recv_buffer);
 
 	cache->map = NULL;
-	cache->dll = initBlockDLL();
+	cache->rplc = initReplacement(max_weight, fresh_add, access_existing, pop_victim);
 	cache->fq = initQueue(cache->max_size, cache->cache_line_size);
 	return cache;
 }
@@ -92,6 +96,24 @@ void linePrint(char *line, uint64_t cache_line_size)
 		printf("%" PRIu64 " ", *(vline + i));
 	}
 	printf("end-----\n");
+}
+
+uint64_t pop_for_rbuf(CacheTable *table)
+{
+	// make sure no wr is holding space
+	cq_consumer(0, RECV, table->amba, table->rplc);
+	Block *victim = table->rplc->pop_victim(table->rplc);
+	if (victim == NULL) {
+		// victim list is empty but need eviction
+		fprintf(stderr, "Eviction of empty cache pool\n");
+		exit(1);
+	}
+	victim->status = absent;
+	if (victim->dirty) {
+		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba, table->rplc);
+		victim->dirty = 0;
+	}
+	return victim->rbuf_offset;
 }
 
 // Access virtual address {addr}
@@ -118,7 +140,6 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
 	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
 	// hashPrint(table->map);
-	// dllPrint(table->dll->head);
 	HashBlock *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not in cache, fetch
@@ -130,8 +151,7 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		if (!claim(table->fq, &rbuf_offset))
 		{
 			// rbuf filled up, need eviction
-			rbuf_offset = popVictim(table->dll, table);
-			// printf("Evict and found roffset: %" PRIu64 "\n", rbuf_offset);
+			rbuf_offset = pop_for_rbuf(table);
 		}
 		// printf("Ac rbuf ofst: %" PRIu64 "\n", rbuf_offset);
 		if (tgt == NULL)
@@ -149,10 +169,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			tgt->bptr->wr_id = -1;
 			tgt->bptr->weight = 0;
 			tgt->bptr->dirty = 0;
-			// if (table->dll->tail)
-			// 	printf("%" PRIu64 "\n", table->dll->tail->tag);
 		}
-		fetch_sync(tgt->bptr, table->amba, table->dll, table->tag_shifts);
+		fetch_sync(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
 		// printf("Fetched ");
 		// linePrint(table->amba->line_pool + rbuf_offset, table->cache_line_size);
 		return table->amba->line_pool + rbuf_offset + line_offset;
@@ -161,12 +179,12 @@ char *cache_access(CacheTable *table, uint64_t addr)
 	{
 		// polling pending wr_id
 		// printf("Access pending wr_id: %" PRIu64 "\n", tgt->bptr->wr_id);
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
 		// hashPrint(table->map);
 	}
 	else
 		// if find target, touch and return
-		touch(table->dll, tgt->bptr);
+		table->rplc->access_existing(table->rplc, tgt->bptr);
 
 	// printf("Found ");
 	// linePrint(table->amba->line_pool + tgt->bptr->rbuf_offset, table->cache_line_size);
@@ -183,8 +201,8 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 	{
 		// claim room on rbuf for this cache line
 		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset))
-			rbuf_offset = popVictim(table->dll, table);
+		if (!claim(table->fq, &rbuf_offset)) 
+			rbuf_offset = pop_for_rbuf(table);
 		// new to remote
 		// write-back
 		if (tgt == NULL)
@@ -195,14 +213,15 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 			tgt->tag = (int) tag;
 			// insert as hot
 			HASH_ADD_INT(table->map, tag, tgt);
-			add_to_head(table->dll, tgt->bptr);
+			table->rplc->fresh_add(table->rplc, tgt->bptr);
 		}
 		else
 		{
 			// printf("Write to evicted, tag: %" PRIu64"\n", tgt->bptr->tag);
 			// remote has stale version, pull and write-back
 			tgt->bptr->rbuf_offset = rbuf_offset;
-			fetch_sync(tgt->bptr, table->amba, table->dll, table->tag_shifts);
+			// fetch sync will add to victims
+			fetch_sync(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
 			tgt->bptr->dirty = 1;
 		}
 		// write to rbuf
@@ -211,7 +230,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 	else if (tgt->bptr->status == pending)
 	{
 		// polling pending 
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
 		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->dirty = 1;
 	}
@@ -219,7 +238,7 @@ void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *da
 	{
 		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 		tgt->bptr->dirty = 1;
-		touch(table->dll, tgt->bptr);
+		table->rplc->access_existing(table->rplc, tgt->bptr);
 	}
 	return;
 }
@@ -273,12 +292,12 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not accessed
 	// create dummy block entry in map
-	// eviction dll will not have this entry
+	// policy will not have this entry
 	// since this memory cannot be evicted
 	if (tgt == NULL)
 	{
 		tgt = (HashBlock *) malloc(sizeof(HashBlock));
-		tgt->bptr = newBlock(-1, tag, absent, 0, -1, -1);
+		tgt->bptr = newBlock(-1, tag, absent, 0, -1, 0);
 		tgt->tag = (int) tag;
 		HASH_ADD_INT(table->map, tag, tgt);
 	} 
@@ -291,10 +310,10 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 	}
 	else if (tgt->bptr->status == pending)
 	{
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
 		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
 	}
-	update_sync(dat_buf, addr, s, table->amba, table->dll);
+	update_sync(dat_buf, addr, s, table->amba, table->rplc);
 }
 
 void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
@@ -325,6 +344,7 @@ void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	return;
 }
 
+
 void prefetch(CacheTable *table, uint64_t addr)
 {
 	uint64_t tag = addr >> table->tag_shifts;
@@ -335,8 +355,8 @@ void prefetch(CacheTable *table, uint64_t addr)
 	{
 		// claim room for this cache line
 		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset))
-			rbuf_offset = popVictim(table->dll, table);
+		if (!claim(table->fq, &rbuf_offset)) 
+			rbuf_offset = pop_for_rbuf(table);
 		// prefetch
 		// printf("Pf rbuf ofst: %" PRIu64 "\n", rbuf_offset);
 		if (tgt == NULL)
@@ -353,25 +373,18 @@ void prefetch(CacheTable *table, uint64_t addr)
 			tgt->bptr->status = pending;
 			tgt->bptr->wr_id = -1;
 		}
-		uint64_t wr_id = fetch_async(tgt->bptr, table->amba, table->dll, table->tag_shifts);
+		uint64_t wr_id = fetch_async(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
 		// awaitFetch(table->ins, tgt->bptr);
 		// printf("Prefetch tag: %" PRIu64 ", wr_id%" PRIu64 "\n", tag, wr_id);
 	}
 	else if (tgt->bptr->status == pending)
 	{
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->dll);
+		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
 	}
 	else
 	{
-		// locally available but overwrite
-		// uint32_t sid;
-		// uint64_t wr_id = fetch_async(addr, tgt->bptr->rbuf_offset, table->amba, &sid);
-		// tgt->bptr->wr_id = wr_id;
-		// tgt->bptr->sid = sid;
-		// protect(table->dll, tgt->bptr);
-
 		// locally available but not overwrite
-		touch(table->dll, tgt->bptr);
+		table->rplc->access_existing(table->rplc, tgt->bptr);
 	}
 	// hashPrint(table->map);
 }

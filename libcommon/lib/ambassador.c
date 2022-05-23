@@ -13,57 +13,57 @@
 
 Ambassador *newAmbassador(uint32_t ring_size, uint64_t cls, void *req_buffer, void *recv_buffer)
 {
-	Ambassador *a = (Ambassador *) malloc(sizeof(Ambassador));
-	a->ring_size = ring_size;
-	a->cache_line_size = cls;
-	a->req_size = sizeof(struct req) + sizeof(char) * cls;
-	a->wrid_sid = NULL;
-	a->wrid_bptr = NULL;
+    Ambassador *a = (Ambassador *) malloc(sizeof(Ambassador));
+    a->ring_size = ring_size;
+    a->cache_line_size = cls;
+    a->req_size = sizeof(struct req) + sizeof(char) * cls;
+    a->wrid_sid = NULL;
+    a->wrid_bptr = NULL;
 
-	a->snid = (uint32_t *) malloc(sizeof(uint32_t) * ring_size);
-	for (uint32_t i = 0; i < ring_size; ++i)
-	{
-		a->snid[i] = i;
-	}
-	a->front = 0;
-	a->frees = a->ring_size;
-	a->end = ring_size - 1;
-	a->reqs = (char *) req_buffer;
-	a->line_pool = (char *) recv_buffer;
-	return a;
+    a->snid = (uint32_t *) malloc(sizeof(uint32_t) * ring_size);
+    for (uint32_t i = 0; i < ring_size; ++i)
+    {
+        a->snid[i] = i;
+    }
+    a->front = 0;
+    a->frees = a->ring_size;
+    a->end = ring_size - 1;
+    a->reqs = (char *) req_buffer;
+    a->line_pool = (char *) recv_buffer;
+    return a;
 }
 
 uint32_t get_sid(Ambassador *a)
 {
-	if (!a->frees)
-	{
-		printf("No free send buffer slot\n");
-		// TODO: return wait signal
-		exit(1);
-	}
-	uint32_t sid = a->snid[a->front];
-	a->front = (a->front + 1) % a->ring_size;
-	a->frees -= 1;
-	return sid;
+    if (!a->frees)
+    {
+        printf("No free send buffer slot\n");
+        // TODO: return wait signal
+        exit(1);
+    }
+    uint32_t sid = a->snid[a->front];
+    a->front = (a->front + 1) % a->ring_size;
+    a->frees -= 1;
+    return sid;
 }
 
 void ret_sid(Ambassador *a, uint32_t sid)
 {
-	if (a->frees == a->ring_size) return;
-	a->end = (a->end + 1) % a->ring_size;
-	a->snid[a->end] = sid;
-	a->frees += 1;
+    if (a->frees == a->ring_size) return;
+    a->end = (a->end + 1) % a->ring_size;
+    a->snid[a->end] = sid;
+    a->frees += 1;
 }
 
 void fetchedPrint(char *line, uint32_t cache_line_size)
 {
-	uint64_t *vline = (uint64_t *) line;
-	printf("line: \n");
-	for (size_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++ i)
-	{
-		printf("%" PRIu64 " ", *(vline + i));
-	}
-	printf("end-----\n");
+    uint64_t *vline = (uint64_t *) line;
+    printf("line: \n");
+    for (size_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++ i)
+    {
+        printf("%" PRIu64 " ", *(vline + i));
+    }
+    printf("end-----\n");
 }
 
 void fetch_sync(Block *b, Ambassador *a, Policy *p, uint8_t tag_shifts)
@@ -131,12 +131,12 @@ uint64_t fetch_async(Block *b, Ambassador *a, Policy *p, uint8_t tag_shifts)
 	hs->sid = send_buf_nid;
 	HASH_ADD_INT(a->wrid_sid, wr_id, hs); 
 
-	HashRid *hr = (HashRid *) malloc(sizeof(HashRid));
-	hr->wr_id = (int) rk;
-	hr->bptr = b;
-	HASH_ADD_INT(a->wrid_bptr, wr_id, hr);
-	b->wr_id = rk;
-	return rk;
+    HashRid *hr = (HashRid *) malloc(sizeof(HashRid));
+    hr->wr_id = (int) rk;
+    hr->bptr = b;
+    HASH_ADD_INT(a->wrid_bptr, wr_id, hr);
+    b->wr_id = rk;
+    return rk;
 }
 
 /* if wr_id is 0, consume the entire cq */

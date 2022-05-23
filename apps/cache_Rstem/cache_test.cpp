@@ -3,6 +3,7 @@
 #include "common.h"
 #include "greeting.h"
 #include "cache.h"
+#include "replacement.h"
 #include "patterns.hpp"
 #include "clock.hpp"
 #include <assert.h>

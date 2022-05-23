@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "uthash.h"
-#include "mem_block.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -15,7 +14,7 @@ extern "C"
 
 typedef struct Victim {
   int max_weight;
-  BlockDLL **weight_dll;
+  struct BlockDLL **weight_dll;
 } Victim;
 
 Victim *initVictim(int w);

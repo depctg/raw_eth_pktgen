@@ -6,10 +6,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include "common.h"
-#include "mem_block.h"
-#include "mem_slicer.h"
-#include "replacement.h"
-#include "ambassador.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -21,6 +17,12 @@ enum {
     CACHE_READ = 1,
 };
 
+struct Block;
+struct Ambassador;
+struct HashBlock;
+struct Policy;
+struct FreeQueue;
+
 typedef struct CacheTable
 {
 	uint64_t tag_mask;
@@ -29,17 +31,17 @@ typedef struct CacheTable
 	uint64_t misses;
 	uint64_t accesses;
 
-	Ambassador *amba;
+	struct Ambassador *amba;
 
 	uint64_t cache_line_size;
 	uint8_t tag_shifts;
 
 	// a hashmap of blocks
-	HashBlock *map;
+	struct HashBlock *map;
 	// Replacement Policy
-	Policy *rplc;
+	struct Policy *rplc;
 	// a queue of free slots
-	FreeQueue *fq;
+	struct FreeQueue *fq;
 } CacheTable;
 
 // max_size, cache_line_size (byte)
@@ -49,9 +51,9 @@ CacheTable *createCacheTable(
 	void *req_buffer,
 	void *recv_buffer,
 	int max_weight,
-	void (*fresh_add)(struct Policy *, Block *b),
-	void (*access_existing)(struct Policy *, Block *b),
-	Block *(*pop_victim)(struct Policy *)
+	void (*fresh_add)(struct Policy *, struct Block *b),
+	void (*access_existing)(struct Policy *, struct Block *b),
+	struct Block *(*pop_victim)(struct Policy *)
 );
 
 uint64_t pop_for_rbuf(CacheTable *table);

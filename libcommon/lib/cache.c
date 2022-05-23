@@ -57,9 +57,9 @@ CacheTable *createCacheTable(
 	void *req_buffer,
 	void *recv_buffer,
 	int max_weight,
-	void (*fresh_add)(struct Policy *, Block *b),
-	void (*access_existing)(struct Policy *, Block *b),
-	Block *(*pop_victim)(struct Policy *))
+	void (*fresh_add)(struct Policy *, struct Block *b),
+	void (*access_existing)(struct Policy *, struct Block *b),
+	struct Block *(*pop_victim)(struct Policy *))
 {
 	CacheTable *cache = (CacheTable *)malloc(sizeof(CacheTable));
 	uint8_t lbts = log2(cache_line_size * sizeof(char));

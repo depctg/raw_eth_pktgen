@@ -15,24 +15,18 @@ enum {
 };
 
 // Requests
-struct {
+struct cache_req {
     uint64_t tag;
     union {
         uint64_t newtag;
         struct {
             uint64_t _unused : 60;
-            uint8_t type     : 4;
+            uint8_t type     : 4; // implies cache line >= 16B
         };
     };
-} cache_req;
-
-/* cache request structure */
-
-struct cache_req_buf {
-    struct cache_req *reqs;
-    unsigned head, tail;
 };
 
+/* cache request structure */
 #define CACHE_REQ_INFLIGHT 64
 #ifndef MEMMAP_CACHE_REQ 
     #define MEMMAP_CACHE_REQ (sbuf)
@@ -46,10 +40,10 @@ typedef union {
         uint32_t cache;
     };
 } cache_token_t;
-#define cache_token_slot(token) token
+#define cache_token_slot(token) (token.slot)
 #define cache_token_set(offset) offset
 #define cache_token_ser(token) (token.ser)
-#define cache_token_deser(wr) token.ser=(wr)
+#define cache_token_deser(token,wr) token.ser=(wr)
 
 struct cache_meta {
     uint64_t tag;
@@ -68,10 +62,18 @@ struct cache_meta {
     };
 };
 
+enum {
+    CACHE_FLAGS_ACQUIRE = 1 << 0,
+    CACHE_FLAGS_CO      = 1 << 1
+};
+
 typedef unsigned cache_t;
 
+// init, should be called only after common init
+void cache_init();
+
 // create
-cache_t cache_create(unsigned size, unsigned linesize, );
+cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase);
 
 enum {
     CACHE_ACCESS_NONE = 0,
@@ -85,8 +87,10 @@ void cache_release(cache_token_t *tokens, int cnt);
 // TODO: consider inline
 // TODO: fixed base?
 cache_token_t cache_request(cache_t cache, intptr_t addr);
-inline void cache_await(cache_token_t token);
-inline void * cache_access(cache_token_t token);
+
+void cache_sync(cache_token_t token);
+void cache_await(cache_token_t token);
+void * cache_access(cache_token_t token);
 
 #ifdef __cplusplus
 }

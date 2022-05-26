@@ -3,388 +3,229 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <math.h>
-#include <inttypes.h>
 
-#include "cache_internal.h"
 #include "common.h"
-#include "mem_block.h"
-#include "mem_slicer.h"
-#include "ambassador.h"
 #include "cache.h"
-#include "greeting.h"
-#include "uthash.h"
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
+// TODO: fixed tokens
 
-static inline uint64_t _async_request_sge(
-        Block *b, Ambassador *a, uint64_t tag, int type
-    ) {
-	uint32_t sid = get_sid(a);
-	struct req *r = (struct req *) (a->reqs + sid * a->req_size);
-	r->size = a->cache_line_size;
-	r->addr = type == CACHE_READ ? b->tag : tag;
-	r->type = type;
+// Create and destory of cache object
+static struct cache_internal {
+    // pointers
+    struct cache_meta * metabase;
+    char * linebase;
+    // linesizes
+    unsigned linesize;
+    unsigned size;
+} caches[OPT_NUM_CACHE];
+static int cache_cnt = 0;
 
-    char * cacheline = a->line_pool + b->rbuf_offset;
+enum cache_status {
+    // IDLE only happens on init
+    CACHE_IDLE=0,
+    CACHE_ALLOC,
+    CACHE_READY,
+    CACHE_SYNC,
+    CACHE_END
+}
 
-    // build sge RDMA packet
+static uint64_t inline cache_tag(cache_t cache, intptr_t addr) {
+    return (uint64_t)addr & ~((uint64_t)(cache_get(cache,linesize)-1))
+}
 
-    if (type == CACHE_READ) {
-        send_async(r, sizeof(struct req));
-        return recv_async(cacheline, a->cache_line_size);
-    } else if (type == CACHE_WRITE) {
-        size_t msgsize = a->cache_line_size + sizeof(struct req);
-        struct ibv_sge sge[2];
+// impl macros
 
-        // request
-        sge[0].addr = (uintptr_t)r;
-        sge[0].length = sizeof(struct req);
-        sge[0].lkey = rmr->lkey;
-        // data
-        sge[1].addr = (uintptr_t)cacheline;
-        sge[1].length = a->cache_line_size;
-        sge[1].lkey = rmr->lkey;
+#define cache_get(cache,field) \
+    ((cache).field)
+#define cache_get_meta(cache,token,field) \
+    ((cache).metabase[cache_token_offset(token)].field)
+#define cache_get_line(cache,token) \
+    ((cache).linebase+cache_token_offset(token)*cache.linesize)
 
-        return send_async_sge(sge, 2);
+cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase) {
+    // TODO: more assert
+    caches[cache_cnt].metabase = metabase;
+    caches[cache_cnt].linebase = linebase;
+    caches[cache_cnt].linesize = linesize;
+    caches[cache_cnt].size = size;
+    caches[cache_cnt].slots = size / linesize;
+    return cache_cnt++;
+}
+
+// eviction
+static inline void eviction_notify(int name, int action) {
+    event[event_cnt++] = action;
+    if (unlikely(event_cnt >= EVICTION_EVENT_COMPRESS)) {
     }
 }
 
-
-CacheTable *createCacheTable(
-	uint64_t max_size,
-	uint64_t cache_line_size,
-	void *req_buffer,
-	void *recv_buffer,
-	int max_weight,
-	void (*fresh_add)(struct Policy *, struct Block *b),
-	void (*access_existing)(struct Policy *, struct Block *b),
-	struct Block *(*pop_victim)(struct Policy *))
-{
-	CacheTable *cache = (CacheTable *)malloc(sizeof(CacheTable));
-	uint8_t lbts = log2(cache_line_size * sizeof(char));
-	cache->tag_shifts = lbts;
-	cache->tag_mask = ((uint64_t) 1 << lbts) - 1;
-	cache->addr_mask = ~(cache->tag_mask);
-	cache->max_size = max_size;
-	cache->cache_line_size = cache_line_size;
-	cache->accesses = 0;
-	cache->misses = 0;
-
-	cache->amba = newAmbassador(64, cache_line_size, req_buffer, recv_buffer);
-
-	cache->map = NULL;
-	cache->rplc = initReplacement(max_weight, fresh_add, access_existing, pop_victim);
-	cache->fq = initQueue(cache->max_size, cache->cache_line_size);
-	return cache;
+// TODO: cache_poll_token
+inline void cache_await(cache_token_t token) {
+    while (cache_get_meta(cache,token,status) == CACHE_SYNC)
+        cache_poll();
 }
 
-void hashPrint(HashBlock *hs)
-{
-	HashBlock *cur;
-	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
-			printf("tag %d, status %d\n" , cur->tag, cur->bptr->status);
-	}
+// TODO: inline cachesize?
+inline void * cache_access(cache_token_t token) {
+    return caches[token.cache].linebase + token.slot * caches[token.cache].linesize;
 }
 
-void linePrint(char *line, uint64_t cache_line_size)
-{
-	uint64_t *vline = (uint64_t *) line;
-	printf("line: \n");
-	for (size_t i = 0; i < cache_line_size * sizeof(char) / sizeof(uint64_t); ++ i)
-	{
-		printf("%" PRIu64 " ", *(vline + i));
-	}
-	printf("end-----\n");
+inline void cache_evict(cache_token_t token, intptr_t addr) {
+    cache_get_meta(cache, token, newtag) = (uint64_t)cache_tag(addr);
+    cache_post(buf, token, CACHE_REQ_EVICT);
 }
 
-uint64_t pop_for_rbuf(CacheTable *table)
-{
-	// make sure no wr is holding space
-	cq_consumer(0, RECV, table->amba, table->rplc);
-	Block *victim = table->rplc->pop_victim(table->rplc);
-	if (victim == NULL) {
-		// victim list is empty but need eviction
-		fprintf(stderr, "Eviction of empty cache pool\n");
-		exit(1);
-	}
-	victim->status = absent;
-	if (victim->dirty) {
-		update_sync(table->amba->line_pool + victim->rbuf_offset, (victim->tag << table->tag_shifts), table->cache_line_size, table->amba, table->rplc);
-		victim->dirty = 0;
-	}
-	return victim->rbuf_offset;
+static inline cache_token_t cache_select_token(cache_t cache, uint64_t tag) {
+    cache_token_t token;
+    token.cache = cache;
+    // TODO: fix this
+    token.slot = tag >> 4 & 0xFF;
 }
 
-// Access virtual address {addr}
-// addr:
-// |  tag (64-L)b | LOFST (L)b  |
-// LOFST: line_offset
-
-// Cache table reserves rbuf memory within [rbuf', rbuf' + max_size]
-// rbuf' = rbuf + N
-
-// Find ROFST: rbuf_offset in the cache table
-// ROFST = map[tag]
-
-// return the correct address
-// {rbuf'}      {rbuf' + ROFST}         														 {rbuf' + max_size}
-//  |       ...        | < ------- cache_line_size  -------> |   ...        |
-//										 | <- LOFST -> |
-//																   return {rbuf' + ROFST + LOFST}
-
-char *cache_access(CacheTable *table, uint64_t addr)
-{
-	table->accesses += 1;
-	uint64_t tag = addr >> table->tag_shifts;
-	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-	// printf("Access addr, tag, offset: %"PRIu64" %" PRIu64 " %" PRIu64 "\n", addr, tag, line_offset);
-	// hashPrint(table->map);
-	HashBlock *tgt;
-	HASH_FIND_INT(table->map, &tag, tgt);
-	// if not in cache, fetch
-	if (tgt == NULL || tgt->bptr->status == absent)
-	{
-		table->misses += 1;
-		// claim a space for new fetched data
-		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset))
-		{
-			// rbuf filled up, need eviction
-			rbuf_offset = pop_for_rbuf(table);
-		}
-		// printf("Ac rbuf ofst: %" PRIu64 "\n", rbuf_offset);
-		if (tgt == NULL)
-		{
-			tgt = (HashBlock *) malloc(sizeof *tgt);
-			// create new block, not present yet
-			tgt->bptr = newBlock(rbuf_offset, tag, pending, 0, -1, 0);
-			tgt->tag = (int) tag;
-			HASH_ADD_INT(table->map, tag, tgt);
-		}
-		else
-		{
-			tgt->bptr->rbuf_offset = rbuf_offset;
-			tgt->bptr->status = pending;
-			tgt->bptr->wr_id = -1;
-			tgt->bptr->weight = 0;
-			tgt->bptr->dirty = 0;
-		}
-		fetch_sync(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
-		// printf("Fetched ");
-		// linePrint(table->amba->line_pool + rbuf_offset, table->cache_line_size);
-		return table->amba->line_pool + rbuf_offset + line_offset;
-	} 
-	else if (tgt->bptr->status == pending)
-	{
-		// polling pending wr_id
-		// printf("Access pending wr_id: %" PRIu64 "\n", tgt->bptr->wr_id);
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
-		// hashPrint(table->map);
-	}
-	else
-		// if find target, touch and return
-		table->rplc->access_existing(table->rplc, tgt->bptr);
-
-	// printf("Found ");
-	// linePrint(table->amba->line_pool + tgt->bptr->rbuf_offset, table->cache_line_size);
-	return table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset;
+/* main cache functions */
+static inline cache_token_t _cache_lookup_groupassoc(cache_t cache, intptr_t addr) {
+    // find slot and eviction
+    uint64_t tag = cache_tag(addr);
+    cache_token_t token = cache_select_token(cache, tag);
+    if (cache_get_meta(cache, token, status) == CACHE_EMPTY) {
+        cache_post(buf, token, CACHE_REQ_READ);
+    } else if (cache_get_meta(cache, token, tag) != tag) {
+        // await all inflight requests
+        // TODO: process with lock
+        cache_await(token);
+#ifndef NDEBUG
+        if (cache_get_meta(cache, token, status) != CACHE_READY)
+            eprintf(-1, "Error in cache line status");
+#endif
+        // do eviction
+        cache_get_meta(cache, token, newtag) = tag;
+        cache_post(buf, token, CACHE_REQ_EVICT);
+    }
+    return token;
 }
 
-void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s)
-{
-	// printf("tag %" PRIu64 ", lofst %" PRIu64 ", size %" PRIu64 "\n", tag, line_offset, s);
-	HashBlock *tgt;
-	HASH_FIND_INT(table->map, &tag, tgt);
-	// if is a new cache entry or evicted line
-	if (tgt == NULL || tgt->bptr->status == absent)
-	{
-		// claim room on rbuf for this cache line
-		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset)) 
-			rbuf_offset = pop_for_rbuf(table);
-		// new to remote
-		// write-back
-		if (tgt == NULL)
-		{
-			memset(table->amba->line_pool + rbuf_offset, 0, sizeof(char) * table->cache_line_size);
-			tgt = (HashBlock *) malloc(sizeof(HashBlock));
-			tgt->bptr = newBlock(rbuf_offset, tag, present, /* dirty */ 1, -1, 0);
-			tgt->tag = (int) tag;
-			// insert as hot
-			HASH_ADD_INT(table->map, tag, tgt);
-			table->rplc->fresh_add(table->rplc, tgt->bptr);
-		}
-		else
-		{
-			// printf("Write to evicted, tag: %" PRIu64"\n", tgt->bptr->tag);
-			// remote has stale version, pull and write-back
-			tgt->bptr->rbuf_offset = rbuf_offset;
-			// fetch sync will add to victims
-			fetch_sync(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
-			tgt->bptr->dirty = 1;
-		}
-		// write to rbuf
-		memcpy(table->amba->line_pool + rbuf_offset + line_offset, dat_buf, s);
-	}
-	else if (tgt->bptr->status == pending)
-	{
-		// polling pending 
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
-		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
-		tgt->bptr->dirty = 1;
-	}
-	else
-	{
-		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
-		tgt->bptr->dirty = 1;
-		table->rplc->access_existing(table->rplc, tgt->bptr);
-	}
-	return;
+cache_token_t cache_request(cache_t cache, intptr_t addr) {
+    return _cache_lookup_groupassoc(cache, addr);
 }
 
-void cache_write(CacheTable *table, uint64_t addr, void *dat_buf)
-{
-	uint64_t tag = addr >> table->tag_shifts;
-	uint64_t line_offset /* bytes */ = (addr & table->tag_mask);
-	write_to_CL(table, tag, line_offset, dat_buf, sizeof(uint64_t));
+// should be called without any overlap
+// without "lease" should not return empty value
+void cache_acquire(intptr_t addr, size_t size,
+        cache_token_t *tokens, int acquire) {
+    uint64_t line;
+    cache_token_t *cur = tokens;
+
+    for (line = cache_tag(line);
+            line < addr + size;
+            line += CACHE_LINE_SIZE) {
+        cache_token_t token = cache_lookup(addr);
+        token_set_flag(cache,token,CACHE_FLAGS_ACQUIRE,acquire);
+
+        // collect the tokens
+        if (tokens != NULL)
+            *(cur++) = token;
+    }
 }
 
-// write one line into cache
-void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf)
-{
-	HashBlock *tgt;
-	HASH_FIND_INT(table->map, &tag, tgt);
-	write_to_CL(table, tag, 0, dat_buf, table->cache_line_size);
+void cache_release(cache_token_t *tokens, int cnt) {
+    for (int i = 0; i < cnt; i++)
+        cache_set_flag(cache,tokens[i],CACHE_FLAGS_ACQUIRE,0);
 }
 
-void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
-{
-	// first cache line tag of addr
-	uint64_t ftag = addr >> table->tag_shifts;
-	// last tag
-	uint64_t ltag = (addr + s) >> table->tag_shifts;
-	uint64_t written_l = 0;
-	// printf("ftag %" PRIu64 ", ltag %" PRIu64 "\n", ftag, ltag);
-	// write first cache line
-	uint64_t line_offset = addr & table->tag_mask;
-	uint64_t cur_length = min(s-written_l, table->cache_line_size - line_offset);
-	write_to_CL(table, ftag, line_offset, (char *)dat_buf + written_l, cur_length);
-	ftag ++;
-	written_l += cur_length;
+/* request level */
 
-	// write rest lines
-	while (ftag <= ltag)
-	{
-		// line offset = 0 for these lines
-		uint64_t cur_length = min(s-written_l, table->cache_line_size);
-		if (cur_length > 0)
-			write_to_CL(table, ftag, 0, (char *)dat_buf + written_l, cur_length);
-		ftag ++;
-		written_l += cur_length;
-	}
-	return;
+struct cache_req_buf req_buf = {
+    .reqs = MEMMAP_CACHE_REQ,
+    .head = 0,
+    .tail = 0
+};
+
+// TODO: multiple lines
+// TODO: write notification by sge
+static inline void cache_post(cache_token_t token, int type) {
+    int ret;
+    struct ibv_sge sge[2];
+    struct ibv_send_wr wr[2], *bad_wr;
+
+    /* Fill the buf */
+    unsigned cur = head;
+    head = (head + 1) % CACHE_REQ_INFLIGHT;
+
+    req_buf.reqs[cur].tag = token_get_meta(token,addr);
+    req_buf.reqs[cur].newtag = token_get_meta(token,newtag);
+    req_buf.reqs[cur].type = type;
+
+    /* Send Packets */
+    sge[0].addr = (uint64_t)(req_buf.reqs + cur);
+    sge[0].length = CACHE_REQ_SIZE;
+    sge[0].lkey = smr->lkey;
+
+    // sge 1 for accessing cache line
+    sge[1].addr = (uint64_t)(token_get_line(token));
+    sge[1].length = CACHE_LINE_SIZE;
+    sge[1].lkey = rmr->lkey;
+
+    wr.num_sge = type == CACHE_REQ_WRITE ? 2 : 1;
+    wr.sg_list = &sge[0];
+    wr.opcode = IBV_WR_SEND;
+    wr.next = NULL;
+
+    // need reply?
+    if (type == CACHE_REQ_READ || type == CACHE_REQ_EVICT) {
+        // mark cache as need reply
+        cache_get_meta(cache,token,status) = CACHE_SYNC;
+
+        // get next frame
+        cur++;
+        req_buf.reqs[cur].tag = cache_get_meta(cache,token,addr);
+        req_buf.reqs[cur].newtag = cache_get_meta(cache,token,newtag);
+        req_buf.reqs[cur].type = type;
+
+        wr[1].num_sge = 1;
+        wr[1].sg_list = &sge[1];
+        wr[1].opcode = IBV_WR_RECV;
+        wr[1].wr_id = cache_token_wr(token);
+        wr[1].next = NULL;
+
+        wr[0].next = &wr[1];
+    }
+
+
+    wr.send_flags = 0;
+#if SEND_CMPL
+    wr.send_flags |= IBV_SEND_SIGNALED;
+#endif
+#if SEND_INLINE
+    if (likely(size < 512))
+        wr.send_flags |= IBV_SEND_INLINE;
+#endif
+
+    ret = ibv_post_send(qp, wr, &bad_wr);
+#ifndef NDEBUG
+    if (unlikely(ret) != 0) {
+        fprintf(stderr, "failed in post send\n");
+        exit(1);
+    }
+#endif
 }
 
-void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s)
-{
-	HashBlock *tgt;
-	HASH_FIND_INT(table->map, &tag, tgt);
-	// if not accessed
-	// create dummy block entry in map
-	// policy will not have this entry
-	// since this memory cannot be evicted
-	if (tgt == NULL)
-	{
-		tgt = (HashBlock *) malloc(sizeof(HashBlock));
-		tgt->bptr = newBlock(-1, tag, absent, 0, -1, 0);
-		tgt->tag = (int) tag;
-		HASH_ADD_INT(table->map, tag, tgt);
-	} 
-	else if (tgt->bptr->status == present)
-	{
-		// locally presented
-		// merge locally and write to remote
-		// will not change dirty status of local cache line
-		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
-	}
-	else if (tgt->bptr->status == pending)
-	{
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
-		memcpy(table->amba->line_pool + tgt->bptr->rbuf_offset + line_offset, dat_buf, s);
-	}
-	update_sync(dat_buf, addr, s, table->amba, table->rplc);
+static inline void cache_poll(int n) {
+    // poll the queue
+    struct ibv_wc wc[MAX_POLL];
+
+    int n = ibv_poll_cq(cq, MAX_POLL, wc);
+    tail = (tail + n) % CACHE_REQ_INFLIGHT;
+
+    for (int i = 0; i < n; i++) {
+        if (wc[i].opcode == IBV_WC_RECV && wc[i].status == IBV_WC_SUCCESS) {
+            unsigned token;
+            cache_token_deser(token,wc[i].wr_id);
+
+            // for SGE write, no need to copy around
+            cache_get_meta(cache,token,status) = CACHE_READY;
+            // clear statics?
+            cache_get_meta(cache,token,access) = 0;
+        }
+    }
 }
 
-void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
-{
-	// first cache line tag of addr
-	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
-	// last tag
-	uint64_t ltag = ((addr + s) & table->addr_mask) >> table->tag_shifts;
-	uint64_t written_l = 0;
-
-	// write first segment
-	uint64_t line_offset = addr & table->tag_mask;
-	uint64_t cur_length = min(s - written_l, table->cache_line_size - line_offset);
-	_remote_write(table, addr + written_l, ftag, line_offset, (char *) dat_buf + written_l, cur_length);
-	ftag ++;
-	written_l += cur_length;
-
-	// write rest segments
-	while (ftag <= ltag)
-	{
-		// line offset = 0 for these lines
-		uint64_t cur_length = min(s - written_l, table->cache_line_size);
-		if (cur_length > 0)
-			_remote_write(table, addr + written_l, ftag, 0, (char *) dat_buf + written_l, cur_length);
-		ftag ++;
-		written_l += cur_length;
-	}
-	return;
-}
-
-
-void prefetch(CacheTable *table, uint64_t addr)
-{
-	uint64_t tag = addr >> table->tag_shifts;
-	HashBlock *tgt;
-	HASH_FIND_INT(table->map, &tag, tgt);
-	// printf("Prefetch addr, tag: %" PRIu64 ", %" PRIu64 "\n", addr, (addr & table->addr_mask) >> table->tag_shifts);
-	if (tgt == NULL || tgt->bptr->status == absent)
-	{
-		// claim room for this cache line
-		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset)) 
-			rbuf_offset = pop_for_rbuf(table);
-		// prefetch
-		// printf("Pf rbuf ofst: %" PRIu64 "\n", rbuf_offset);
-		if (tgt == NULL)
-		{
-			tgt = (HashBlock *) malloc(sizeof(HashBlock));
-			tgt->bptr = newBlock(rbuf_offset, tag, pending, 0, -1, 0);
-			tgt->tag = (int) tag;
-			HASH_ADD_INT(table->map, tag, tgt);
-		}
-		else
-		{
-			// if not at local
-			tgt->bptr->rbuf_offset = rbuf_offset;
-			tgt->bptr->status = pending;
-			tgt->bptr->wr_id = -1;
-		}
-		uint64_t wr_id = fetch_async(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
-		// awaitFetch(table->ins, tgt->bptr);
-		// printf("Prefetch tag: %" PRIu64 ", wr_id%" PRIu64 "\n", tag, wr_id);
-	}
-	else if (tgt->bptr->status == pending)
-	{
-		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
-	}
-	else
-	{
-		// locally available but not overwrite
-		table->rplc->access_existing(table->rplc, tgt->bptr);
-	}
-	// hashPrint(table->map);
-}

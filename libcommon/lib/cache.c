@@ -213,19 +213,36 @@ static inline void cache_evict(cache_token_t token, intptr_t addr) {
 }
 
 /* main cache functions */
-static inline cache_token_t _cache_select_token_groupassoc(cache_t cache, uint64_t tag) {
+static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t tag) {
     cache_token_t token;
     token.cache = cache;
     unsigned linesize = cache_get(cache,linesize);
-    // TODO: fix this
     token.slot = (tag / linesize) & (cache_get(cache,size)/linesize - 1);
     return token;
 }
 
+static inline cache_token_t _cache_select_groupassoc(cache_t cache, uint64_t tag) {
+    const int group_bits = 2;
+    const int groups = 1 << group_bits;
+    unsigned linesize = cache_get(cache,linesize);
+    unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
+    base <<= group_bits;
+    cache_token_t t;
+    for (int i = 0; i < groups; i++) {
+        t = (cache_token_t){.cache=cache, .slot=base+i};
+        if (token_get_meta(t,status) == CACHE_IDLE)
+            return t;
+    }
+    return t;
+}
+
+// TODO: change this to apply to different functions
+#define __cache_select _cache_select_directassoc
+
 cache_token_t cache_request(cache_t cache, intptr_t addr) {
     // find slot and eviction
     uint64_t tag = cache_tag(cache, addr);
-    cache_token_t token = _cache_select_token_groupassoc(cache, tag);
+    cache_token_t token = __cache_select(cache, tag);
     dprintf("translate addr %lx tag %lx cache %d, slot %d, slotag %lx",
             addr, tag, token.cache, token.slot, token_get_meta(token,tag));
     if (cache_get_meta(cache, token, tag) == tag &&

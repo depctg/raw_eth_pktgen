@@ -33,6 +33,7 @@ struct cache_req {
 #endif
 
 /* cache interface */
+// TODO: hold pointer?
 typedef union {
     uint64_t ser;
     struct {
@@ -64,7 +65,7 @@ struct cache_meta {
 
 enum {
     CACHE_FLAGS_ACQUIRE = 1 << 0,
-    CACHE_FLAGS_CO      = 1 << 1
+    CACHE_FLAGS_DIRTY   = 1 << 1
 };
 
 typedef unsigned cache_t;
@@ -91,6 +92,7 @@ cache_token_t cache_request(cache_t cache, intptr_t addr);
 void cache_sync(cache_token_t token);
 void cache_await(cache_token_t token);
 void * cache_access(cache_token_t token);
+void * cache_access_mut(cache_token_t token);
 
 #ifdef __cplusplus
 }

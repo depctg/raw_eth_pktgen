@@ -19,9 +19,9 @@ extern "C" {
     #include <stdio.h>
     #include <stdlib.h>
     #define dprintf(t, args...) \
-        fprintf(stderr, "[%s:%d] " t "\n", __FILE__, __LINE__, ## args)
+        fprintf(stderr, "[%s:%s:%d] " t "\n", __FILE__, __func__, __LINE__, ## args)
     #define eprintf(c, t, args...) do { \
-            fprintf(stderr, "[%s:%d] " t "\n", __FILE__, __LINE__, ## args); \
+            fprintf(stderr, "[%s:%s:%d] " t "\n", __FILE__, __func__, __LINE__, ## args); \
             exit(c); } while(0)
 #endif /* NDEBUG */
 

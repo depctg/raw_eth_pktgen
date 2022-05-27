@@ -27,7 +27,7 @@ int main(int argc, char * argv[]) {
 	init(TRANS_TYPE_RC, argv[1]);
     cache_init();
 
-    cache_t cache = cache_create(1024 * 1024, cache_line_size,
+    cache_t cache = cache_create(1024 * 4, cache_line_size,
             (char *)sbuf + 1024 * 1024 * 4, (char *)rbuf);
 
     // vector<size_t> access_pattern = gen_access_pattern_normal(num_access_times, array_size / 2, 1, sigma, 2333);
@@ -40,14 +40,18 @@ int main(int argc, char * argv[]) {
     const int num_tokens = 4;
     cache_token_t tokens[4] = { cache_request(cache, 0) };
 
-    for (size_t i = 0; i < num_access_times; i += 1) {
-        uint64_t addr = i * cache_line_size;
+    for (int i = 0; i < num_access_times; i += 1) {
+        uint64_t addr = (i * cache_line_size) % (1024 * 64);
+
+        dprintf("i %d line %d, addr %lx", i, cache_line_size, addr);
 
         int tcur = i % num_tokens;
-        tokens[tcur + 1] = { cache_request(cache, addr + cache_line_size) };
+        int tnxt = (i + 1) % num_tokens;
+        tokens[tnxt] = cache_request(cache, addr + cache_line_size);
 
         cache_await(tokens[tcur]);
         // do computation
+        cache_access_mut(tokens[tcur]);
     }
 
     auto end = chrono::steady_clock::now();

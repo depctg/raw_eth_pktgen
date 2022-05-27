@@ -42,8 +42,10 @@ enum cache_status {
     ((caches[cache]).linebase+cache_token_slot(token)*caches[cache].linesize)
 #define cache_set_flag(cache,token,flag) \
     (((caches[cache]).metabase[cache_token_slot(token)].flags) |= flag)
+#define cache_reset_flag(cache,token,flag) \
+    (((caches[cache]).metabase[cache_token_slot(token)].flags) &= (~(flag)))
 #define cache_check_flag(cache,token,flag) \
-    (((caches[cache]).metabase[cache_token_slot(token)].flags) & (~(flag)))
+    (((caches[cache]).metabase[cache_token_slot(token)].flags) & (flag))
 
 #define token_get_cache(token,field) \
     ((caches[token.cache]).field)
@@ -53,6 +55,8 @@ enum cache_status {
     cache_get_line(token.cache,token)
 #define token_set_flag(token,flag) \
     cache_set_flag(token.cache,token,flag)
+#define token_reset_flag(token,flag) \
+    cache_reset_flag(token.cache,token,flag)
 #define token_check_flag(token,flag) \
     cache_check_flag(token.cache,token,flag)
 
@@ -66,11 +70,14 @@ void cache_init() {
 
 // TODO: multiple lines
 // TODO: write notification by sge
-static inline void cache_post(cache_token_t token, uint64_t rdaddr, int type) {
+static inline void cache_post(cache_token_t token, int type) {
     int ret;
     struct ibv_sge sge[2], rsge;
     struct ibv_send_wr wr, *bad_wr;
     struct ibv_recv_wr rwr, *bad_rwr;
+
+    dprintf("token offset %u, tag %p, newtag %p, op %d",
+            token.slot, token_get_meta(token,tag), token_get_meta(token,newtag), type);
 
     /* Fill the buf */
     unsigned cur = head;
@@ -90,7 +97,7 @@ static inline void cache_post(cache_token_t token, uint64_t rdaddr, int type) {
     sge[1].length = token_get_cache(token,linesize);
     sge[1].lkey = rmr->lkey;
 
-    wr.num_sge = type == CACHE_REQ_WRITE ? 2 : 1;
+    wr.num_sge = type == CACHE_REQ_READ ? 1 : 2;
     wr.sg_list = &sge[0];
     wr.opcode = IBV_WR_SEND;
     wr.next = NULL;
@@ -114,11 +121,7 @@ static inline void cache_post(cache_token_t token, uint64_t rdaddr, int type) {
 
     // need reply?
     if (type == CACHE_REQ_READ || type == CACHE_REQ_EVICT) {
-        // mark cache as need reply
-        token_get_meta(token,status) = CACHE_SYNC;
-
-        cur++;
-        rsge.addr = rdaddr;
+        rsge.addr = token_get_line(token);
         rsge.length = token_get_cache(token,linesize);
         rsge.lkey = rmr->lkey;
 
@@ -126,15 +129,15 @@ static inline void cache_post(cache_token_t token, uint64_t rdaddr, int type) {
         rwr.sg_list = &rsge;
         rwr.wr_id = cache_token_ser(token);
         rwr.next = NULL;
-    }
 
-    ret = ibv_post_recv(qp, &rwr, &bad_rwr);
+        ret = ibv_post_recv(qp, &rwr, &bad_rwr);
 #ifndef NDEBUG
-    if (unlikely(ret) != 0) {
-        fprintf(stderr, "failed in post send\n");
-        exit(1);
-    }
+        if (unlikely(ret) != 0) {
+            fprintf(stderr, "failed in post send\n");
+            exit(1);
+        }
 #endif
+    }
 
 }
 
@@ -150,7 +153,7 @@ static inline void cache_poll() {
             cache_token_deser(token,wc[i].wr_id);
 
             // for SGE write, no need to copy around
-            token_get_meta(token,tag) = token_get_meta(token,newtag);
+            dprintf("poll cache %d slot %d", token.cache, token.slot);
             token_get_meta(token,status) = CACHE_READY;
             // clear statics?
             token_get_meta(token,access) = 0;
@@ -194,7 +197,7 @@ void cache_await(cache_token_t token) {
 
 // TODO: inline cachesize?
 void * cache_access(cache_token_t token) {
-    return caches[token.cache].linebase + token.slot * caches[token.cache].linesize;
+    return token_get_line(token);
 }
 
 void * cache_access_mut(cache_token_t token) {
@@ -202,10 +205,11 @@ void * cache_access_mut(cache_token_t token) {
     return token_get_line(token);
 }
 
-inline void cache_evict(cache_token_t token, intptr_t addr) {
+static inline void cache_evict(cache_token_t token, intptr_t addr) {
     uint64_t tag = cache_tag(token.cache, addr);
-    token_get_meta(token, newtag) = tag;
-    cache_post(token, tag, CACHE_REQ_EVICT);
+    token_get_meta(token, newtag) = token_get_meta(token, tag);
+    token_get_meta(token, tag) = tag;
+    cache_post(token, CACHE_REQ_EVICT);
 }
 
 /* main cache functions */
@@ -222,19 +226,27 @@ cache_token_t cache_request(cache_t cache, intptr_t addr) {
     // find slot and eviction
     uint64_t tag = cache_tag(cache, addr);
     cache_token_t token = _cache_select_token_groupassoc(cache, tag);
+    dprintf("translate addr %lx tag %lx cache %d, slot %d, slotag %lx",
+            addr, tag, token.cache, token.slot, token_get_meta(token,tag));
     if (cache_get_meta(cache, token, tag) == tag &&
             cache_get_meta(cache, token, status) != CACHE_IDLE) {
         // do nothing, just return
+        dprintf("-> READY");
     } else if (cache_get_meta(cache, token, status) != CACHE_IDLE &&
             cache_get_meta(cache, token, tag) != tag &&
             cache_check_flag(cache, token, CACHE_FLAGS_DIRTY)) {
         // TODO: wait prev request to finish?
         // do eviction
-        cache_get_meta(cache, token, newtag) = tag;
-        cache_post(token, tag, CACHE_REQ_EVICT);
+        dprintf("-> EVICT");
+        cache_get_meta(cache, token, newtag) = cache_get_meta(cache, token, tag);
+        cache_get_meta(cache, token, tag) = tag;
+        cache_get_meta(cache, token, status) = CACHE_SYNC;
+        cache_post(token, CACHE_REQ_EVICT);
     } else {
-        cache_get_meta(cache, token, newtag) = tag;
-        cache_post(token, tag, CACHE_REQ_READ);
+        dprintf("-> FETCH %d %lx flag %x", token_get_meta(token, status), token_get_meta(token, tag), token_get_meta(token,flags));
+        cache_get_meta(cache, token, tag) = tag;
+        cache_get_meta(cache, token, status) = CACHE_SYNC;
+        cache_post(token, CACHE_REQ_READ);
     }
     return token;
 }
@@ -243,7 +255,7 @@ void cache_sync(cache_token_t token) {
     // TODO coherent?
     if (token_get_meta(token, status) == CACHE_READY
             && token_check_flag(token, CACHE_FLAGS_DIRTY)) {
-        cache_post(token, (uint64_t)0, CACHE_REQ_WRITE);
+        cache_post(token, CACHE_REQ_WRITE);
         token_reset_flag(token, CACHE_FLAGS_DIRTY);
     }
 }

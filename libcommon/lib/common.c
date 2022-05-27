@@ -163,8 +163,9 @@ int init(int type, const char * server_url) {
     }
 
     /* 9. Register MR */
-    sbuf = malloc(SEND_BUF_SIZE);
-    rbuf = malloc(RECV_BUF_SIZE);
+    const size_t align = 1024 * 4;
+    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
+    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
 
     if (!sbuf || !rbuf) {
         fprintf(stderr, "Coudln't allocate memory\n");
@@ -321,6 +322,7 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 #endif
 
     /* push descriptor to hardware */
+
     ret = ibv_post_send(qp, &wr, &bad_wr);
     if (unlikely(ret != 0)) {
         fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));

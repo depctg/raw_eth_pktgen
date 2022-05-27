@@ -14,14 +14,17 @@ enum {
     CACHE_REQ_EVICT
 };
 
+#define CACHE_TAG_ALIGN (4)
+#define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
+
 // Requests
 struct cache_req {
     uint64_t tag;
     union {
         uint64_t newtag;
         struct {
-            uint64_t _unused : 60;
             uint8_t type     : 4; // implies cache line >= 16B
+            uint64_t _unused : 60;
         };
     };
 };
@@ -51,14 +54,14 @@ struct cache_meta {
     union {
         uint64_t newtag;
         struct {
-            // info for eviction
-            int access;
             // flags
+            uint8_t status : 4;
+            uint8_t _unused : 4;
             uint8_t version;
             uint8_t flags;
             uint8_t group;
-            uint8_t _unused : 4;
-            uint8_t status : 4;
+            // info for eviction
+            int access;
         };
     };
 };

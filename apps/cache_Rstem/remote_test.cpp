@@ -15,18 +15,25 @@ size_t cache_line_size;
 
 static inline void process_req(REQ_TYPE * req) {
     if (req->r.type == CACHE_REQ_READ || req->r.type == CACHE_REQ_EVICT) {
-        uint64_t offset = req->r.newtag & (~(uint64_t)0xf);
+        uint64_t offset = req->r.tag & CACHE_TAG_MASK;
+        dprintf("READ: offset %lx, line %d", offset, cache_line_size);
         send_async((char *)sbuf + offset, cache_line_size);
     }
-    if (req->r.type == CACHE_REQ_WRITE || req->r.type == CACHE_REQ_EVICT) {
-        uint64_t offset = req->r.tag & (~(uint64_t)0xf);
+    // write
+    if (req->r.type == CACHE_REQ_WRITE) {
+        uint64_t offset = req->r.tag & CACHE_TAG_MASK;
+        dprintf("WRITE: offset %lx, line %d", offset, cache_line_size);
+        memcpy((char *)sbuf + offset, req->data, cache_line_size);
+    } else if (req->r.type == CACHE_REQ_EVICT) {
+        uint64_t offset = req->r.newtag & CACHE_TAG_MASK;
+        dprintf("EVICT: offset %lx, line %d", offset, cache_line_size);
         memcpy((char *)sbuf + offset, req->data, cache_line_size);
     }
 }
 
 int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC_SERVER, argv[1]);
-    cache_line_size = 16;
+    cache_line_size = 1 << 8;
 
     const int max_recvs = 64;
     const int inflights = max_recvs / 2;

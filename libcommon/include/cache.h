@@ -11,7 +11,9 @@ extern "C"
 enum {
     CACHE_REQ_WRITE = 0,
     CACHE_REQ_READ,
-    CACHE_REQ_EVICT
+    CACHE_REQ_EVICT,
+    CACHE_REQ_MEMCOPY,
+    CACHE_REQ_MEMMOVE
 };
 
 #define CACHE_TAG_ALIGN (4)

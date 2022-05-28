@@ -299,11 +299,8 @@ void cache_acquire(cache_t cache, intptr_t addr, size_t size,
 }
 
 void cache_release(cache_token_t *tokens, int cnt) {
-    // TODO: finish acquire and release
-    /*
     for (int i = 0; i < cnt; i++)
-        cache_set_flag(cache,tokens[i],CACHE_FLAGS_ACQUIRE,0);
-    */
+        token_reset_flag(tokens[i],CACHE_FLAGS_ACQQUIRE);
 }
 
 

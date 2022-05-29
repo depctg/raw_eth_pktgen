@@ -93,7 +93,7 @@ int main(int argc, char * argv[])
     // p.lambda = 1.5;
     // df.load_column("exponential", gen_exponential_dist<double>(index_sz, p));
 
-    std::cout << "Memory allocation bytes: " << index_sz * 2 * sizeof(double) << std::endl;
+    std::cout << "Memory allocation bytes (2 col): " << index_sz * 2 * sizeof(double) << std::endl;
 
     // single col
     MeanVisitor<double, uint64_t> v_mean; // uses 3 local var
@@ -173,7 +173,8 @@ int main(int argc, char * argv[])
         times.emplace_back(std::chrono::steady_clock::now(), "slr");
     }
 
-    std::cerr << index_size * 2 * sizeof(double) << "\t"
+    std::cerr << index_size * sizeof(double) << "\t"     // single col
+              << index_size * 2 * sizeof(double) << "\t"
               << prefetch_size << "\t"
               << prefetch_size_line << "\t"
               << cache_line_size << "\t"

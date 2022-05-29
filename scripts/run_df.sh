@@ -1,4 +1,4 @@
-exe_path="./build/bin/"
+exe_path="./build/bin/" # assumes running from project root
 data_path="$exe_path/df_run.csv"
 port_init=9090
 port=$port_init
@@ -22,8 +22,9 @@ do
                 continue
             fi
             ${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_size $remote_mem -cache_line_size $cline &>/dev/null &
+            #${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_size $remote_mem -cache_line_size $cline &>>"${exe_path}/remote-output" &
             to_kill=$!
-            sleep 1
+            sleep 2
             ${exe_path}/dataframe-main -addr "tcp://localhost:${port}" -index_size $idx_size -cache_size $local_mem -cache_line_size $cline -prefetch_nline $n_p 2>> "${data_path}"
             ((port=port+1))
             kill -9 $to_kill &>/dev/null

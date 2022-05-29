@@ -1,14 +1,7 @@
-#ifndef __LRUCACHE__
-#define __LRUCACHE__
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
+#ifndef __CACHE_H__
+#define __CACHE_H__
+
 #include <stdint.h>
-#include <unistd.h>
-#include "common.h"
-#include "mem_block.h"
-#include "mem_slicer.h"
-#include "ambassador.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -16,74 +9,93 @@ extern "C"
 #endif
 
 enum {
-    CACHE_WRITE = 0,
-    CACHE_READ = 1,
+    CACHE_REQ_WRITE = 0,
+    CACHE_REQ_READ,
+    CACHE_REQ_EVICT
 };
 
-typedef struct CacheTable
-{
-	uint64_t tag_mask;
-	uint64_t addr_mask;
-	uint64_t max_size;
-	uint64_t misses;
-	uint64_t accesses;
+#define CACHE_TAG_ALIGN (4)
+#define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
 
-	Ambassador *amba;
+// Requests
+struct cache_req {
+    uint64_t tag;
+    union {
+        uint64_t newtag;
+        struct {
+            uint8_t type     : 4; // implies cache line >= 16B
+            uint64_t _unused : 60;
+        };
+    };
+};
 
-	uint64_t cache_line_size;
-	uint8_t tag_shifts;
+/* cache request structure */
+#define CACHE_REQ_INFLIGHT 64
+#ifndef MEMMAP_CACHE_REQ 
+    #define MEMMAP_CACHE_REQ (sbuf)
+#endif
 
-	// a hashmap of blocks
-	HashBlock *map;
-	// a dll of blocks
-	BlockDLL *dll;
-	// a queue of free slots
-	FreeQueue *fq;
-} CacheTable;
+/* cache interface */
+// TODO: hold pointer?
+typedef union {
+    uint64_t ser;
+    struct {
+        uint32_t slot;
+        uint32_t cache;
+    };
+} cache_token_t;
+#define cache_token_slot(token) (token.slot)
+#define cache_token_set(offset) offset
+#define cache_token_ser(token) (token.ser)
+#define cache_token_deser(token,wr) token.ser=(wr)
 
-// max_size, cache_line_size (byte)
-CacheTable *createCacheTable(
-	uint64_t max_size,
-	uint64_t cache_line_size,
-	void *req_buffer,
-	void *recv_buffer
-);
+struct cache_meta {
+    uint64_t tag;
+    union {
+        uint64_t newtag;
+        struct {
+            // flags
+            uint8_t status : 4;
+            uint8_t _unused : 4;
+            uint8_t version;
+            uint8_t flags;
+            uint8_t group;
+            // info for eviction
+            int access;
+        };
+    };
+};
 
-// pop LRU, update if dirty
-uint64_t popVictim(BlockDLL *dll, CacheTable *table);
+enum {
+    CACHE_FLAGS_ACQUIRE = 1 << 0,
+    CACHE_FLAGS_DIRTY   = 1 << 1
+};
 
-/* public interfaces: */
+typedef unsigned cache_t;
 
-// access arbitrary addr
-// return a pointer to real rbuf
-char *cache_access(CacheTable *table, uint64_t addr);
+// init, should be called only after common init
+void cache_init();
 
-// write to cache line indexed by {tag} 
-// |<---------- cache line size ---------->|
-// | line offset | write {s} size | intact | 
-void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s);
+// create
+cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase);
 
-// write one byte to arbitrary addr
-void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
+enum {
+    CACHE_ACCESS_NONE = 0,
+    CACHE_ACCESS_ACQUIRE = 1,
+};
 
-// write arbitrary length to arbitrary addr
-void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
+// Access Level, token interface
+void cache_acquire(cache_t cache, intptr_t addr, size_t size, cache_token_t *tokens, int acquire);
+void cache_release(cache_token_t *tokens, int cnt);
 
-// insert one line at tag (start addr of a cache line)
-void cache_insert(CacheTable *table, uint64_t tag, void *dat_buf);
+// TODO: consider inline
+// TODO: fixed base?
+cache_token_t cache_request(cache_t cache, intptr_t addr);
 
-// write arbitrary length to remote arbitrary addr
-// obsence and clean in local
-void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s);
-
-// prefetch arbitrary cache line
-// pending cache lines will never be evicted
-// and will be evictable after accessed once
-
-// the overlapped pre-fetch will be cancelled
-// if is locally available, no pf will be performed
-// TODO: use another thread to deal with polling
-void cache_prefetch(CacheTable *table, uint64_t addr /* start address of a cache line */);
+void cache_sync(cache_token_t token);
+void cache_await(cache_token_t token);
+void * cache_access(cache_token_t token);
+void * cache_access_mut(cache_token_t token);
 
 #ifdef __cplusplus
 }

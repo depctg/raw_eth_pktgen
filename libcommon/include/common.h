@@ -12,6 +12,19 @@
 extern "C" {
 #endif
 
+#ifdef NDEBUG
+    #define dprintf(...)
+    #define eprintf(...)
+#else
+    #include <stdio.h>
+    #include <stdlib.h>
+    #define dprintf(t, args...) \
+        fprintf(stderr, "[%s:%s:%d] " t "\n", __FILE__, __func__, __LINE__, ## args)
+    #define eprintf(c, t, args...) do { \
+            fprintf(stderr, "[%s:%s:%d] " t "\n", __FILE__, __func__, __LINE__, ## args); \
+            exit(c); } while(0)
+#endif /* NDEBUG */
+
 /* send switch */
 #define SEND_CMPL 1
 #define SEND_INLINE 1

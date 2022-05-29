@@ -42,6 +42,7 @@ typedef struct BlockDLL {
 } BlockDLL;
 BlockDLL *initBlockDLL();
 
+void dllPrint(BlockDLL *dll);
 // add to head of dll
 void add_to_head(BlockDLL *dll, Block *b);
 // add after end
@@ -50,17 +51,9 @@ void add_to_tail(BlockDLL *dll, Block *b);
 void touch(BlockDLL *dll, Block *b);
 // remote from dll
 void remove_from_dll(BlockDLL *dll, Block *b);
-void dllPrint(Block *head);
+// return NULL if empty dll
+Block *pop_last(BlockDLL *dll);
 
-typedef struct Victim {
-  BlockDLL **weight_dll;
-} Victim;
-
-Victim *initVictim(int range);
-
-void add_to_victim(Victim *v, Block *b);
-void remove_from_victim(Victim *v, Block *b);
-void inspect(Victim *v);
 
 #ifdef __cplusplus
 }

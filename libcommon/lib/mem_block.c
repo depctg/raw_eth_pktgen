@@ -36,18 +36,6 @@ BlockDLL *initBlockDLL()
 	return d;
 }
 
-void dllPrint(Block *head)
-{
-	Block *cur = head;
-	printf("DLL: ");
-	while (cur)
-	{
-		printf("%" PRIu64 " ", cur->tag);
-		cur = cur->next;
-	}
-	printf("\n");
-}
-
 void add_to_head(BlockDLL *dll, Block *b)
 {
 	b->next = dll->head;
@@ -97,6 +85,8 @@ void remove_from_dll(BlockDLL *dll, Block *b)
 		return;
 	if (dll->head == b)
 		dll->head = b->next;
+  if (dll->tail == b)
+    dll->tail = b->prev;
 	if (b->next)
 		b->next->prev = b->prev;
 	if (b->prev)
@@ -104,21 +94,30 @@ void remove_from_dll(BlockDLL *dll, Block *b)
 	return;
 }
 
-Victim *initVictim(int range) {
-	Victim *v = (Victim *) malloc(sizeof(Victim));
-	v->weight_dll = (BlockDLL **) malloc(sizeof(BlockDLL *) * range);
-	for (int i = 0; i < range; ++i) {
-		v->weight_dll[i] = initBlockDLL();
+Block *pop_last(BlockDLL *dll) {
+  if (!dll->tail) 
+    return NULL;
+  if (dll->head == dll->tail)
+    dll->head = NULL;
+  
+  Block *vic = dll->tail;
+  dll->tail = dll->tail->prev;
+  if (dll->tail)
+    dll->tail->next = NULL;
+  vic->prev = vic->next = NULL;
+  return vic;
+}
+
+void dllPrint(BlockDLL *dll)
+{
+	Block *cur = dll->head;
+	printf("DLL: head ->");
+	while (cur)
+	{
+		printf("%" PRIu64 "-%d ", cur->tag, cur->weight);
+		cur = cur->next;
 	}
-	return v;
-}
-
-void add_to_victim(Victim *v, Block *b) {
-	BlockDLL *dll = v->weight_dll[b->weight];
-	add_to_head(dll, b);
-}
-
-void remove_from_victim(Victim *v, Block *b) {
-	BlockDLL *dll_old = v->weight_dll[b->weight];
-	remove_from_dll(dll_old, b);
+  if (dll->tail)
+    printf(" | tail %" PRIu64 "-%d", dll->tail->tag, dll->tail->weight);
+	printf("\n");
 }

@@ -24,101 +24,101 @@ uint64_t recv_post_id = 0;
 uint64_t recv_poll_id = 0;
 
 int init(int type, const char * server_url) {
-	struct ibv_pd *pd;
+    struct ibv_pd *pd;
 
-	int ret;
+    int ret;
 
-	int num_devices = NUM_DEVICES;
+    int num_devices = NUM_DEVICES;
 
-	struct ibv_device** device_list = ibv_get_device_list(&num_devices);
-	for (int i = 0; i < num_devices; i++){
-		printf("device %i, %s | %s\n", i, ibv_get_device_name(device_list[i]), DEVICE_NAME);
-		if (strcmp(DEVICE_NAME, ibv_get_device_name(device_list[i])) == 0) {
-			context = ibv_open_device(device_list[i]);
-			break;
-		}
-	}
+    struct ibv_device** device_list = ibv_get_device_list(&num_devices);
+    for (int i = 0; i < num_devices; i++){
+        printf("device %i, %s | %s\n", i, ibv_get_device_name(device_list[i]), DEVICE_NAME);
+        if (strcmp(DEVICE_NAME, ibv_get_device_name(device_list[i])) == 0) {
+            context = ibv_open_device(device_list[i]);
+            break;
+        }
+    }
 
-	ibv_free_device_list(device_list);
+    ibv_free_device_list(device_list);
 
-	if (!context) {
-		fprintf(stderr, "Couldn't get context for %s\n", DEVICE_NAME);
-		exit(1);
-	}
+    if (!context) {
+        fprintf(stderr, "Couldn't get context for %s\n", DEVICE_NAME);
+        exit(1);
+    }
 
-	/* 3. Allocate Protection Domain */
-	/* Allocate a protection domain to group memory regions (MR) and rings */
-	pd = ibv_alloc_pd(context);
-	if (!pd) {
-		fprintf(stderr, "Couldn't allocate PD\n");
-		exit(1);
-	}
+    /* 3. Allocate Protection Domain */
+    /* Allocate a protection domain to group memory regions (MR) and rings */
+    pd = ibv_alloc_pd(context);
+    if (!pd) {
+        fprintf(stderr, "Couldn't allocate PD\n");
+        exit(1);
+    }
 
 
-	/* 4. Create Complition Queue (CQ) */
-	cq = ibv_create_cq(context, CQ_NUM_DESC, NULL, NULL, 0);
-	if (!cq) {
-		fprintf(stderr, "Couldn't create CQ %d\n", errno);
-		exit (1);
-	}
+    /* 4. Create Complition Queue (CQ) */
+    cq = ibv_create_cq(context, CQ_NUM_DESC, NULL, NULL, 0);
+    if (!cq) {
+        fprintf(stderr, "Couldn't create CQ %d\n", errno);
+        exit (1);
+    }
 
-	/* 5. Initialize QP */
-	struct ibv_qp_init_attr qp_init_attr = {
-		/* report send completion to cq */
-		.send_cq = cq,
-		.recv_cq = cq,
-		.cap = {
-			/* no send ring */
-			.max_send_wr = CQ_NUM_DESC / 2,
-			.max_send_sge = 2,
-			/* maximum number of packets in ring */
-			.max_recv_wr = CQ_NUM_DESC / 2,
-			.max_recv_sge = 2,
-			/* if inline maximum of payload data in the descriptors themselves */
-			.max_inline_data = 512,
-		},
+    /* 5. Initialize QP */
+    struct ibv_qp_init_attr qp_init_attr = {
+        /* report send completion to cq */
+        .send_cq = cq,
+        .recv_cq = cq,
+        .cap = {
+            /* no send ring */
+            .max_send_wr = CQ_NUM_DESC / 2,
+            .max_send_sge = 2,
+            /* maximum number of packets in ring */
+            .max_recv_wr = CQ_NUM_DESC / 2,
+            .max_recv_sge = 2,
+            /* if inline maximum of payload data in the descriptors themselves */
+            .max_inline_data = 512,
+        },
 
-		.qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC,
+        .qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC,
         .sq_sig_all = 0
-	};
+    };
 
 
-	/* 6. Create Queue Pair (QP) - Send Ring */
-	qp = ibv_create_qp(pd, &qp_init_attr);
-	if (!qp) {
-		fprintf(stderr, "Couldn't create QP\n");
-		exit(1);
-	}
+    /* 6. Create Queue Pair (QP) - Send Ring */
+    qp = ibv_create_qp(pd, &qp_init_attr);
+    if (!qp) {
+        fprintf(stderr, "Couldn't create QP\n");
+        exit(1);
+    }
 
     /* exchange QP info */
-	struct conn_info * peerinfo;
+    struct conn_info * peerinfo;
     if (type == TRANS_TYPE_RC) {
         peerinfo = client_exchange_info(server_url);
     } else if (type == TRANS_TYPE_RC_SERVER) {
         peerinfo = server_exchange_info(server_url);
     }
 
-	/* 7. Initialize the QP (receive ring) and assign a port */
-	struct ibv_qp_attr qp_attr;
-	int qp_flags;
+    /* 7. Initialize the QP (receive ring) and assign a port */
+    struct ibv_qp_attr qp_attr;
+    int qp_flags;
 
-	// INIT
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
-	qp_attr.qp_state = IBV_QPS_INIT;
+    // INIT
+    memset(&qp_attr, 0, sizeof(qp_attr));
+    qp_flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+    qp_attr.qp_state = IBV_QPS_INIT;
     qp_attr.pkey_index = 0;
-	qp_attr.port_num = 1;
+    qp_attr.port_num = 1;
     qp_attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
 
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret != 0) {
-		fprintf(stderr, "failed modify qp to init\n");
-		exit(1);
-	}
+    ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+    if (ret != 0) {
+        fprintf(stderr, "failed modify qp to init\n");
+        exit(1);
+    }
 
-	// INIT->RTR
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE | IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+    // INIT->RTR
+    memset(&qp_attr, 0, sizeof(qp_attr));
+    qp_flags = IBV_QP_STATE | IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
 
     qp_attr.qp_state = IBV_QPS_RTR;
     qp_attr.path_mtu = IBV_MTU_4096;
@@ -139,16 +139,16 @@ int init(int type, const char * server_url) {
     qp_attr.ah_attr.grh.hop_limit = 0xFF;
     qp_attr.ah_attr.grh.traffic_class = 0;
 
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret != 0) {
-		fprintf(stderr, "failed modify qp to receive %s\n", strerror(errno));
-		exit(1);
-	}
+    ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+    if (ret != 0) {
+        fprintf(stderr, "failed modify qp to receive %s\n", strerror(errno));
+        exit(1);
+    }
 
-	// RTR->RTS
-	memset(&qp_attr, 0, sizeof(qp_attr));
-	qp_flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
-	qp_attr.qp_state = IBV_QPS_RTS;
+    // RTR->RTS
+    memset(&qp_attr, 0, sizeof(qp_attr));
+    qp_flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
+    qp_attr.qp_state = IBV_QPS_RTS;
 
     qp_attr.sq_psn = 0;
     qp_attr.timeout = 16; // See doc
@@ -156,72 +156,73 @@ int init(int type, const char * server_url) {
     qp_attr.rnr_retry      = 7; /* infinite */
     qp_attr.max_rd_atomic  = 1;
 
-	ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
-	if (ret != 0) {
-		fprintf(stderr, "failed modify qp to send\n");
-		exit(1);
-	}
+    ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
+    if (ret != 0) {
+        fprintf(stderr, "failed modify qp to send\n");
+        exit(1);
+    }
 
-	/* 9. Register MR */
-	sbuf = malloc(SEND_BUF_SIZE);
-	rbuf = malloc(RECV_BUF_SIZE);
+    /* 9. Register MR */
+    const size_t align = 1024 * 4;
+    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
+    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
 
-	if (!sbuf || !rbuf) {
-		fprintf(stderr, "Coudln't allocate memory\n");
-		exit(1);
-	}
+    if (!sbuf || !rbuf) {
+        fprintf(stderr, "Coudln't allocate memory\n");
+        exit(1);
+    }
 
-	smr = ibv_reg_mr(pd, sbuf, SEND_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
-	rmr = ibv_reg_mr(pd, rbuf, RECV_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
-	if (!smr || !rmr) {
-		fprintf(stderr, "Couldn't register mr\n");
-		exit(1);
-	}
+    smr = ibv_reg_mr(pd, sbuf, SEND_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
+    rmr = ibv_reg_mr(pd, rbuf, RECV_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
+    if (!smr || !rmr) {
+        fprintf(stderr, "Couldn't register mr\n");
+        exit(1);
+    }
 
-	return 0;
+    return 0;
 }
 
 int steer() {
-	/* 13. Create steering rule for recv */
-	struct raw_eth_flow_attr {
-		struct ibv_flow_attr attr;
-		struct ibv_flow_spec_eth spec_eth;
-	} __attribute__((packed)) flow_attr = {
-		.attr = {
-			.comp_mask = 0,
-			.type = IBV_FLOW_ATTR_NORMAL,
-			.size = sizeof(flow_attr),
-			.priority = 0,
-			.num_of_specs = 1,
-			.port = PORT_NUM,
-			.flags = 0,
-		},
-		.spec_eth = {
-			.type   = IBV_FLOW_SPEC_ETH,
-			.size   = sizeof(struct ibv_flow_spec_eth),
-			.val = {
-				.dst_mac = { DST_MAC },
-				.src_mac = { SRC_MAC },
-				.ether_type = 0,
-				.vlan_tag = 0,
-			},
-			.mask = {
-				.dst_mac = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-				.src_mac = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
-				.ether_type = 0,
-				.vlan_tag = 0,
-			}
-		}
+    /* 13. Create steering rule for recv */
+    struct raw_eth_flow_attr {
+        struct ibv_flow_attr attr;
+        struct ibv_flow_spec_eth spec_eth;
+    } __attribute__((packed)) flow_attr = {
+        .attr = {
+            .comp_mask = 0,
+            .type = IBV_FLOW_ATTR_NORMAL,
+            .size = sizeof(flow_attr),
+            .priority = 0,
+            .num_of_specs = 1,
+            .port = PORT_NUM,
+            .flags = 0,
+        },
+        .spec_eth = {
+            .type   = IBV_FLOW_SPEC_ETH,
+            .size   = sizeof(struct ibv_flow_spec_eth),
+            .val = {
+                .dst_mac = { DST_MAC },
+                .src_mac = { SRC_MAC },
+                .ether_type = 0,
+                .vlan_tag = 0,
+            },
+            .mask = {
+                .dst_mac = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+                .src_mac = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+                .ether_type = 0,
+                .vlan_tag = 0,
+            }
+        }
 
-	};
+    };
 
-	struct ibv_flow *eth_flow;
-	eth_flow = ibv_create_flow(qp, &flow_attr.attr);
+    struct ibv_flow *eth_flow;
+    eth_flow = ibv_create_flow(qp, &flow_attr.attr);
 
-	if (!eth_flow) {
-		fprintf(stderr, "Couldn't attach steering flow\n");
-		exit(1);
-	}
+    if (!eth_flow) {
+        fprintf(stderr, "Couldn't attach steering flow\n");
+        exit(1);
+    }
     return 0;
 }
 
@@ -297,17 +298,17 @@ int steer_udp(uint16_t steer_port, uint16_t src_port) {
 }
 
 static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
-	int ret;
-	struct ibv_send_wr wr, *bad_wr;
+    int ret;
+    struct ibv_send_wr wr, *bad_wr;
 
-	wr.num_sge = num_sge;
-	wr.sg_list = sge;
-	wr.next = NULL;
-	wr.opcode = IBV_WR_SEND;
+    wr.num_sge = num_sge;
+    wr.sg_list = sge;
+    wr.next = NULL;
+    wr.opcode = IBV_WR_SEND;
 
-	/* inline ? */
-	wr.send_flags = 0;
-	wr.wr_id = ++send_post_id;
+    /* inline ? */
+    wr.send_flags = 0;
+    wr.wr_id = ++send_post_id;
 
 #if SEND_INLINE
     size_t size = 0;
@@ -317,28 +318,29 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 #endif
 
 #if SEND_CMPL
-	wr.send_flags |= IBV_SEND_SIGNALED;
+    wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 
-	/* push descriptor to hardware */
-	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (unlikely(ret != 0)) {
-		fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));
-		exit(1);
-	}
-	post_id ++;
-	return send_post_id;
+    /* push descriptor to hardware */
+
+    ret = ibv_post_send(qp, &wr, &bad_wr);
+    if (unlikely(ret != 0)) {
+        fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));
+        exit(1);
+    }
+    post_id ++;
+    return send_post_id;
 }
 
 uint64_t send_async(void *buf, size_t size) {
-	int ret;
-	struct ibv_sge sge;
+    int ret;
+    struct ibv_sge sge;
 
-	/* Send Packets */
-	/* scatter/gather entry describes location and size of data to send*/
-	sge.addr = (uint64_t)buf;
-	sge.length = size;
-	sge.lkey = smr->lkey;
+    /* Send Packets */
+    /* scatter/gather entry describes location and size of data to send*/
+    sge.addr = (uint64_t)buf;
+    sge.length = size;
+    sge.lkey = smr->lkey;
 
     return _send_async_impl(&sge, 1);
 }
@@ -348,41 +350,41 @@ uint64_t send_async_sge(struct ibv_sge *sge, int num_sge) {
 }
 
 uint64_t send(void * buf, size_t size) {
-	int n, ret;
-	struct ibv_sge sge;
-	struct ibv_send_wr wr, *bad_wr;
-	struct ibv_wc wc;
+    int n, ret;
+    struct ibv_sge sge;
+    struct ibv_send_wr wr, *bad_wr;
+    struct ibv_wc wc;
 
-	/* Send Packets */
-	/* scatter/gather entry describes location and size of data to send*/
-	sge.addr = (uint64_t)buf;
-	sge.length = size;
-	sge.lkey = smr->lkey;
+    /* Send Packets */
+    /* scatter/gather entry describes location and size of data to send*/
+    sge.addr = (uint64_t)buf;
+    sge.length = size;
+    sge.lkey = smr->lkey;
 
-	wr.num_sge = 1;
-	wr.sg_list = &sge;
-	wr.next = NULL;
-	wr.opcode = IBV_WR_SEND;
-	wr.send_flags = 0;
+    wr.num_sge = 1;
+    wr.sg_list = &sge;
+    wr.next = NULL;
+    wr.opcode = IBV_WR_SEND;
+    wr.send_flags = 0;
 
 #if SEND_INLINE
     if (likely(size < 512))
         wr.send_flags |= IBV_SEND_INLINE;
 #endif
 
-	wr.wr_id = 0;
+    wr.wr_id = 0;
 #if SEND_CMPL
-	wr.send_flags |= IBV_SEND_SIGNALED;
+    wr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 
-	/* push descriptor to hardware */
-	ret = ibv_post_send(qp, &wr, &bad_wr);
-	if (ret != 0) {
-		fprintf(stderr, "failed in post send\n");
-		exit(1);
-	}
+    /* push descriptor to hardware */
+    ret = ibv_post_send(qp, &wr, &bad_wr);
+    if (ret != 0) {
+        fprintf(stderr, "failed in post send\n");
+        exit(1);
+    }
 
-	/* poll for completion after half ring is posted */
+    /* poll for completion after half ring is posted */
 #if SEND_CMPL
     while (1) {
         n = ibv_poll_cq(cq, 1, &wc);
@@ -393,54 +395,54 @@ uint64_t send(void * buf, size_t size) {
     }
 #endif
 
-	return 0;
+    return 0;
 }
 
 uint64_t recv(void * buf, size_t size) {
-	int n, ret;
-	struct ibv_sge sge;
-	struct ibv_recv_wr wr, *bad_wr;
-	struct ibv_wc wc;
+    int n, ret;
+    struct ibv_sge sge;
+    struct ibv_recv_wr wr, *bad_wr;
+    struct ibv_wc wc;
 
-	sge.addr = (uintptr_t)buf;
-	sge.length = size;
-	sge.lkey = rmr->lkey;
-	 
-	wr.num_sge = 1;
-	wr.sg_list = &sge;
-	wr.next = NULL;
+    sge.addr = (uintptr_t)buf;
+    sge.length = size;
+    sge.lkey = rmr->lkey;
+     
+    wr.num_sge = 1;
+    wr.sg_list = &sge;
+    wr.next = NULL;
 
-	ret = ibv_post_recv(qp, &wr, &bad_wr);
-	if (ret != 0) {
-		fprintf(stderr, "failed in post recv, code: %d\n", ret);
-		exit(1);
-	}
+    ret = ibv_post_recv(qp, &wr, &bad_wr);
+    if (ret != 0) {
+        fprintf(stderr, "failed in post recv, code: %d\n", ret);
+        exit(1);
+    }
 
-	while ((n = ibv_poll_cq(cq, 1, &wc)) == 0);
-	return 0;
+    while ((n = ibv_poll_cq(cq, 1, &wc)) == 0);
+    return 0;
 }
 
 uint64_t recv_async(void * buf, size_t size) {
-	int ret;
-	struct ibv_sge sge;
-	struct ibv_recv_wr *bad_wr, wr;
+    int ret;
+    struct ibv_sge sge;
+    struct ibv_recv_wr *bad_wr, wr;
 
-	sge.addr = (uintptr_t)buf;
-	sge.length = size;
-	sge.lkey = rmr->lkey;
-	 
-	wr.num_sge = 1;
-	wr.sg_list = &sge;
-	wr.next = NULL;
+    sge.addr = (uintptr_t)buf;
+    sge.length = size;
+    sge.lkey = rmr->lkey;
+     
+    wr.num_sge = 1;
+    wr.sg_list = &sge;
+    wr.next = NULL;
 
-	wr.wr_id = ++recv_post_id;
-	ret = ibv_post_recv(qp, &wr, &bad_wr);
-	if (unlikely(ret) != 0) {
-		fprintf(stderr, "failed in post recv\n");
-		exit(1);
-	}
-	post_id ++;
-	return recv_post_id;
+    wr.wr_id = ++recv_post_id;
+    ret = ibv_post_recv(qp, &wr, &bad_wr);
+    if (unlikely(ret) != 0) {
+        fprintf(stderr, "failed in post recv\n");
+        exit(1);
+    }
+    post_id ++;
+    return recv_post_id;
 }
 
 int poll(uint64_t wr_id) {
@@ -448,9 +450,9 @@ int poll(uint64_t wr_id) {
         return 0;
     }
 
-	static struct ibv_wc wc[MAX_POLL];
+    static struct ibv_wc wc[MAX_POLL];
 
-	do {
+    do {
         int n = ibv_poll_cq(cq, MAX_POLL, wc);
         for (int i = 0; i < n; i++)
             if (wc[i].wr_id > poll_id)

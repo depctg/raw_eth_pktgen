@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "uthash.h"
 #include "mem_block.h"
+#include "replacement.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -54,15 +55,15 @@ uint32_t get_sid(Ambassador *a);
 /* return send buf */
 void ret_sid(Ambassador *a, uint32_t sid);
 
-void fetch_sync(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts);
-void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, BlockDLL *dll);
+void fetch_sync(Block *b, Ambassador *a, Policy *p, uint8_t tag_shifts);
+void update_sync(void *dat_buf, uint64_t addr, uint64_t size, Ambassador *a, Policy *p);
 
 /* return wr_id of async wr */
-uint64_t fetch_async(Block *b, Ambassador *a, BlockDLL *dll, uint8_t tag_shifts);
+uint64_t fetch_async(Block *b, Ambassador *a, Policy *p, uint8_t tag_shifts);
 
-void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, BlockDLL *dll);
+void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, Policy *p);
 
-void check_wq(Ambassador *a, BlockDLL *dll);
+void check_wq(Ambassador *a, Policy *p);
 
 #ifdef __cplusplus
 }

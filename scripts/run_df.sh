@@ -4,7 +4,12 @@ port_init=9090
 port=$port_init
 remote_mem=2147483648
 
-local_mems=(5120 10240 12288 15360 20480)
+# local_mems=(4096)
+# cache_line=(128)
+# index_size=(2000)
+# n_prefetch=(1)
+
+local_mems=(4096 8192 16384)
 cache_line=(128 256 512 1024 2048)
 index_size=(2000 5000)
 n_prefetch=(0 1 2)
@@ -21,7 +26,7 @@ do
             if [ "$cline" -gt "$local_mem" ]; then
                 continue
             fi
-            ${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_size $remote_mem -cache_line_size $cline &>/dev/null &
+            ${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_line_size $cline &>/dev/null &
             #${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_size $remote_mem -cache_line_size $cline &>>"${exe_path}/remote-output" &
             to_kill=$!
             sleep 2

@@ -72,8 +72,9 @@ int main(int argc, char * argv[])
 
     std::cout << "Connected. Prepare data" << std::endl;
 
-    CacheTable *cache = createCacheTable(cache_size, cache_line_size, sbuf, rbuf);
-    RCacheVector_init_cache_table(cache);
+    cache_init();
+    cache_t cache = cache_create(cache_size, cache_line_size, sbuf+16*1024*1024, rbuf);
+    RCacheVector_init_cache_table(cache, cache_line_size);
 
     MyDataFrame::set_thread_level(1);
     MyDataFrame df;
@@ -113,23 +114,23 @@ int main(int argc, char * argv[])
 
     if (prefetch_size_line) {
         times.emplace_back(std::chrono::steady_clock::now(), "pl mean");
-        df.visit_prefetch_nlines<double>(col_data, v_mean, prefetch_size);
+        df.visit_prefetch_nlines<double>(col_data, v_mean, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl mean");
 
         times.emplace_back(std::chrono::steady_clock::now(), "pl 5nl");
-        df.visit_prefetch_nlines<double>(col_data, v_5nl, prefetch_size);
+        df.visit_prefetch_nlines<double>(col_data, v_5nl, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl 5nl");
 
         times.emplace_back(std::chrono::steady_clock::now(), "pl stats");
-        df.visit_prefetch_nlines<double>(col_data, v_stats, prefetch_size);
+        df.visit_prefetch_nlines<double>(col_data, v_stats, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl stats");
 
         times.emplace_back(std::chrono::steady_clock::now(), "pl dotp");
-        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_dotp, prefetch_size);
+        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_dotp, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl dotp");
 
         times.emplace_back(std::chrono::steady_clock::now(), "pl slr");
-        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_slr, prefetch_size);
+        df.visit_prefetch_nlines<double, double>(col_data, col_data2, v_slr, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl slr");
     } else if (prefetch_size) {
         times.emplace_back(std::chrono::steady_clock::now(), "p mean");

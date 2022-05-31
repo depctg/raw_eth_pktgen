@@ -10,13 +10,20 @@
 #include <stdexcept>
 
 #include "cache.h"
+#include "common.h"
 
 static uint64_t offset_vec = 0;
 inline static uint64_t get_new_vec_offset(uint64_t s) { return (offset_vec += s); }
 
-static CacheTable *ctable = 0;
-inline void RCacheVector_init_cache_table(CacheTable *c) {
-    if (!ctable) ctable = c;
+static bool ctable_inited = false;
+static cache_t ctable;
+static uint64_t cline_size = 0;
+inline void RCacheVector_init_cache_table(cache_t c, uint64_t l) {
+    if (!ctable_inited) {
+        ctable_inited = true;
+        ctable = c;
+        cline_size = l;
+    }
 }
 
 template <typename T>
@@ -31,10 +38,10 @@ class RCacheVector {
     class CIterator {
     private:
         RCacheVector<T> *_vec;
-        uint64_t _i;
+        Index_t _i;
         friend class RCacheVector;
 
-        CIterator(RCacheVector<T> *vec, uint64_t i) : _vec(vec), _i(i) {}
+        CIterator(RCacheVector<T> *vec, Index_t i) : _vec(vec), _i(i) {}
 
     public:
         using difference_type = int64_t;
@@ -58,50 +65,65 @@ class RCacheVector {
 
     const uint32_t _data_size = sizeof(T);
 
-    uint32_t _chunk_num_entries;  // #data per cache line
-    uint64_t _offset;             // starting offset of the data in remote
+    uint32_t _chunk_num_entries;  // #data per cache line, may have internal gaps
+    uint64_t _offset;             // starting offset of the data in remote, should be on the boundaries
 
     uint64_t _capacity;
     uint64_t _size = 0;
 
+    // returns i_chunk, i_in_chunk
     std::pair<Index_t, Index_t> which_chunk(Index_t i) {
         return std::make_pair(i / _chunk_num_entries, i % _chunk_num_entries);
     }
 
-    uint64_t where_offset(uint64_t i) {
+    // returns addr_chunk_beg, offset_i_chunk
+    std::pair<intptr_t, intptr_t> where_cache(uint64_t offset, Index_t i) {
         auto [chunk_idx, chunk_offset] = which_chunk(i);
-        return chunk_idx * ctable->cache_line_size + chunk_offset*_data_size;
+        return std::make_pair(offset+chunk_idx*cline_size, chunk_offset);
     }
 
     uint64_t last_chunk() {
         return which_chunk(_size-1).first;
     }
 
+    // copy from o2 to o1
+    void cache_copy(uint64_t o1, Index_t i1, uint64_t o2, Index_t i2) {
+        auto [c_addr, c_offset] = where_cache(o1, i1);
+        auto [old_c_addr, old_c_offset] = where_cache(o2, i2);
+
+        auto token = cache_request(ctable, c_addr);
+        auto old_token = cache_request(ctable, old_c_addr);
+        cache_await(token);
+        cache_await(old_token);
+        T* to_read = reinterpret_cast<T*>(cache_access(old_token))+old_c_offset;
+        T* to_write = reinterpret_cast<T*>(cache_access_mut(token))+c_offset;
+        *to_write = *to_read;
+    }
+
    public:
     explicit RCacheVector() : RCacheVector(0) {}
 
    RCacheVector(uint64_t atleast_cap) {
-      if (!ctable) throw std::runtime_error("RCacheVector_init_cache_table first");
+      if (!ctable_inited) throw std::runtime_error("RCacheVector_init_cache_table first");
 
-      _chunk_num_entries = ctable->cache_line_size / _data_size;
+      _chunk_num_entries = cline_size / _data_size;
       if (!_chunk_num_entries) throw std::runtime_error("cache line size too small");
-      auto num_entries_to_alloc = (atleast_cap) ? (atleast_cap-1) / _chunk_num_entries + 1 : 0;
-      _capacity = num_entries_to_alloc * _chunk_num_entries;
-      _offset =
-          get_new_vec_offset(num_entries_to_alloc * ctable->cache_line_size);
+      auto num_chunks_to_alloc = (atleast_cap) ? (atleast_cap-1) / _chunk_num_entries + 1 : 0;
+      _capacity = num_chunks_to_alloc * _chunk_num_entries;
+      _offset = get_new_vec_offset(num_chunks_to_alloc * cline_size);
     }
 
     RCacheVector &operator=(const RCacheVector &other) {
         // TODO: release old offset
         _chunk_num_entries = other._chunk_num_entries;
         _capacity = other._capacity;
-        _offset = get_new_vec_offset(_capacity/_chunk_num_entries * ctable->cache_line_size);
+        _offset = get_new_vec_offset(_capacity/_chunk_num_entries * cline_size);
         _size = other._size;
 
         auto old_offset = other._offset;
         for (int i = 0; i < _size; ++i) {
             // TODO: better copy
-            cache_write_n(ctable, _offset+where_offset(i), reinterpret_cast<T*>(cache_access(ctable, old_offset+where_offset(i))), _data_size);
+            cache_copy(_offset, i, old_offset, i);
         }
     }
     RCacheVector(RCacheVector &&other) {
@@ -119,7 +141,7 @@ class RCacheVector {
         _size = other._size;
     }
     ~RCacheVector() {
-        // TODO: release old offset
+        // TODO: release offset
     }
 
     uint32_t chunk_num_entries() const {return _chunk_num_entries;}
@@ -132,7 +154,12 @@ class RCacheVector {
             resize(_capacity*2+1);
         }
 
-        cache_write_n(ctable, _offset + where_offset(_size), &t, _data_size);
+        auto [c_addr, c_offset] = where_cache(_offset, _size);
+        auto token = cache_request(ctable, c_addr);
+        cache_await(token);
+        T* to_write = reinterpret_cast<T*>(cache_access_mut(token))+c_offset;
+
+        *to_write = t;
 
         _size += 1;
 
@@ -145,7 +172,12 @@ class RCacheVector {
             resize(_capacity*2+1);
         }
 
-        cache_write_n(ctable, _offset + where_offset(_size), &const_cast<T&>(t), _data_size);
+        auto [c_addr, c_offset] = where_cache(_offset, _size);
+        auto token = cache_request(ctable, c_addr);
+        cache_await(token);
+        T* to_write = reinterpret_cast<T*>(cache_access_mut(token))+c_offset;
+
+        *to_write = t;
 
         _size += 1;
 
@@ -162,29 +194,37 @@ class RCacheVector {
 
         auto num_entries_to_alloc = (atleast_cap) ? (atleast_cap-1) / _chunk_num_entries + 1 : 0;
         _capacity = num_entries_to_alloc * _chunk_num_entries;
-        _offset = get_new_vec_offset(num_entries_to_alloc * ctable->cache_line_size);
+        _offset = get_new_vec_offset(num_entries_to_alloc * cline_size);
 
         for (int i = 0; i < _size; ++i) {
             // TODO: better copy
-            cache_write_n(ctable, _offset+where_offset(i), reinterpret_cast<T*>(cache_access(ctable, old_offset+where_offset(i))), _data_size);
+            cache_copy(_offset, i, old_offset, i);
         }
 
         // TODO: release old offset
     }
 
     // return copy only
-    T nth_element(uint64_t i) {
-        return *reinterpret_cast<T*>(cache_access(ctable, _offset+where_offset(i)));
+    T nth_element(Index_t i) {
+        auto [c_addr, c_offset] = where_cache(_offset, i);
+        auto token = cache_request(ctable, c_addr);
+        cache_await(token);
+        return *(reinterpret_cast<T*>(cache_access(token))+c_offset);
     }
     T front() { return nth_element(0); }
     const T back() { return nth_element(_size-1); }
-    T at(uint64_t i) { return nth_element(i); }
+    T at(Index_t i) { return nth_element(i); }
 
     // the only mutator
-    void update(uint64_t i, T&& t) {
+    void update(Index_t i, T&& t) {
         if (i >= _size) throw std::runtime_error("update out of index");
 
-        cache_write_n(ctable, _offset+where_offset(i), &t, _data_size);
+        auto [c_addr, c_offset] = where_cache(_offset, i);
+        auto token = cache_request(ctable, c_addr);
+        cache_await(token);
+        T* to_write = reinterpret_cast<T*>(cache_access_mut(token))+c_offset;
+
+        *to_write = t;
     }
 
     // CIterator begin() {return CIterator(this,0);}
@@ -197,22 +237,26 @@ class RCacheVector {
     // void disable_prefetch();
     // void enable_prefetch();
     void prefetch(Index_t i, uint64_t n) {
-        auto chunk_idx = std::min(last_chunk(), which_chunk(i).first);
-        auto chunk_idx_end = std::min(last_chunk(), which_chunk(i+n-1).first);
+        throw std::runtime_error("not implemented");
+        if (!n) return;
+        // auto chunk_idx = std::min(last_chunk(), which_chunk(i).first);
+        // auto chunk_idx_end = std::min(last_chunk(), which_chunk(i+n-1).first);
 
-        for (auto c = chunk_idx; c <= chunk_idx_end; ++c) {
-            cache_prefetch(ctable, _offset+c*ctable->cache_line_size);
-        }
+        // for (auto c = chunk_idx; c <= chunk_idx_end; ++c) {
+            // cache_prefetch(ctable, _offset+c*cline_size);
+        // }
     }
     void prefetch_nlines(Index_t i, uint64_t n) {
+        if (!n) return;
         auto clast = last_chunk();
         auto ccur = which_chunk(i).first;
         if (clast < ccur) return;
 
-        auto cend = std::min(last_chunk(), which_chunk(ccur+n-1).first);
+        auto cend = std::min(clast, ccur+n-1);
 
         for (auto c = ccur; c <= cend; ++c) {
-            cache_prefetch(ctable, _offset+c*ctable->cache_line_size);
+            // auto token = cache_request(ctable, offset+c*cline_size);
+            cache_request(ctable, _offset+c*cline_size);
         }
     }
 };

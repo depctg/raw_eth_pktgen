@@ -70,7 +70,8 @@ struct cache_meta {
 
 enum {
     CACHE_FLAGS_ACQUIRE = 1 << 0,
-    CACHE_FLAGS_DIRTY   = 1 << 1
+    CACHE_FLAGS_DIRTY   = 1 << 1,
+    CACHE_FLAGS_RACCESS = 1 << 2
 };
 
 typedef unsigned cache_t;

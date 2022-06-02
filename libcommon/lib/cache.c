@@ -70,6 +70,7 @@ void cache_init() {
 
 // TODO: multiple lines
 // TODO: write notification by sge
+// TODO: inline this funciton?
 static inline void cache_post(cache_token_t token, int type) {
     int ret;
     struct ibv_sge sge[2], rsge;
@@ -171,7 +172,7 @@ static inline int is_pow2(unsigned v) {
 }
 
 cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase) {
-    assert(is_pow2(size));
+    // assert(is_pow2(size));
     assert(is_pow2(linesize));
     assert(linesize > 16); // required by tag layout
     assert(size >= linesize);
@@ -195,35 +196,38 @@ void cache_await(cache_token_t token) {
         cache_poll();
 }
 
-// TODO: inline cachesize?
-void * cache_access(cache_token_t token) {
-    return token_get_line(token);
+/* cache policy funcitons */
+
+/* Group assoc */
+
+static inline unsigned rand_next() {
+    const int mult = 22695477;
+    const int inc = 1;
+    static unsigned cur = 2333;
+    return (cur = cur * mult + inc);
+}
+const int group_bits = 2;
+const int groups = 1 << group_bits;
+
+static void inline _cache_access_markdirty(cache_token_t token, int mut) {
+    // mark line as dirty
+    if (mut)
+        token_set_flag(token, CACHE_FLAGS_DIRTY);
 }
 
-void * cache_access_mut(cache_token_t token) {
-    token_set_flag(token, CACHE_FLAGS_DIRTY);
-    return token_get_line(token);
+static void inline _cache_access_groupassoc(cache_token_t token, int mut) {
+    // mark line as dirty
+    _cache_access_markdirty(token, mut);
+    // mark self as assoc
+    unsigned base = token.slot & ~(groups-1);
+    for (int i = 0; i < groups; i++) {
+        cache_token_t tk = (cache_token_t){.cache=token.cache, .slot=base+i};
+        token_reset_flag(tk,TOKEN_FLAG_RACCESS);
+    }
+    token_set_flag(token,TOKEN_FLAG_RACCESS);
 }
 
-static inline void cache_evict(cache_token_t token, intptr_t addr) {
-    uint64_t tag = cache_tag(token.cache, addr);
-    token_get_meta(token, newtag) = token_get_meta(token, tag);
-    token_get_meta(token, tag) = tag;
-    cache_post(token, CACHE_REQ_EVICT);
-}
-
-/* main cache functions */
-static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t tag) {
-    cache_token_t token;
-    token.cache = cache;
-    unsigned linesize = cache_get(cache,linesize);
-    token.slot = (tag / linesize) & (cache_get(cache,size)/linesize - 1);
-    return token;
-}
-
-static inline cache_token_t _cache_select_groupassoc(cache_t cache, uint64_t tag) {
-    const int group_bits = 2;
-    const int groups = 1 << group_bits;
+static inline cache_token_t _cache_select_groupassoc_rand(cache_t cache, uint64_t tag) {
     unsigned linesize = cache_get(cache,linesize);
     unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
     base <<= group_bits;
@@ -233,10 +237,38 @@ static inline cache_token_t _cache_select_groupassoc(cache_t cache, uint64_t tag
         if (token_get_meta(t,status) == CACHE_IDLE)
             return t;
     }
-    return t;
+    // random select a single element to evict
+    return t[rand_next() % groups];
+}
+
+
+static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t tag) {
+    unsigned linesize = cache_get(cache,linesize);
+    unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
+    base <<= group_bits;
+    cache_token_t t, tlru;
+    for (int i = 0; i < groups; i++) {
+        t = (cache_token_t){.cache=cache, .slot=base+i};
+        if (token_get_meta(t,status) == CACHE_IDLE)
+            return t;
+        if (token_check_flag(t,CACHE_FLAGS_RACCESS))
+            tlru = t;
+    }
+    // random select a single element to evict
+    return tlru;
+}
+
+/* direct assoc */
+static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t tag) {
+    cache_token_t token;
+    token.cache = cache;
+    unsigned linesize = cache_get(cache,linesize);
+    token.slot = (tag / linesize) & (cache_get(cache,size)/linesize - 1);
+    return token;
 }
 
 // TODO: change this to apply to different functions
+#define __cache_access_handler _cache_access_groupassoc
 #define __cache_select _cache_select_directassoc
 
 cache_token_t cache_request(cache_t cache, intptr_t addr) {
@@ -252,9 +284,11 @@ cache_token_t cache_request(cache_t cache, intptr_t addr) {
     } else if (cache_get_meta(cache, token, status) != CACHE_IDLE &&
             cache_get_meta(cache, token, tag) != tag &&
             cache_check_flag(cache, token, CACHE_FLAGS_DIRTY)) {
-        // TODO: wait prev request to finish?
-        // do eviction
         dprintf("-> EVICT");
+        // wait prev request to finish?
+        while (cache_get_meta(token.cache,token,status) == CACHE_SYNC)
+            cache_poll();
+        // do eviction
         cache_get_meta(cache, token, newtag) = cache_get_meta(cache, token, tag);
         cache_get_meta(cache, token, tag) = tag;
         cache_get_meta(cache, token, status) = CACHE_SYNC;
@@ -267,6 +301,17 @@ cache_token_t cache_request(cache_t cache, intptr_t addr) {
     }
     return token;
 }
+
+void * cache_access(cache_token_t token) {
+    __cache_access_handler(token, 0);
+    return token_get_line(token);
+}
+
+void * cache_access_mut(cache_token_t token) {
+    __cache_access_handler(token, 1);
+    return token_get_line(token);
+}
+
 
 void cache_sync(cache_token_t token) {
     // TODO coherent?
@@ -301,6 +346,14 @@ void cache_acquire(cache_t cache, intptr_t addr, size_t size,
 void cache_release(cache_token_t *tokens, int cnt) {
     for (int i = 0; i < cnt; i++)
         token_reset_flag(tokens[i],CACHE_FLAGS_ACQQUIRE);
+}
+
+// TODO: inline cachesize?
+static inline void cache_evict(cache_token_t token, intptr_t addr) {
+    uint64_t tag = cache_tag(token.cache, addr);
+    token_get_meta(token, newtag) = token_get_meta(token, tag);
+    token_get_meta(token, tag) = tag;
+    cache_post(token, CACHE_REQ_EVICT);
 }
 
 

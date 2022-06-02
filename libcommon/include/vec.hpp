@@ -63,6 +63,73 @@ class RCacheVector {
         T operator*() const {return _vec->nth_element(_i);}
     };
 
+    class BatchIterator {
+    private:
+        RCacheVector<T> *_vec;
+        Index_t _i;
+        uint64_t _n_prefetch_lines;
+        uint64_t _n_prefetch_elems;
+
+        std::vector<std::pair<cache_token_t, bool>> _tokens;
+        int _i_p;
+        // Index_t _i_next;
+
+        BatchIterator(RCacheVector<T> *vec, Index_t i, uint64_t n_prefetch_lines) : _vec(vec), _i(i), _n_prefetch_lines(n_prefetch_lines) {
+            // no request for end()
+            if (_i != _vec->_size) {
+                if (!_n_prefetch_lines) _n_prefetch_lines = 1;
+                _n_prefetch_elems = _n_prefetch_lines * _vec->_chunk_num_entries;
+                _tokens.resize(_n_prefetch_lines);
+                batch_prefetch();
+            }
+        }
+
+        void batch_prefetch() {
+            for (int i_p = 0; i_p < _n_prefetch_lines; ++i_p) {
+                _tokens[i_p] = std::make_pair(cache_request(ctable, _vec->where_cache(_vec->_offset, _i + i_p * _vec->_chunk_num_entries).first), false);
+            }
+            _i_p = 0;
+            // _i_next = ((_i + n_prefetch_lines * _vec->_chunk_num_entries - 1) / _vec->_chunk_num_entries + 1) * _vec->_chunk_num_entries;
+        }
+
+    public:
+        using difference_type = int64_t;
+        using iterator_category = std::forward_iterator_tag;
+
+        BatchIterator &operator++() {
+            if (_i >= _vec->_size - 1) {
+                _i = _vec->_size;
+                return *this;
+            }
+            _i += 1;
+            if (_i % _vec->_chunk_num_entries) {
+                _i_p += 1;
+                if (_i_p == _n_prefetch_lines) {
+                    batch_prefetch();
+                }
+            }
+            return *this;
+        }
+        T operator*() {
+            if (_i == _vec->_size) throw std::runtime_error("access out of index");
+            if (!_tokens[_i_p].second) {
+                cache_await(_tokens[_i_p].first);
+                _tokens[_i_p].second = true;
+            }
+            return *(reinterpret_cast<T*>(cache_access(_tokens[_i_p].first))+(_i % _vec->_chunk_num_entries));
+        }
+
+        BatchIterator operator++(int) {throw std::runtime_error("not supported");}
+        bool operator==(const BatchIterator &other) const {return (_vec == other._vec && _i == other._i);}
+        bool operator!=(const BatchIterator &other) const {return !(*this == other);}
+        bool operator<(const BatchIterator &other) const {return (_vec == other._vec && _i < other._i);}
+        bool operator<=(const BatchIterator &other) const {return (_vec == other._vec && _i <= other._i);}
+        bool operator>(const BatchIterator &other) const {return (_vec == other._vec && _i > other._i);}
+        bool operator>=(const BatchIterator &other) const {return (_vec == other._vec && _i >= other._i);}
+
+        friend class RCacheVector;
+    };
+
     const uint32_t _data_size = sizeof(T);
 
     uint32_t _chunk_num_entries;  // #data per cache line, may have internal gaps
@@ -234,6 +301,11 @@ class RCacheVector {
     const CIterator cbegin() const {return CIterator(const_cast<RCacheVector<T>*>(this), 0);}
     const CIterator cend() const {return CIterator(const_cast<RCacheVector<T>*>(this), _size);}
 
+    const BatchIterator batch_begin(uint64_t n_prefetch_lines = 1) const {return BatchIterator(const_cast<RCacheVector<T>*>(this),0, n_prefetch_lines);}
+    const BatchIterator batch_end(uint64_t n_prefetch_lines = 1) const {return BatchIterator(const_cast<RCacheVector<T>*>(this), _size, n_prefetch_lines);}
+    const BatchIterator batch_cbegin(uint64_t n_prefetch_lines = 1) const {return BatchIterator(const_cast<RCacheVector<T>*>(this), 0, n_prefetch_lines);}
+    const BatchIterator batch_cend(uint64_t n_prefetch_lines = 1) const {return BatchIterator(const_cast<RCacheVector<T>*>(this), _size, n_prefetch_lines);}
+
     // void disable_prefetch();
     // void enable_prefetch();
     void prefetch(Index_t i, uint64_t n) {
@@ -259,6 +331,36 @@ class RCacheVector {
             cache_request(ctable, _offset+c*cline_size);
         }
     }
+
+    // template<typename V>
+    // void batch_visitor(Index_t i, Index_t n, uint64_t prefetch_lines, V& visitor) {
+    //     if (!n) return;
+    //     Index_t iend = i + n;
+    //     if (i > _size || iend > _size) return;
+
+    //     // if not prefetching, use non-batch version
+    //     // avoid requesting the same cache line
+    //     if (prefetch_lines == 0) prefetch_lines = 1;
+
+    //     std::array<cache_token_t, prefetch_lines> tokens;
+    //     uint64_t n_prefetch = prefetch_lines * _chunk_num_entries;
+    //     uint64_t times_prefetch = (n-1) / n_prefetch + 1;
+    //     while (times_prefetch--) {
+    //         for (int i_p = 0; i_p < prefetch_lines; ++i_p) { // prefetch the lines, at least one
+    //             // i + #entries is guaranteed to cross cache line boundary
+    //             auto [c_addr, c_offset] = where_cache(_offset, i+i_p*_chunk_num_entries);
+    //             tokens[i_p] = cache_request(ctable, c_addr);
+    //         }
+
+    //         for (int i_p = 0; i_p < prefetch_lines; ++i_p) {
+    //             cache_await(tokens[i_p]);
+    //             // the first and the last iteration may not access the full cache line
+    //             for (Index_t next = std::min(i - which_chunk(i).second + _chunk_num_entries, iend); i < next; ++i) {
+    //                 visitor (*(reinterpret_cast<T*>(cache_access(token))+where_chunk(i).second));
+    //             }
+    //         }
+    //     }
+    // }
 };
 
 #endif

@@ -1736,6 +1736,17 @@ public:  // Visitors
         return(const_cast<DataFrame *>(this)->visit_prefetch_nlines<T, V>(name, visitor, prefetch_size));
     }
 
+    template<typename T, typename V>
+    V &
+    visit_batch_it(const char *name, V &visitor, uint64_t prefetch_size);
+
+    template<typename T, typename V>
+    V &
+    visit_batch_it(const char *name, V &visitor, uint64_t prefetch_size) const  {
+
+        return(const_cast<DataFrame *>(this)->visit_batch_it<T, V>(name, visitor, prefetch_size));
+    }
+
     // These are identical to above visit() but could execute asynchronously.
     // NOTE: It should be safe to run multiple visits on different columns
     //       at the same time (as long as the index column is not being
@@ -1797,6 +1808,16 @@ public:  // Visitors
     V &
     visit_prefetch_nlines(const char *name1, const char * name2, V &visitor, uint64_t prefetch_size) const  {
         return(const_cast<DataFrame *>(this)->visit_prefetch_nlines<T1, T2, V>(name1, name2, visitor, prefetch_size));
+    }
+
+    template<typename T1, typename T2, typename V>
+    V &
+    visit_batch_it(const char *name1, const char *name2, V &visitor, uint64_t prefetch_size);
+
+    template<typename T1, typename T2, typename V>
+    V &
+    visit_batch_it(const char *name1, const char * name2, V &visitor, uint64_t prefetch_size) const  {
+        return(const_cast<DataFrame *>(this)->visit_batch_it<T1, T2, V>(name1, name2, visitor, prefetch_size));
     }
 
     // These are identical to above visit() but could execute asynchronously.

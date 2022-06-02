@@ -27,6 +27,7 @@ static struct option long_options[] = {
     {"cache_line_size", required_argument, 0, 0},
     {"prefetch_n", required_argument, 0, 0},
     {"prefetch_nline", required_argument, 0, 0},
+    {"batch_nline", required_argument, 0, 0},
     {"index_size", required_argument, 0, 0},
     {0, 0, 0, 0}
 };
@@ -39,6 +40,7 @@ int main(int argc, char * argv[])
     uint64_t cache_line_size = 8192;
     uint32_t cache_size = (480 << 20);
     uint64_t index_size = 100;
+    uint64_t prefetch_batch_lines = 0;
 
     int opt= 0, long_index =0;
     while ((opt = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
@@ -59,6 +61,9 @@ int main(int argc, char * argv[])
                 prefetch_size_line = atoll(optarg);
                 break;
             case 5:
+                prefetch_batch_lines = atoll(optarg);
+                break;
+            case 6:
                 index_size = atoll(optarg);
                 break;
             default:
@@ -112,7 +117,27 @@ int main(int argc, char * argv[])
 
     std::vector<std::pair<std::chrono::time_point<std::chrono::steady_clock>, std::string>> times;
 
-    if (prefetch_size_line) {
+    if (prefetch_batch_lines) {
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl mean");
+        df.visit_batch_it<double>(col_data, v_mean, prefetch_batch_lines);
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl mean");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl 5nl");
+        df.visit_batch_it<double>(col_data, v_5nl, prefetch_batch_lines);
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl 5nl");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl stats");
+        df.visit_batch_it<double>(col_data, v_stats, prefetch_batch_lines);
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl stats");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl dotp");
+        df.visit_batch_it<double, double>(col_data, col_data2, v_dotp, prefetch_batch_lines);
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl dotp");
+
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl slr");
+        df.visit_batch_it<double, double>(col_data, col_data2, v_slr, prefetch_batch_lines);
+        times.emplace_back(std::chrono::steady_clock::now(), "bpl slr");
+    } else if (prefetch_size_line) {
         times.emplace_back(std::chrono::steady_clock::now(), "pl mean");
         df.visit_prefetch_nlines<double>(col_data, v_mean, prefetch_size_line);
         times.emplace_back(std::chrono::steady_clock::now(), "pl mean");

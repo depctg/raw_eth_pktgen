@@ -12,7 +12,7 @@ remote_mem=2147483648
 local_mems=(4096 8192 16384)
 cache_line=(128 256 512 1024 2048)
 index_size=(2000 5000)
-n_prefetch=(0 1 2)
+n_prefetch=(1 2 3)
 
 kill -9 `pgrep -f dataframe-`
 for idx_size in "${index_size[@]}"
@@ -30,7 +30,8 @@ do
             #${exe_path}/dataframe-vec_remote -addr "tcp://*:${port}" -cache_size $remote_mem -cache_line_size $cline &>>"${exe_path}/remote-output" &
             to_kill=$!
             sleep 2
-            ${exe_path}/dataframe-main -addr "tcp://localhost:${port}" -index_size $idx_size -cache_size $local_mem -cache_line_size $cline -prefetch_nline $n_p 2>> "${data_path}"
+            # ${exe_path}/dataframe-main -addr "tcp://localhost:${port}" -index_size $idx_size -cache_size $local_mem -cache_line_size $cline -prefetch_nline $n_p 2>> "${data_path}"
+            ${exe_path}/dataframe-main -addr "tcp://localhost:${port}" -index_size $idx_size -cache_size $local_mem -cache_line_size $cline -batch_nline $n_p 2>> "${data_path}"
             ((port=port+1))
             kill -9 $to_kill &>/dev/null
         done

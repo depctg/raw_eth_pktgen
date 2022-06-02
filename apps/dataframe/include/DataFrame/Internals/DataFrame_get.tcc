@@ -297,6 +297,34 @@ V &DataFrame<I, H>::visit_prefetch_nlines (const char *name, V &visitor, uint64_
     return (visitor);
 }
 
+template<typename I, typename  H>
+template<typename T, typename V>
+V &DataFrame<I, H>::visit_batch_it (const char *name, V &visitor, uint64_t prefetch_size)  {
+
+    auto            &vec = get_column<T>(name);
+    const size_type idx_s = indices_.size();
+    const size_type min_s = std::min<size_type>(vec.size(), idx_s);
+    size_type       i = 0;
+
+    visitor.pre();
+    auto it_indices_ = indices_.batch_begin(prefetch_size);
+    auto it_vec = vec.batch_begin(prefetch_size);
+    for (; i < min_s; ++i) {
+        visitor (*it_indices_, *it_vec);
+        ++it_indices_;
+        ++it_vec;
+    }
+    for (; i < idx_s; ++i)  {
+        T   nan_val = _get_nan<T>();
+
+        visitor (*it_indices_, nan_val);
+        ++it_indices_;
+    }
+    visitor.post();
+
+    return (visitor);
+}
+
 // ----------------------------------------------------------------------------
 
 template<typename I, typename  H>
@@ -427,6 +455,45 @@ visit_prefetch_nlines (const char *name1, const char *name2, V &visitor, uint64_
         visitor (indices_.at(i),
                  i < data_s1 ? vec1.at(i) : nan_val1,
                  i < data_s2 ? vec2.at(i) : nan_val2);
+    }
+    visitor.post();
+
+    return (visitor);
+}
+
+template<typename I, typename  H>
+template<typename T1, typename T2, typename V>
+V &DataFrame<I, H>::
+visit_batch_it (const char *name1, const char *name2, V &visitor, uint64_t prefetch_size)  {
+
+    auto            &vec1 = get_column<T1>(name1);
+    auto            &vec2 = get_column<T2>(name2);
+    const size_type idx_s = indices_.size();
+    const size_type data_s1 = vec1.size();
+    const size_type data_s2 = vec2.size();
+    const size_type min_s = std::min<size_type>({ idx_s, data_s1, data_s2 });
+    size_type       i = 0;
+
+    visitor.pre();
+    auto it_indices_ = indices_.batch_begin(prefetch_size);
+    auto it_vec1 = vec1.batch_begin(prefetch_size);
+    auto it_vec2 = vec2.batch_begin(prefetch_size);
+    for (; i < min_s; ++i) {
+        visitor (*it_indices_, *it_vec1, *it_vec2);
+        ++it_indices_;
+        ++it_vec1;
+        ++it_vec2;
+    }
+    for (; i < idx_s; ++i)  {
+        T1  nan_val1 = _get_nan<T1>();
+        T2  nan_val2 = _get_nan<T2>();
+
+        visitor (*it_indices_,
+                 i < data_s1 ? vec1.at(i) : nan_val1,
+                 i < data_s2 ? vec2.at(i) : nan_val2);
+        ++it_vec1;
+        ++it_vec2;
+        ++it_indices_;
     }
     visitor.post();
 

@@ -83,7 +83,7 @@ void hashPrint(HashBlock *hs)
 {
 	HashBlock *cur;
 	for (cur = hs; cur != NULL && cur->bptr != NULL; cur = cur->hh.next) {
-			printf("tag %d, status %d\n" , cur->tag, cur->bptr->status);
+			printf("tag %d, status %d, weight %d\n" , cur->tag, cur->bptr->status, cur->bptr->weight);
 	}
 }
 
@@ -167,13 +167,12 @@ char *cache_access(CacheTable *table, uint64_t addr)
 			tgt->bptr->rbuf_offset = rbuf_offset;
 			tgt->bptr->status = pending;
 			tgt->bptr->wr_id = -1;
-			tgt->bptr->weight = 0;
 			tgt->bptr->dirty = 0;
 		}
 		fetch_sync(tgt->bptr, table->amba, table->rplc, table->tag_shifts);
 		// printf("Fetched ");
 		// linePrint(table->amba->line_pool + rbuf_offset, table->cache_line_size);
-		return table->amba->line_pool + rbuf_offset + line_offset;
+		// return table->amba->line_pool + rbuf_offset + line_offset;
 	} 
 	else if (tgt->bptr->status == pending)
 	{
@@ -182,9 +181,8 @@ char *cache_access(CacheTable *table, uint64_t addr)
 		cq_consumer(tgt->bptr->wr_id, RECV, table->amba, table->rplc);
 		// hashPrint(table->map);
 	}
-	else
-		// if find target, touch and return
-		table->rplc->access_existing(table->rplc, tgt->bptr);
+	// target present, touch and return
+	table->rplc->access_existing(table->rplc, tgt->bptr);
 
 	// printf("Found ");
 	// linePrint(table->amba->line_pool + tgt->bptr->rbuf_offset, table->cache_line_size);
@@ -286,8 +284,17 @@ void cache_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 	return;
 }
 
+void print_datbuf(void *dat_buf, uint64_t s) {
+	uint64_t *tdat = (uint64_t *) dat_buf;
+	printf("Start addr %p: ", dat_buf);
+	for (uint64_t i = 0; i < s / sizeof(uint64_t); ++ i)
+		printf("%" PRIu64 " ", tdat[i]);
+	printf("\n");
+}
+
 void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s)
 {
+	// print_datbuf(dat_buf, s);
 	HashBlock *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
 	// if not accessed
@@ -319,9 +326,9 @@ void _remote_write(CacheTable *table, uint64_t addr, uint64_t tag, uint64_t line
 void remote_write_n(CacheTable *table, uint64_t addr, void *dat_buf, uint64_t s)
 {
 	// first cache line tag of addr
-	uint64_t ftag = (addr & table->addr_mask) >> table->tag_shifts;
+	uint64_t ftag = addr >> table->tag_shifts;
 	// last tag
-	uint64_t ltag = ((addr + s) & table->addr_mask) >> table->tag_shifts;
+	uint64_t ltag = (addr + s) >> table->tag_shifts;
 	uint64_t written_l = 0;
 
 	// write first segment
@@ -350,13 +357,14 @@ void prefetch(CacheTable *table, uint64_t addr)
 	uint64_t tag = addr >> table->tag_shifts;
 	HashBlock *tgt;
 	HASH_FIND_INT(table->map, &tag, tgt);
-	// printf("Prefetch addr, tag: %" PRIu64 ", %" PRIu64 "\n", addr, (addr & table->addr_mask) >> table->tag_shifts);
+	// printf("Prefetch addr, tag: %" PRIu64 ", %" PRIu64 "\n", addr, addr >> table->tag_shifts);
 	if (tgt == NULL || tgt->bptr->status == absent)
 	{
 		// claim room for this cache line
 		uint64_t rbuf_offset;
-		if (!claim(table->fq, &rbuf_offset)) 
+		if (!claim(table->fq, &rbuf_offset)) {
 			rbuf_offset = pop_for_rbuf(table);
+		}
 		// prefetch
 		// printf("Pf rbuf ofst: %" PRIu64 "\n", rbuf_offset);
 		if (tgt == NULL)
@@ -384,7 +392,7 @@ void prefetch(CacheTable *table, uint64_t addr)
 	else
 	{
 		// locally available but not overwrite
-		table->rplc->access_existing(table->rplc, tgt->bptr);
+		// table->rplc->access_existing(table->rplc, tgt->bptr);
 	}
 	// hashPrint(table->map);
 }

@@ -182,8 +182,8 @@ void cq_consumer(uint64_t wr_id, enum CQ_OPT opt, Ambassador *a, Policy *p){
 					Block *b = tgt->bptr;
 					b->status = present;
 					b->dirty = 0;
-					b->weight = 0;
 					// add_to_head(dll, b);
+					// printf("cq recved tag: %" PRIu64 "\n", b->tag);
 					p->fresh_add(p, b);
 					HASH_DEL(a->wrid_bptr, tgt);
 					free(tgt);

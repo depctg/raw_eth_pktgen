@@ -25,8 +25,8 @@ extern "C" {
 #define CQ_NUM_DESC 64
 
 /* size for local buffers, 512M */
-#define SEND_BUF_SIZE (512 << 20)
-#define RECV_BUF_SIZE (512 << 20)
+#define SEND_BUF_SIZE (2ULL << 30)
+#define RECV_BUF_SIZE (2ULL << 30)
 
 #define MAX_POLL 64
 
@@ -67,6 +67,7 @@ uint64_t recv(void * buf, size_t size);
 uint64_t recv_async(void * buf, size_t size);
 
 int poll(uint64_t wr_id);
+int poll_opcode(uint64_t wr_id, int code);
 int poll_cq(struct ibv_cq *cq, int n, struct ibv_wc *wc);
 
 // RDMA_info exchange

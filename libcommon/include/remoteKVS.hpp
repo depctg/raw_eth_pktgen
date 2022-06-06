@@ -103,11 +103,12 @@ public:
   //   cout << "manual insert " << line << "to offset " << offset << endl;
   //   return offset;
   // }
-
+  template<typename T>
   void print_line(void *line, size_t length) {
-    uint64_t *u64l = (uint64_t *) line;
-    for (uint8_t i = 0; i < length * sizeof(char) / sizeof(uint64_t); ++i) {
-      cout << u64l[i] << " ";
+    T *es = (T *) line;
+    // cout << length / sizeof(T) << endl;
+    for (uint8_t i = 0; i < length / sizeof(T); ++i) {
+      cout << (uint8_t) es[i] << " ";
     }
     cout << endl;
   }
@@ -115,13 +116,13 @@ public:
   void handle_req_fetch(struct req* r) {
     // no-copy
     // cout << "Fetch request addr, type, size: " << r->addr << " " << r->type << " " << r->size << endl;
-    uint64_t tag = (r->addr & addr_mask) >> tag_shifts;
+    uint64_t tag = r->addr >> tag_shifts;
     // print_line(cache_line_pool + map[tag], cache_line_size);
     send_async(cache_line_pool + map[tag], cache_line_size);
   }
 
   void handle_req_update(struct req* r) {
-    // print_line(r+1);
+    // print_line<unsigned char>(r+1, r->size);
     uint64_t tag = r->addr >> tag_shifts;
     uint64_t line_offset = (r->addr & tag_mask);
 
@@ -158,7 +159,7 @@ public:
           uint64_t idx = (recv_polls ++) % MAX_POLL;
           struct req *r = (struct req *) (client_reqs + idx * req_size);
           // const char *type = r->type == 1 ? "Fetch" : "Update";
-          // cout << "Req " << r->addr << ", tag " << (r->addr >> kvs->tag_shifts)  << ", size " << r->size << ", type " << type << endl;
+          // cout << "Req " << r->addr << ", tag " << (r->addr >> tag_shifts)  << ", size " << r->size << ", type " << type << endl;
           if (r->type)
             handle_req_fetch(r);
           else

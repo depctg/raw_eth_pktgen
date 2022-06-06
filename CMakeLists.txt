@@ -28,6 +28,6 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 # targets
 add_subdirectory(libcommon)
-# add_subdirectory(clang-passes)
+#add_subdirectory(clang-passes)
 add_subdirectory(apps)
-
+add_subdirectory(spec2006-bzip2)

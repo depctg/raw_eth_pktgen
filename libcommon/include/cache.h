@@ -69,7 +69,7 @@ char *cache_access(CacheTable *table, uint64_t addr);
 // | line offset | write {s} size | intact | 
 void write_to_CL(CacheTable *table, uint64_t tag, uint64_t line_offset, void *dat_buf, uint64_t s);
 
-// write one byte to arbitrary addr
+// write 8-byte to arbitrary addr
 void cache_write(CacheTable *table, uint64_t addr, void *dat_buf);
 
 // write arbitrary length to arbitrary addr

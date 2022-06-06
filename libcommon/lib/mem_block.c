@@ -39,8 +39,10 @@ BlockDLL *initBlockDLL()
 void add_to_head(BlockDLL *dll, Block *b)
 {
 	b->next = dll->head;
-	if (!dll->tail)
+	// dllPrint(dll);
+	if (!dll->tail) {
 		dll->head = dll->tail = b;
+	}
 	else {
 		dll->head->prev = b;
 		dll->head = b;
@@ -91,6 +93,7 @@ void remove_from_dll(BlockDLL *dll, Block *b)
 		b->next->prev = b->prev;
 	if (b->prev)
 		b->prev->next = b->next;
+	b->prev = b->next = NULL;
 	return;
 }
 
@@ -120,4 +123,14 @@ void dllPrint(BlockDLL *dll)
   if (dll->tail)
     printf(" | tail %" PRIu64 "-%d", dll->tail->tag, dll->tail->weight);
 	printf("\n");
+}
+
+void destruct_dll(BlockDLL *dll) {
+	Block *cur = dll->head;
+	while (cur) {
+		Block *tmp = cur->next;
+		free(cur);
+		cur = tmp;
+	}
+	free(dll);
 }

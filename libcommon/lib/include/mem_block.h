@@ -54,6 +54,8 @@ void remove_from_dll(BlockDLL *dll, Block *b);
 // return NULL if empty dll
 Block *pop_last(BlockDLL *dll);
 
+void destruct_dll(BlockDLL *dll);
+
 
 #ifdef __cplusplus
 }

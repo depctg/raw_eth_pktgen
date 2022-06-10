@@ -4,3 +4,4 @@
 cache_opts/cache_test
 cache_opts/remote_test
 **/log.*
+**/spec2006-bzip2/enwik9*

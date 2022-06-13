@@ -19,10 +19,10 @@ cd external/llvm-project/build
 cmake -G Ninja ../llvm \
           -DLLVM_ENABLE_PROJECTS="mlir;clang" \
           -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
-          -DLLVM_TARGETS_TO_BUILD="host" \
           -DLLVM_ENABLE_ASSERTIONS=ON \
           -DCMAKE_BUILD_TYPE=DEBUG
 ```
+          -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU" \
 
 build clang-passes
 ```bash

@@ -4,6 +4,7 @@
 #include <sstream>
 #include <limits>
 #include <chrono>
+#include "cache.h"
 
 #define MAX_V 2000000
 #define NO_EDGE 0.0
@@ -47,7 +48,7 @@ void add_edge(struct Graph *g, int s, int t, double w)
   g->l[s].head = n;
 }
 
-template <bool redundant, bool need_fake>
+template <bool redundant, bool need_fake, cache_t cache>
 struct Graph* init_graph(const char *fpath, int &total_v)
 {
   Graph *g = new Graph;

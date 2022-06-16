@@ -81,6 +81,7 @@ void cache_init();
 
 // create
 cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase);
+cache_t cache_create_ronly(unsigned size, unsigned linesize, void * linebase);
 
 enum {
     CACHE_ACCESS_NONE = 0,

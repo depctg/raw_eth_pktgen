@@ -5,6 +5,7 @@
 #include <limits>
 #include <chrono>
 #include <util.hpp>
+#include "cache.h"
 
 #define at(G, r, c) (G[r * (MAX_V) + c])
 #define min_d(x, y) ((x) < (y) ? (x) : (y))
@@ -25,7 +26,6 @@ void dijkstra(Graph* graph, int src, double *solution)
   heap->size = graph->V;
   for (int r = parent_idx(heap->size - 1); r > -1; --r) heapify(heap, r);
 
-  // mark s -> s = 0.0
   solution[src] = 0.0;
   decrease_key(heap, src, 0.0);
 
@@ -50,6 +50,7 @@ void dijkstra(Graph* graph, int src, double *solution)
 int main(int argc, char const *argv[])
 {
   int total_v = 0;
+  auto start = chrono::steady_clock::now();
   Graph *g = init_graph<true, true>(argv[1], total_v);
   double *solution = new double[total_v];
   dijkstra(g, 0, solution);
@@ -59,6 +60,8 @@ int main(int argc, char const *argv[])
   for (int i = 0; i < total_v; ++ i)
     output << i << ", " << solution[i] << endl;
   output.close();
+  auto end = chrono::steady_clock::now();
+  cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
 
   // MinHeap *h = init_min_heap(5);
   // for (int i = 0; i < 5; ++i) h->pos[i] = i;

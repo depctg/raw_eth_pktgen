@@ -2,7 +2,7 @@
 #include "cache.h"
 #include <assert.h>
 
-#define CACHE_LINE_LIMIT 1024 * 1024
+#define CACHE_LINE_LIMIT (1 << 5)
 
 struct cache_req_full {
     struct cache_req r;
@@ -11,7 +11,7 @@ struct cache_req_full {
 
 #define REQ_TYPE struct cache_req_full
 
-size_t cache_line_size;
+size_t cache_line_size = 1 << 5;
 
 static inline void process_req(REQ_TYPE * req) {
     if (req->r.type == CACHE_REQ_READ || req->r.type == CACHE_REQ_EVICT) {
@@ -33,7 +33,6 @@ static inline void process_req(REQ_TYPE * req) {
 
 int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC_SERVER, argv[1]);
-    cache_line_size = 1 << 8;
 
     const int max_recvs = 64;
     const int inflights = max_recvs / 2;

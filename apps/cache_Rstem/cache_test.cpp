@@ -29,7 +29,6 @@ int main(int argc, char * argv[]) {
     cache_init();
 
     cache_t cache1 = cache_create_ronly(cache_size, cache_line_size, (char *)rbuf);
-    cache_t cache2 = cache_create_ronly(cache_size, cache_line_size, (char *)rbuf + cache_size);
 
     // vector<size_t> access_pattern = gen_access_pattern_normal(num_access_times, array_size / 2, 1, sigma, 2333);
     // vector<size_t> access_pattern = gen_access_pattern_uniform(num_access_times, array_size, tile, seed);
@@ -59,8 +58,6 @@ int main(int argc, char * argv[]) {
             line[j] = access_pattern1[i * per_line + j];
         }
     }
-
-    cache_token_t tokens2[4] = { cache_request(cache2, 0) };
 
     tokens[0] = cache_request(cache1, 0);
     for (int i = 0; i < num_access_times / per_line; i += 1) {

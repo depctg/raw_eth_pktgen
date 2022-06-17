@@ -22,7 +22,6 @@ static struct cache_internal {
     unsigned slots;
 } caches[OPT_NUM_CACHE];
 static int cache_cnt = 0;
-static uint64_t cache_offsets[OPT_NUM_CACHE] = {0};
 
 enum cache_status {
     // IDLE only happens on init
@@ -184,7 +183,6 @@ cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * l
     caches[cache_cnt].linesize = linesize;
     caches[cache_cnt].size = size;
     caches[cache_cnt].slots = size / linesize;
-    cache_offsets[cache_cnt + 1] = cache_offsets[cache_cnt] + size;
     return cache_cnt++;
 }
 

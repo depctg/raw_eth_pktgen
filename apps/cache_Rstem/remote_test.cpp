@@ -1,5 +1,6 @@
 #include "common.h"
 #include "cache.h"
+#include <type_traits>
 #include <assert.h>
 
 #define CACHE_LINE_LIMIT (1 << 5)
@@ -11,7 +12,8 @@ struct cache_req_full {
 
 #define REQ_TYPE struct cache_req_full
 
-size_t cache_line_size = 1 << 5;
+constexpr size_t cache_line_size = 1 << 5;
+static_assert(cache_line_size <= CACHE_LINE_LIMIT);
 
 static inline void process_req(REQ_TYPE * req) {
     if (req->r.type == CACHE_REQ_READ || req->r.type == CACHE_REQ_EVICT) {

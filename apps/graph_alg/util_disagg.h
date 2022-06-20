@@ -1,42 +1,62 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <limits>
-#include <chrono>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 #include "cache.h"
+#include "common.h"
 
 #define MAX_V 2000000
 #define NO_EDGE 0.0
 
-using namespace std;
+cache_t graph_node_cache;
+cache_t heap_node_cache;
+uint64_t graph_node_size;
+uint64_t graph_node_cls;
+uint64_t heap_node_size;
+uint64_t heap_node_cls;
 
-struct GraphNode
+typedef struct GraphNode
 {
   int dest;
   double w;
-  struct GraphNode *next;
-};
+  struct GraphNode *next; // now represent addr in cache OR NULL
+} GraphNode;
 
-struct AdjList
+typedef struct AdjList
 {
   // pointer to the head of the list
   struct GraphNode *head;
-};
+} AdjList;
 
-struct Graph
+typedef struct Graph
 {
   int V;
   struct AdjList *l;
-};
+} Graph;
 
-struct GraphNode* new_graph_node(int dest, double w)
+uint64_t free_node_addr = 0;
+
+GraphNode *access_node_view(uint64_t cur_node_addr, int mut)
 {
-  GraphNode *rel = new GraphNode;
+  cache_token_t node_t = cache_request(graph_node_cache, cur_node_addr);
+  cache_await(node_t);
+  // GraphNode *rel = malloc(sizeof(*rel));
+  if (mut) {
+    return (GraphNode *) ((char *) cache_access_mut(node_t) + cache_tag_mask(graph_node_cls, cur_node_addr));
+  } else {
+    return (GraphNode *) ((char *) cache_access(node_t) + cache_tag_mask(graph_node_cls, cur_node_addr));
+  }
+}
+
+GraphNode* new_graph_node(int dest, double w)
+{
+  uint64_t cur_addr = free_node_addr;
+  free_node_addr += sizeof(GraphNode);
+  GraphNode *rel = access_node_view(cur_addr, 1);
   rel->dest = dest;
   rel->w = w;
   rel->next = NULL;
-  return rel;
+  return (GraphNode *) ((void *) cur_addr);
 }
 
 // need to call twice if the given data is undirected
@@ -44,27 +64,35 @@ void add_edge(struct Graph *g, int s, int t, double w)
 {
   GraphNode *n = new_graph_node(t, w);
   // add to head of adj list
-  n->next = g->l[s].head;
+  uint64_t n_addr = (uint64_t) n; // addr in cache
+  GraphNode *n_view = access_node_view(n_addr, 1);
+  dprintf("%lu %d %lf", n_addr, n_view->dest, n_view->w);
+  n_view->next = g->l[s].head;
   g->l[s].head = n;
 }
 
-template <bool redundant, bool need_fake, cache_t cache>
-struct Graph* init_graph(const char *fpath, int &total_v)
+struct Graph* init_graph(uint8_t redundant, uint8_t need_fake, const char *fpath, int *total_v)
 {
-  Graph *g = new Graph;
+  // init server must be done before this
+  graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
+  graph_node_size = (64 << 20);
+  graph_node_cache = cache_create_ronly(graph_node_size, graph_node_cls, (char *)rbuf);
+
+  struct Graph *g = malloc(sizeof(*g));
   // need to be updated after read file
   g->V = MAX_V;
-  g->l = new AdjList[MAX_V];
+  g->l = malloc(sizeof(struct AdjList) * MAX_V);
   for (int i = 0; i < MAX_V; ++ i)
   {
     g->l[i].head = NULL;
   }
 
+  FILE *fptr = fopen(fpath, "r");
   // read from file
-  ifstream f(fpath);
-  if (!f.is_open())
+  if (fptr == NULL)
   {
-      cout << "Failed to open " << fpath << endl;
+    printf("Couldn't open file %s\n", fpath);
+    exit(1);
   }
   int eid, sid, tid, vid_max;
   eid = sid = tid = 0;
@@ -73,14 +101,17 @@ struct Graph* init_graph(const char *fpath, int &total_v)
   vid_max = -1;
   double w;
 
-  for (string line; getline(f, line);)
+  while(1)
   {
-    istringstream iss(line);
-    if (!need_fake)
-      iss >> eid >> sid >> tid >> w;
+    if (!need_fake) 
+    {
+      // iss >> eid >> sid >> tid >> w;
+      if (fscanf(fptr, "%d %d %d %lf\n", &eid, &sid, &tid, &w) == EOF) break;
+    }
     else
     {
-      iss >> sid >> tid;
+      // iss >> sid >> tid;
+      if (fscanf(fptr, "%d %d\n", &sid, &tid) == EOF) break;
       eid ++;
       inter = (prev_sid == sid) ? inter + 1 : 0;
       w = (++inter) / (double)100;
@@ -98,36 +129,37 @@ struct Graph* init_graph(const char *fpath, int &total_v)
       } 
     }
   }
-  f.close();
+  fclose(fptr);
   g->V = vid_max;
-  total_v = vid_max;
+  *total_v = vid_max;
 
   return g;
 }
 
 
-struct MinHeapNode
+typedef struct MinHeapNode
 {
   int v;
   double dist;
-};
+} MinHeapNode;
+
 
 #define heap_last(heap) (heap->array[heap->size - 1])
 #define parent_idx(i) ((i-1) / 2)
 #define left_child(i) ((i << 1) + 1)
 #define right_child(i) ((i << 1) + 2)
 
-struct MinHeap
+typedef struct MinHeap
 {
   int size;
   int capacity;
   int *pos;
   struct MinHeapNode **array;
-};
+} MinHeap;
 
 struct MinHeapNode* new_heap_node(int v, double dist)
 {
-  MinHeapNode *n = new MinHeapNode;
+  MinHeapNode *n = malloc(sizeof(*n));
   n->v = v;
   n->dist = dist;
   return n;
@@ -135,11 +167,15 @@ struct MinHeapNode* new_heap_node(int v, double dist)
 
 struct MinHeap *init_min_heap(int capacity)
 {
-  MinHeap *heap = new MinHeap;
-  heap->pos = new int[capacity];
+  heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 20);
+  heap_node_size = (64 << 20);
+  heap_node_cache = cache_create_ronly(heap_node_size, heap_node_cls, (char *)rbuf + graph_node_size);
+
+  MinHeap *heap = malloc(sizeof(*heap));
+  heap->pos = malloc(sizeof(int) * capacity);
   heap->size = 0;
   heap->capacity = capacity;
-  heap->array = new MinHeapNode*[capacity];
+  heap->array = malloc(sizeof(MinHeapNode *) * capacity);
   return heap;
 }
 
@@ -154,7 +190,7 @@ void insert(MinHeap *heap, int v, double dist)
 {
   if (heap->size == heap->capacity)
   {
-    cout << "Not enough space in Heap" << endl;
+    printf("Not enough space in Heap");
     exit(1);
   }
 
@@ -196,7 +232,7 @@ void heapify(MinHeap *heap, int idx)
   }
 }
 
-bool is_heap_empty(MinHeap *heap) {
+int is_heap_empty(MinHeap *heap) {
   return heap->size == 0;
 }
 
@@ -234,8 +270,7 @@ void decrease_key(MinHeap *heap, int v, double dist)
   }
 }
 
-bool heap_contains(MinHeap *heap, int v)
+uint8_t heap_contains(MinHeap *heap, int v)
 {
-  if (heap->pos[v] < heap->size) return true;
-  return false;
+  return (heap->pos[v] < heap->size);
 }

@@ -16,8 +16,14 @@ enum {
     CACHE_REQ_MEMMOVE
 };
 
-#define CACHE_TAG_ALIGN (4)
-#define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
+// #define CACHE_TAG_ALIGN (4)
+// #define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
+#define CACHE_REQ_META (8)
+#define CACHE_LINE_LIMIT (1 << 10)
+#define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
+
+// TODO: Constant Propogation?
+#define OPT_NUM_CACHE 16
 
 // Requests
 struct cache_req {
@@ -25,8 +31,9 @@ struct cache_req {
     union {
         uint64_t newtag;
         struct {
-            uint8_t type     : 4; // implies cache line >= 16B
-            uint64_t _unused : 60;
+            uint64_t _unused : 56; // implies cache line <= 2^55 B
+            uint8_t type     : 4; 
+            uint8_t cache_id : 4; 
         };
     };
 };
@@ -51,10 +58,11 @@ typedef union {
 #define cache_token_ser(token) (token.ser)
 #define cache_token_deser(token,wr) token.ser=(wr)
 
+
 struct cache_meta {
     uint64_t tag;
+    uint64_t newtag;
     union {
-        uint64_t newtag;
         struct {
             // flags
             uint8_t status : 4;
@@ -100,6 +108,23 @@ void cache_sync(cache_token_t token);
 void cache_await(cache_token_t token);
 void * cache_access(cache_token_t token);
 void * cache_access_mut(cache_token_t token);
+
+/* Utils */
+
+// is power of 2, non-zero
+static inline int is_pow2(unsigned v) {
+        return v && ((v & (v - 1)) == 0);
+}
+
+static inline uint64_t align_with_pow2(uint64_t x) {
+    if (is_pow2(x)) return x;
+    int nlz = __builtin_clzll(x);
+    return ((uint64_t)1 << (64 - nlz));
+}
+
+static inline uint64_t cache_tag_mask(uint64_t linesize, intptr_t addr) {
+    return ((uint64_t)addr & (linesize - 1));
+}
 
 #ifdef __cplusplus
 }

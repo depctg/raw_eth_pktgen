@@ -1,38 +1,19 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "util_disagg.h"
 #include "common.h"
-#include "cache.h"
-#include <type_traits>
-#include <assert.h>
+#include "remote_pool.h"
 
-struct cache_req_full {
-    struct cache_req r;
-    uint8_t data[CACHE_LINE_LIMIT];
-};
-
-#define REQ_TYPE struct cache_req_full
-
-constexpr size_t cache_line_size = 1 << 4;
-static_assert(cache_line_size <= CACHE_LINE_LIMIT);
-
-static inline void process_req(REQ_TYPE * req) {
-    if (req->r.type == CACHE_REQ_READ || req->r.type == CACHE_REQ_EVICT) {
-        uint64_t offset = req->r.tag & REQ_META_MASK;
-        dprintf("READ: offset %lx, line %d", offset, cache_line_size);
-        send_async((char *)sbuf + offset, cache_line_size);
-    }
-    // write
-    if (req->r.type == CACHE_REQ_WRITE) {
-        uint64_t offset = req->r.tag & REQ_META_MASK;
-        dprintf("WRITE: offset %lx, line %d", offset, cache_line_size);
-        memcpy((char *)sbuf + offset, req->data, cache_line_size);
-    } else if (req->r.type == CACHE_REQ_EVICT) {
-        uint64_t offset = (req->r.newtag & REQ_META_MASK);
-        dprintf("EVICT: offset %lx, line %d", offset, cache_line_size);
-        memcpy((char *)sbuf + offset, req->data, cache_line_size);
-    }
-}
+typedef struct cache_req_full REQ_TYPE;
 
 int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC_SERVER, argv[1]);
+    manager_init(sbuf);
+    const uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
+    const uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 20);
+    add_pool(0, graph_node_cls);
+    add_pool(1, heap_node_cls);
 
     const int max_recvs = 64;
     const int inflights = max_recvs / 2;
@@ -40,7 +21,6 @@ int main(int argc, char * argv[]) {
 
     unsigned int post_recvs = 0, poll_recvs = 0;
 	REQ_TYPE *reqs = (REQ_TYPE *)rbuf;
-    char * data = (char *)sbuf;
 
     // First, we post multiple requests
     for (int i = 0; i < inflights; i++)
@@ -70,6 +50,5 @@ int main(int argc, char * argv[]) {
             post_recvs ++;
         }
 	}
-    
-    return 0;
+	return 0;
 }

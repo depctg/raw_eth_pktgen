@@ -8,8 +8,6 @@
 #include "common.h"
 #include "cache.h"
 
-// TODO: Constant Propogation?
-#define OPT_NUM_CACHE 16
 
 // Create and destory of cache object
 static struct cache_internal {
@@ -77,7 +75,7 @@ static inline void cache_post(cache_token_t token, int type) {
     struct ibv_send_wr wr, *bad_wr;
     struct ibv_recv_wr rwr, *bad_rwr;
 
-    dprintf("token offset %u, tag %p, newtag %p, op %d",
+    dprintf("cache %d, token offset %u, tag %p, newtag %p, op %d", token.cache, 
             token.slot, token_get_meta(token,tag), token_get_meta(token,newtag), type);
 
     /* Fill the buf */
@@ -87,6 +85,7 @@ static inline void cache_post(cache_token_t token, int type) {
     req_buf[cur].tag = token_get_meta(token,tag);
     req_buf[cur].newtag = token_get_meta(token,newtag);
     req_buf[cur].type = type;
+    req_buf[cur].cache_id = token.cache;
 
     /* Send Packets */
     sge[0].addr = (uint64_t)(req_buf + cur);
@@ -167,14 +166,11 @@ static inline void cache_poll() {
 
 }
 
-static inline int is_pow2(unsigned v) {
-        return v && ((v & (v - 1)) == 0);
-}
-
 cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase) {
     // assert(is_pow2(size));
     assert(is_pow2(linesize));
-    assert(linesize > 16); // required by tag layout
+    // assert(linesize > 16); // required by tag layout
+    assert(linesize <= CACHE_LINE_LIMIT);
     assert(size >= linesize);
 
     // TODO: more assert
@@ -189,7 +185,8 @@ cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * l
 cache_t cache_create_ronly(unsigned size, unsigned linesize, void * linebase) {
     // assert(is_pow2(size));
     assert(is_pow2(linesize));
-    assert(linesize > 16); // required by tag layout
+    // assert(linesize > 16); // required by tag layout
+    assert(linesize <= CACHE_LINE_LIMIT);
     assert(size >= linesize);
 
     // TODO: more assert
@@ -263,11 +260,13 @@ static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t
     base <<= group_bits;
     cache_token_t t, tlru;
     for (int i = 0; i < groups; i++) {
-        t = (cache_token_t){.cache=cache, .slot=base+i};
+        t.cache=cache;
+        t.slot=base+i;
         if (token_get_meta(t,status) == CACHE_IDLE)
             return t;
-        if (token_check_flag(t,CACHE_FLAGS_RACCESS)) // ?
-            tlru = t;
+        if (!token_check_flag(t,CACHE_FLAGS_RACCESS)) // ?
+            return t;
+        tlru = t;
     }
     // random select a single element to evict
     return tlru;
@@ -305,8 +304,8 @@ cache_token_t cache_request(cache_t cache, intptr_t addr) {
         // do eviction
         cache_get_meta(cache, token, newtag) = cache_get_meta(cache, token, tag);
         cache_get_meta(cache, token, tag) = tag;
-        dprintf("-> EVICT %lx, FETCH %lx", token_get_meta(token, newtag), token_get_meta(token, tag));
         cache_get_meta(cache, token, status) = CACHE_SYNC;
+        dprintf("-> EVICT %lx, FETCH %lx", token_get_meta(token, newtag), token_get_meta(token, tag));
         cache_post(token, CACHE_REQ_EVICT);
     } else {
         cache_get_meta(cache, token, tag) = tag;

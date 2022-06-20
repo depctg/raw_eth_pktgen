@@ -1,18 +1,14 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <limits>
-#include <chrono>
-#include <util.hpp>
+#include <stdio.h>
+#include <float.h>
+#include "util_disagg.h"
+#include "common.h"
 #include "cache.h"
 
 #define at(G, r, c) (G[r * (MAX_V) + c])
 #define min_d(x, y) ((x) < (y) ? (x) : (y))
 #define max_d(x, y) ((x) > (y) ? (x) : (y))
 
-using namespace std;
-constexpr static double MAX_D = numeric_limits<double>::max();
+static const double MAX_D = DBL_MAX;
 
 void dijkstra(Graph* graph, int src, double *solution)
 {
@@ -35,34 +31,47 @@ void dijkstra(Graph* graph, int src, double *solution)
     int t= min_node->v;
     // traverse neighbours
     if (solution[t] >= MAX_D) break;
-    for (GraphNode *cur = graph->l[t].head; cur != NULL; cur = cur->next)
+    for (GraphNode *cur_addr = graph->l[t].head; cur_addr != NULL;)
     {
-      int nid = cur->dest;
+      GraphNode *cur_view = access_node_view((uint64_t)cur_addr, 0);
+      int nid = cur_view->dest;
       if (heap_contains(heap, nid))
       {
-        solution[nid] = min_d(solution[nid], cur->w + solution[t]);
+        solution[nid] = min_d(solution[nid], cur_view->w + solution[t]);
         decrease_key(heap, nid, solution[nid]);
       }
+      cur_addr = cur_view->next;
     }
   }
 }
 
 int main(int argc, char const *argv[])
 {
+	init(TRANS_TYPE_RC, argv[1]);
+  cache_init();
+  uint64_t start = getCurNs();
   int total_v = 0;
-  auto start = chrono::steady_clock::now();
-  Graph *g = init_graph<true, true>(argv[1], total_v);
-  double *solution = new double[total_v];
-  dijkstra(g, 0, solution);
-  
-  cout << "Total number of vertices: " << g->V << endl;
-  ofstream output("path_L.txt");
-  for (int i = 0; i < total_v; ++ i)
-    output << i << ", " << solution[i] << endl;
-  output.close();
-  auto end = chrono::steady_clock::now();
-  cout << "ms: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+  const char *dataf = argv[2];
+  int redundant_data = atoi(argv[3]);
+  int need_fake = atoi(argv[4]);
 
+  Graph *g = init_graph(redundant_data, need_fake, dataf, &total_v);
+  // for (GraphNode *cur_addr = g->l[1].head; cur_addr != NULL;)
+  // {
+  //   GraphNode *cur_view = access_node_view((uint64_t) cur_addr, 0);
+  //   printf("%d %lf\n", cur_view->dest, cur_view->w);
+  //   cur_addr = cur_view->next;
+  // }
+  double *solution = malloc(sizeof(*solution) * g->V);
+  dijkstra(g, 0, solution);
+  FILE *out = fopen("solution.txt", "w");
+  for (int i = 0; i < total_v; ++ i)
+  {
+    fprintf(out, "%lf\n", solution[i]);
+  }
+  fclose(out);
+  uint64_t end = getCurNs();
+  printf("ms: %lu\n", (end - start) / 1000);
   // MinHeap *h = init_min_heap(5);
   // for (int i = 0; i < 5; ++i) h->pos[i] = i;
   // h->array[0] = new_heap_node(0, 4.2);

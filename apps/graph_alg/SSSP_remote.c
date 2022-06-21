@@ -10,7 +10,7 @@ typedef struct cache_req_full REQ_TYPE;
 int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC_SERVER, argv[1]);
     manager_init(sbuf);
-    const uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 4);
+    const uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
     const uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 20);
     add_pool(0, graph_node_cls);
     add_pool(1, heap_node_cls);

@@ -73,7 +73,7 @@ void add_edge(struct Graph *g, int s, int t, double w)
 struct Graph* init_graph(uint8_t redundant, uint8_t need_fake, const char *fpath, int *total_v)
 {
   // init server must be done before this
-  graph_node_cls = align_with_pow2(sizeof(GraphNode) * 4);
+  graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
   graph_node_size = (64 << 20);
   graph_node_cache = cache_create_ronly(graph_node_size, graph_node_cls, (char *)rbuf);
   free_graph_node_addr = align_next_free(free_graph_node_addr, sizeof(GraphNode), graph_node_cls);

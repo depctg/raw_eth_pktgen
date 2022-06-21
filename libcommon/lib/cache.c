@@ -74,7 +74,7 @@ static inline void cache_post(cache_token_t token, int type) {
     struct ibv_send_wr wr, *bad_wr;
     struct ibv_recv_wr rwr, *bad_rwr;
 
-    dprintf("cache %d, token offset %u, tag %p, newtag %p, op %d", token.cache, 
+    dprintf("cache %d, token offset %u, tag %lu, newtag %lu, op %d", token.cache, 
             token.slot, token_get_meta(token,tag), token_get_meta(token,newtag), type);
 
     /* Fill the buf */
@@ -263,23 +263,25 @@ static inline cache_token_t _cache_select_groupassoc_rand(cache_t cache, uint64_
 
 static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t tag) {
 
-    // check if direct is the target tag
-    cache_token_t direct_token = _cache_select_directassoc(cache, tag);
-    if (cache_get_meta(cache, direct_token, tag) == tag) return direct_token;
-
     // try group assoc
     unsigned linesize = cache_get(cache,linesize);
     unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
     base <<= group_bits;
     cache_token_t t, tlru;
+    t.cache = cache;
+    // check if is in the group
     for (int i = 0; i < groups; i++) {
-        t.cache=cache;
-        t.slot=base+i;
+        t.slot = base + i;
+        if (cache_get_meta(cache, t, tag) == tag) return t;
+    }
+    
+    // not in the group, find 1. idle 2. lru
+    for (int i = 0; i < groups; i++) {
+        t.slot = base+i;
         if (token_get_meta(t,status) == CACHE_IDLE)
             return t;
         if (!token_check_flag(t,CACHE_FLAGS_RACCESS)) // ?
-            return t;
-        tlru = t;
+            tlru = t;
     }
     // random select a single element to evict
     return tlru;
@@ -288,7 +290,7 @@ static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t
 
 // TODO: change this to apply to different functions
 #define __cache_access_handler _cache_access_groupassoc
-#define __cache_select _cache_select_directassoc
+#define __cache_select _cache_select_groupassoc_lru
 
 cache_token_t cache_request(cache_t cache, intptr_t addr) {
     // find slot and eviction

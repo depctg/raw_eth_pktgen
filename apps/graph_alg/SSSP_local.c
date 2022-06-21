@@ -56,6 +56,8 @@ int main(int argc, char const *argv[])
   int need_fake = atoi(argv[4]);
 
   Graph *g = init_graph(redundant_data, need_fake, dataf, &total_v);
+  // inspect_graph(g);
+
   double *solution = malloc(sizeof(*solution) * g->V);
   dijkstra(g, 0, solution);
   FILE *out = fopen("solution.txt", "w");

@@ -19,7 +19,7 @@ enum {
 // #define CACHE_TAG_ALIGN (4)
 // #define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
 #define CACHE_REQ_META (8)
-#define CACHE_LINE_LIMIT (1 << 8)
+#define CACHE_LINE_LIMIT (1 << 10)
 #define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
 
 // TODO: Constant Propogation?

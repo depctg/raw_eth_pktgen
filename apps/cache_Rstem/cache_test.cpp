@@ -7,8 +7,8 @@
 #include "patterns.hpp"
 #include "clock.hpp"
 
-constexpr static uint64_t cache_size = 1 << 7;
-constexpr static uint64_t cache_line_size = 1 << 5;
+constexpr static uint64_t cache_size = 1 << 5;
+constexpr static uint64_t cache_line_size = 1 << 3;
 constexpr static uint64_t per_line = cache_line_size / (sizeof(uint64_t));
 
 constexpr static uint64_t array_size = 1 << 10;
@@ -38,11 +38,7 @@ int main(int argc, char * argv[]) {
     for (int i = 0; i < num_access_times; i += 1) {
         uint64_t addr = i * sizeof(uint64_t);
 
-        // if need fetch
-        if (!( i % per_line )) {
-            token = cache_request(cache, addr);
-        }
-
+        token = cache_request(cache, addr);
         cache_await(token);
         // do computation
         uint64_t *target = (uint64_t*) ((char *)cache_access_mut(token) + cache_tag_mask(cache_line_size, addr));
@@ -53,9 +49,7 @@ int main(int argc, char * argv[]) {
         uint64_t addr = i * sizeof(uint64_t);
 
         // if need fetch
-        if (!( i % per_line )) {
-            token = cache_request(cache, addr);
-        }
+        token = cache_request(cache, addr);
 
         cache_await(token);
         // do computation

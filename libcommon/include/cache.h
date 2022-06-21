@@ -19,7 +19,7 @@ enum {
 // #define CACHE_TAG_ALIGN (4)
 // #define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
 #define CACHE_REQ_META (8)
-#define CACHE_LINE_LIMIT (1 << 10)
+#define CACHE_LINE_LIMIT (1 << 8)
 #define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
 
 // TODO: Constant Propogation?
@@ -124,6 +124,13 @@ static inline uint64_t align_with_pow2(uint64_t x) {
 
 static inline uint64_t cache_tag_mask(uint64_t linesize, intptr_t addr) {
     return ((uint64_t)addr & (linesize - 1));
+}
+
+// align addr to cache line size
+static inline uint64_t align_next_free(uint64_t addr, size_t ds, uint64_t cls) {
+    if ((cls - (addr % cls)) >= ds) return addr;
+    // else align to next cls
+    return addr + cls - (addr % cls);
 }
 
 #ifdef __cplusplus

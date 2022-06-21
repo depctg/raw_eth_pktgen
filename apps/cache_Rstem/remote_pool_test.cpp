@@ -8,9 +8,8 @@ typedef struct cache_req_full REQ_TYPE;
 int main(int argc, char * argv[]) {
     init(TRANS_TYPE_RC_SERVER, argv[1]);
     manager_init(sbuf);
-    // add_pool(0, (1 << 3));
+    add_pool(0, (1 << 5));
     // add_pool(1, (1 << 4));
-    add_pool(0, align_with_pow2(3 << 3));
 
     const int max_recvs = 64;
     const int inflights = max_recvs / 2;

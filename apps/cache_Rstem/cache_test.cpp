@@ -18,10 +18,6 @@ constexpr static uint64_t tile = 1;
 constexpr static uint64_t sigma = 8388608;
 constexpr static double skewness = 0.0;
 
-static inline uint64_t cache_tag_mask(uint64_t linesize, intptr_t addr) {
-    return ((uint64_t)addr & (linesize - 1));
-}
-
 void do_sth(void *i)
 {
     stop_watch<chrono::microseconds>(5);

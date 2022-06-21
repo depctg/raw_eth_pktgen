@@ -70,7 +70,6 @@ void cache_init() {
 // TODO: write notification by sge
 // TODO: inline this funciton?
 static inline void cache_post(cache_token_t token, int type) {
-    int ret;
     struct ibv_sge sge[2], rsge;
     struct ibv_send_wr wr, *bad_wr;
     struct ibv_recv_wr rwr, *bad_rwr;
@@ -111,7 +110,7 @@ static inline void cache_post(cache_token_t token, int type) {
         wr.send_flags |= IBV_SEND_INLINE;
 #endif
 
-    ret = ibv_post_send(qp, &wr, &bad_wr);
+    int ret = ibv_post_send(qp, &wr, &bad_wr);
 #ifndef NDEBUG
     if (unlikely(ret) != 0) {
         fprintf(stderr, "failed in post send\n");
@@ -121,7 +120,7 @@ static inline void cache_post(cache_token_t token, int type) {
 
     // need reply?
     if (type == CACHE_REQ_READ || type == CACHE_REQ_EVICT) {
-        rsge.addr = token_get_line(token);
+        rsge.addr = (uint64_t) (token_get_line(token));
         rsge.length = token_get_cache(token,linesize);
         rsge.lkey = rmr->lkey;
 
@@ -239,6 +238,15 @@ static void inline _cache_access_groupassoc(cache_token_t token, int mut) {
     token_set_flag(token,CACHE_FLAGS_RACCESS);
 }
 
+/* direct assoc */
+static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t tag) {
+    cache_token_t token;
+    token.cache = cache;
+    unsigned linesize = cache_get(cache,linesize);
+    token.slot = (tag / linesize) & (cache_get(cache,size)/linesize - 1);
+    return token;
+}
+
 static inline cache_token_t _cache_select_groupassoc_rand(cache_t cache, uint64_t tag) {
     unsigned linesize = cache_get(cache,linesize);
     unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
@@ -253,8 +261,13 @@ static inline cache_token_t _cache_select_groupassoc_rand(cache_t cache, uint64_
     return t[rand_next() % groups];
 }
 
-
 static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t tag) {
+
+    // check if direct is the target tag
+    cache_token_t direct_token = _cache_select_directassoc(cache, tag);
+    if (cache_get_meta(cache, direct_token, tag) == tag) return direct_token;
+
+    // try group assoc
     unsigned linesize = cache_get(cache,linesize);
     unsigned base = (tag/linesize/groups) & (cache_get(cache,size)/linesize/groups - 1);
     base <<= group_bits;
@@ -272,14 +285,6 @@ static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t
     return tlru;
 }
 
-/* direct assoc */
-static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t tag) {
-    cache_token_t token;
-    token.cache = cache;
-    unsigned linesize = cache_get(cache,linesize);
-    token.slot = (tag / linesize) & (cache_get(cache,size)/linesize - 1);
-    return token;
-}
 
 // TODO: change this to apply to different functions
 #define __cache_access_handler _cache_access_groupassoc

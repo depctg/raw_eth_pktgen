@@ -33,7 +33,7 @@ void dijkstra(Graph* graph, int src, double *solution)
     if (solution[t] >= MAX_D) break;
     for (GraphNode *cur_addr = graph->l[t].head; cur_addr != NULL;)
     {
-      GraphNode *cur_view = access_node_view((uint64_t)cur_addr, 0);
+      GraphNode *cur_view = access_graph_node_view((uint64_t)cur_addr, 0);
       int nid = cur_view->dest;
       if (heap_contains(heap, nid))
       {
@@ -56,12 +56,6 @@ int main(int argc, char const *argv[])
   int need_fake = atoi(argv[4]);
 
   Graph *g = init_graph(redundant_data, need_fake, dataf, &total_v);
-  // for (GraphNode *cur_addr = g->l[1].head; cur_addr != NULL;)
-  // {
-  //   GraphNode *cur_view = access_node_view((uint64_t) cur_addr, 0);
-  //   printf("%d %lf\n", cur_view->dest, cur_view->w);
-  //   cur_addr = cur_view->next;
-  // }
   double *solution = malloc(sizeof(*solution) * g->V);
   dijkstra(g, 0, solution);
   FILE *out = fopen("solution.txt", "w");

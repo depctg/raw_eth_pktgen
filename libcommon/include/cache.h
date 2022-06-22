@@ -58,7 +58,6 @@ typedef union {
 #define cache_token_ser(token) (token.ser)
 #define cache_token_deser(token,wr) token.ser=(wr)
 
-
 struct cache_meta {
     uint64_t tag;
     uint64_t newtag;

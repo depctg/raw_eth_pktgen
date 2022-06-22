@@ -211,7 +211,7 @@ struct MinHeapNode* new_heap_node(int v, double dist, cache_token_t *t)
 
 struct MinHeap *init_min_heap(int capacity)
 {
-  heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
+  heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 16);
   heap_node_size = (128 << 10);
   heap_node_cache = cache_create_ronly(heap_node_size, heap_node_cls, (char *)rbuf + graph_node_size);
   free_heap_node_addr = align_next_free(free_heap_node_addr, sizeof(MinHeapNode), heap_node_cls);
@@ -286,7 +286,7 @@ void heapify(MinHeap *heap, int idx)
   if (min != idx)
   {
     min_node = access_heap_node_view((uint64_t) heap_idx(heap, min), 0);
-    MinHeapNode *idx_node = access_heap_node_view((uint64_t) heap_idx(heap, idx), 0);
+    idx_node = access_heap_node_view((uint64_t) heap_idx(heap, idx), 0);
 
     heap->pos[min_node->v] = idx;
     heap->pos[idx_node->v] = min;
@@ -307,7 +307,7 @@ MinHeapNode* extract_min(MinHeap *heap)
 
   // replace with last node
   MinHeapNode *last_addr = heap_last(heap);
-  heap->array[0] = last_addr;
+  heap->array[0] = last;
 
   // update position of last node
   MinHeapNode *root_view = access_heap_node_view((uint64_t) root_addr, 0);
@@ -318,7 +318,7 @@ MinHeapNode* extract_min(MinHeap *heap)
   // heapify
   heap->size --;
   heapify(heap, 0);
-  return root_addr;
+  return root;
 }
 
 // reset dist value of a given vertex
@@ -328,21 +328,14 @@ void decrease_key(MinHeap *heap, int v, double dist)
   MinHeapNode *i_node = access_heap_node_view((uint64_t) heap_idx(heap, i), 1);
   i_node->dist = dist;
   MinHeapNode *parent_node;
-  while (i)
+  while (i && heap->array[i]->dist < heap->array[parent_idx(i)]->dist)
   {
     i_node = access_heap_node_view((uint64_t) heap_idx(heap, i), 0); 
     parent_node = access_heap_node_view((uint64_t) heap_idx(heap, parent_idx(i)), 0);
-    if (i_node->dist < parent_node->dist)
-    {
-      heap->pos[i_node->v] = parent_idx(i);
-      heap->pos[parent_node->v] = i;
-      swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
-      i = parent_idx(i);
-    }
-    else
-    {
-      break;
-    }
+    heap->pos[i_node->v] = parent_idx(i);
+    heap->pos[parent_node->v] = i;
+    swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
+    i = parent_idx(i);
   }
 }
 

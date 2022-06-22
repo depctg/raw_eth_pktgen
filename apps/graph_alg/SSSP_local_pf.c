@@ -13,11 +13,10 @@ static const double MAX_D = DBL_MAX;
 void dijkstra(Graph* graph, int src, double *solution)
 {
   MinHeap *heap = init_min_heap(graph->V);
-	cache_token_t heap_node_token;
   for (int vid = 0; vid < graph->V; ++vid)
   {
     solution[vid] = MAX_D;
-    heap->array[vid] = new_heap_node(vid, solution[vid], &heap_node_token);
+    heap->array[vid] = new_heap_node(vid, solution[vid]);
     heap->pos[vid] = vid;
   }
   heap->size = graph->V;
@@ -28,14 +27,25 @@ void dijkstra(Graph* graph, int src, double *solution)
 
   while (!is_heap_empty(heap))
   {
-    MinHeapNode *min_node_addr = extract_min(heap);
-		MinHeapNode *min_node = access_heap_node_view((uint64_t) min_node_addr, 0);
-    int t = min_node->v;
-    // traverse neighbours
+    MinHeapNode *min_node = extract_min(heap);
+    int t= min_node->v;
     if (solution[t] >= MAX_D) break;
-    for (GraphNode *cur_addr = graph->l[t].head; cur_addr != NULL;)
+
+		/* Iterate over neighbour */
+		GraphNode *cur_addr = graph->l[t].head;
+		GraphNode *cur_view;
+		cache_token_t prefetch_token;
+		if (cur_addr != NULL)
+			cur_view = access_graph_node_view((uint64_t) cur_addr, 0);
+		while (cur_addr != NULL)
     {
-      GraphNode *cur_view = access_graph_node_view((uint64_t)cur_addr, 0);
+			/* prefetch */
+			if (cur_view->next != NULL)
+			{
+				prefetch_token = cache_request(graph_node_cache, (uint64_t) cur_view->next);
+			}
+			
+			/* Do actual work */
       int nid = cur_view->dest;
       if (heap_contains(heap, nid))
       {
@@ -43,6 +53,14 @@ void dijkstra(Graph* graph, int src, double *solution)
         decrease_key(heap, nid, solution[nid]);
       }
       cur_addr = cur_view->next;
+
+			/* Prepare for the next loop */
+			if (cur_addr != NULL)
+			{
+				cache_await(prefetch_token);
+				cur_view = (GraphNode *) ((char *) cache_access(prefetch_token) + cache_tag_mask(graph_node_cls, (uint64_t) cur_addr));
+			}
+
     }
   }
 }

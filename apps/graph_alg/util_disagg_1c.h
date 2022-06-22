@@ -34,15 +34,15 @@ typedef struct Graph
 } Graph;
 
 
-GraphNode *access_graph_node_view(uint64_t cur_node_addr, int mut)
+GraphNode *access_graph_node_view(uint64_t node_addr, int mut)
 {
-  cache_token_t node_t = cache_request(graph_node_cache, cur_node_addr);
+  cache_token_t node_t = cache_request(graph_node_cache, node_addr);
   cache_await(node_t);
   // GraphNode *rel = malloc(sizeof(*rel));
   if (mut) {
-    return (GraphNode *) ((char *) cache_access_mut(node_t) + cache_tag_mask(graph_node_cls, cur_node_addr));
+    return (GraphNode *) ((char *) cache_access_mut(node_t) + cache_tag_mask(graph_node_cls, node_addr));
   } else {
-    return (GraphNode *) ((char *) cache_access(node_t) + cache_tag_mask(graph_node_cls, cur_node_addr));
+    return (GraphNode *) ((char *) cache_access(node_t) + cache_tag_mask(graph_node_cls, node_addr));
   }
 }
 
@@ -60,7 +60,7 @@ GraphNode* new_graph_node(int dest, double w, cache_token_t *t)
   rel->w = w;
   rel->next = NULL;
   *t = node_t;
-  return (GraphNode *) ((void *) cur_addr);
+  return (GraphNode *) cur_addr;
 }
 
 // need to call twice if the given data is undirected
@@ -166,10 +166,9 @@ typedef struct MinHeapNode
 cache_t heap_node_cache;
 uint64_t heap_node_size;
 uint64_t heap_node_cls;
-uint64_t free_heap_node_addr = sizeof(MinHeapNode);
+uint64_t free_heap_node_addr;
 
-#define heap_last(heap) ((heap)->array[(heap)->size - 1])
-#define heap_idx(heap,idx) ((heap)->array[(idx)])
+#define heap_last(heap) (heap->array[heap->size - 1])
 #define parent_idx(i) ((i-1) / 2)
 #define left_child(i) ((i << 1) + 1)
 #define right_child(i) ((i << 1) + 2)
@@ -182,37 +181,18 @@ typedef struct MinHeap
   struct MinHeapNode **array;
 } MinHeap;
 
-MinHeapNode* access_heap_node_view(uint64_t node_addr, int mut)
+struct MinHeapNode* new_heap_node(int v, double dist)
 {
-  cache_token_t node_t = cache_request(heap_node_cache, node_addr);
-  cache_await(node_t);
-  if (mut) {
-    return (MinHeapNode *) ((char *) cache_access_mut(node_t) + cache_tag_mask(heap_node_cls, node_addr));
-  } else {
-    return (MinHeapNode *) ((char *) cache_access(node_t) + cache_tag_mask(heap_node_cls, node_addr));
-  }
-}
-
-struct MinHeapNode* new_heap_node(int v, double dist, cache_token_t *t)
-{
-  uint64_t cur_addr = free_heap_node_addr;
-  cache_token_t node_t = cache_request(heap_node_cache, cur_addr);
-
-  // move free pointer
-  free_heap_node_addr = align_next_free(free_heap_node_addr + sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
-
-  cache_await(node_t);
-  MinHeapNode *n = (MinHeapNode *) ((char *) cache_access_mut(node_t) + cache_tag_mask(heap_node_cls, cur_addr));
+  MinHeapNode *n = malloc(sizeof(*n));
   n->v = v;
   n->dist = dist;
-  *t = node_t;
-  return (MinHeapNode *) cur_addr;
+  return n;
 }
 
 struct MinHeap *init_min_heap(int capacity)
 {
-  heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
-  heap_node_size = (128 << 10);
+  heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 20);
+  heap_node_size = (64 << 20);
   heap_node_cache = cache_create_ronly(heap_node_size, heap_node_cls, (char *)rbuf + graph_node_size);
   free_heap_node_addr = align_next_free(free_heap_node_addr, sizeof(MinHeapNode), heap_node_cls);
 
@@ -241,24 +221,14 @@ void insert(MinHeap *heap, int v, double dist)
 
   // insert at the end
   heap->size ++;
-  cache_token_t node_t;
-  heap_last(heap) = new_heap_node(v, dist, &node_t);
+  heap_last(heap) = new_heap_node(v, dist);
   for (int i = heap->size - 1; 
-       i;
+       i && heap->array[parent_idx(i)]->dist > heap->array[i]->dist; 
        i = parent_idx(i))
   {
-    MinHeapNode *parent_view = access_heap_node_view((uint64_t) heap_idx(heap, parent_idx(i)), 1);
-    MinHeapNode *cur_view = access_heap_node_view((uint64_t) heap_idx(heap, i), 1);
-    if (parent_view->dist > cur_view->dist)
-    {
-      heap->pos[parent_view->v] = i;
-      heap->pos[cur_view->v] = parent_idx(i);
-      swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
-    } 
-    else
-    {
-      break;
-    }
+    heap->pos[heap->array[parent_idx(i)]->v] = i;
+    heap->pos[heap->array[i]->v] = parent_idx(i);
+    swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
   }
 }
 
@@ -269,24 +239,15 @@ void heapify(MinHeap *heap, int idx)
   left = left_child(idx);
   right = right_child(idx);
 
-  // find min among left, right children and idx
-  MinHeapNode *min_node = access_heap_node_view((uint64_t) heap_idx(heap, min), 0);
-  if (left < heap->size)
-  {
-    MinHeapNode *left_node = access_heap_node_view((uint64_t) heap_idx(heap, left), 0);
-    if (left_node->dist < min_node->dist) min = left;
-  }
-  min_node = access_heap_node_view((uint64_t) heap_idx(heap, min), 0);
-  if (right < heap->size)
-  {
-    MinHeapNode *right_node = access_heap_node_view((uint64_t) heap_idx(heap, right), 0);
-    if (right_node->dist < min_node->dist) min = right;
-  }
-
+  if (left < heap->size && heap->array[left]->dist < heap->array[min]->dist)
+    min = left;
+  if (right < heap->size && heap->array[right]->dist < heap->array[min]->dist)
+    min = right;
+  
   if (min != idx)
   {
-    min_node = access_heap_node_view((uint64_t) heap_idx(heap, min), 0);
-    MinHeapNode *idx_node = access_heap_node_view((uint64_t) heap_idx(heap, idx), 0);
+    MinHeapNode *min_node = heap->array[min];
+    MinHeapNode *idx_node = heap->array[idx];
 
     heap->pos[min_node->v] = idx;
     heap->pos[idx_node->v] = min;
@@ -303,46 +264,34 @@ int is_heap_empty(MinHeap *heap) {
 MinHeapNode* extract_min(MinHeap *heap)
 {
   if (is_heap_empty(heap)) return NULL;
-  MinHeapNode *root_addr = heap->array[0];
+  MinHeapNode *root = heap->array[0];
 
   // replace with last node
-  MinHeapNode *last_addr = heap_last(heap);
-  heap->array[0] = last_addr;
+  MinHeapNode *last = heap_last(heap);
+  heap->array[0] = last;
 
   // update position of last node
-  MinHeapNode *root_view = access_heap_node_view((uint64_t) root_addr, 0);
-  MinHeapNode *last_view = access_heap_node_view((uint64_t) last_addr, 0);
-  heap->pos[root_view->v] = heap->size - 1;
-  heap->pos[last_view->v] = 0;
+  heap->pos[root->v] = heap->size - 1;
+  heap->pos[last->v] = 0;
 
   // heapify
   heap->size --;
   heapify(heap, 0);
-  return root_addr;
+  return root;
 }
 
 // reset dist value of a given vertex
 void decrease_key(MinHeap *heap, int v, double dist)
 {
   int i = heap->pos[v];
-  MinHeapNode *i_node = access_heap_node_view((uint64_t) heap_idx(heap, i), 1);
-  i_node->dist = dist;
-  MinHeapNode *parent_node;
-  while (i)
+  heap->array[i]->dist = dist;
+
+  while (i && heap->array[i]->dist < heap->array[parent_idx(i)]->dist)
   {
-    i_node = access_heap_node_view((uint64_t) heap_idx(heap, i), 0); 
-    parent_node = access_heap_node_view((uint64_t) heap_idx(heap, parent_idx(i)), 0);
-    if (i_node->dist < parent_node->dist)
-    {
-      heap->pos[i_node->v] = parent_idx(i);
-      heap->pos[parent_node->v] = i;
-      swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
-      i = parent_idx(i);
-    }
-    else
-    {
-      break;
-    }
+    heap->pos[heap->array[i]->v] = parent_idx(i);
+    heap->pos[heap->array[parent_idx(i)]->v] = i;
+    swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
+    i = parent_idx(i);
   }
 }
 

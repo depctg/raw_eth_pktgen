@@ -62,14 +62,16 @@ int main(int argc, char const *argv[])
 
   double *solution = malloc(sizeof(*solution) * g->V);
   dijkstra(g, 0, solution);
+
+  uint64_t end = getCurNs();
+  printf("ms: %lu\n", (end - start) / 1000);
+
   FILE *out = fopen("solution_disagg.txt", "w");
   for (int i = 0; i < total_v; ++ i)
   {
     fprintf(out, "%lf\n", solution[i]);
   }
   fclose(out);
-  uint64_t end = getCurNs();
-  printf("ms: %lu\n", (end - start) / 1000);
   // MinHeap *h = init_min_heap(5);
   // for (int i = 0; i < 5; ++i) h->pos[i] = i;
   // h->array[0] = new_heap_node(0, 4.2);

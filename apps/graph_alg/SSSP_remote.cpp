@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "util_disagg.h"
+#include "util_disagg_aifm.hpp"
 #include "common.h"
 #include "remote_pool.h"
 

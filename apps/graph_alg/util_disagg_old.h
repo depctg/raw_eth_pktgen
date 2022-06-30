@@ -159,8 +159,8 @@ void inspect_graph(Graph *g)
 
 typedef struct MinHeapNode
 {
-  int v;
   double dist;
+  int v;
 } MinHeapNode;
 
 cache_t heap_node_cache;
@@ -212,7 +212,7 @@ struct MinHeapNode* new_heap_node(int v, double dist, cache_token_t *t)
 struct MinHeap *init_min_heap(int capacity)
 {
   heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
-  heap_node_size = (128 << 10);
+  heap_node_size = (64 << 20);
   heap_node_cache = cache_create_ronly(heap_node_size, heap_node_cls, (char *)rbuf + graph_node_size);
   free_heap_node_addr = align_next_free(free_heap_node_addr, sizeof(MinHeapNode), heap_node_cls);
 

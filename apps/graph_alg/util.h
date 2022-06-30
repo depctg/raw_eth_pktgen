@@ -8,9 +8,9 @@
 
 typedef struct GraphNode
 {
-  int dest;
   double w;
   struct GraphNode *next;
+  int dest;
 } GraphNode;
 
 typedef struct AdjList
@@ -21,8 +21,8 @@ typedef struct AdjList
 
 typedef struct Graph
 {
-  int V;
   struct AdjList *l;
+  int V;
 } Graph;
 
 struct GraphNode* new_graph_node(int dest, double w)
@@ -106,8 +106,8 @@ struct Graph* init_graph(uint8_t redundant, uint8_t need_fake, const char *fpath
 
 typedef struct MinHeapNode
 {
-  int v;
   double dist;
+  int v;
 } MinHeapNode;
 
 #define heap_last(heap) (heap->array[heap->size - 1])
@@ -117,10 +117,10 @@ typedef struct MinHeapNode
 
 typedef struct MinHeap
 {
+  struct MinHeapNode **array;
   int size;
   int capacity;
   int *pos;
-  struct MinHeapNode **array;
 } MinHeap;
 
 struct MinHeapNode* new_heap_node(int v, double dist)

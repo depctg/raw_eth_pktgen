@@ -3,7 +3,6 @@
 #include <cmath>
 #include <stdlib.h>             
 #include <math.h>               
-#include <assert.h>
 
 using namespace std;
 

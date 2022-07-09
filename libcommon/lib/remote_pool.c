@@ -9,11 +9,13 @@
 #include "remote_pool.h"
 #include "cache.h"
 
+static uint64_t block_size_mask = BLOCK_SIZE - 1;
 static struct remote_pool pools[OPT_NUM_CACHE];
 static char *pool_base;
 static uint64_t free_start = 0;
 
 void manager_init(void *base_sbuf) {
+  assert(is_pow2(BLOCK_SIZE) && BLOCK_SIZE > 0);
   pool_base = base_sbuf;
 }
 
@@ -23,7 +25,7 @@ void manager_init(void *base_sbuf) {
 void add_pool(int pid, uint64_t linesize) {
   assert(pid < OPT_NUM_CACHE);
   assert(linesize <= CACHE_LINE_LIMIT);
-  assert(is_pow2(linesize));
+  assert(is_pow2(linesize) && linesize > 0);
 
   for (int i = 0; i < 1024; ++i)
     pools[pid].block_base[i] = NULL;
@@ -33,19 +35,19 @@ void add_pool(int pid, uint64_t linesize) {
 }
 
 /* map tag to the corresponding start address of this line */
-void *tag_mapping(uint64_t tag, uint8_t cache_id) {
+static inline void *tag_mapping(uint64_t tag, uint8_t cache_id) {
   uint64_t block_id = tag / BLOCK_SIZE;
   char *base = get_pool_meta(cache_id, block_base)[block_id];
   if (base != NULL) {
     dprintf("Access block %lu", block_id);
     // if pre-assigned block for this tag
-    return base + (tag % BLOCK_SIZE);
+    return base + (tag & block_size_mask);
   } else {
     dprintf("Allocate new block %lu", block_id);
     // need to allocate another block in this pool
     get_pool_meta(cache_id, block_base)[block_id] = pool_base + free_start;
     free_start += BLOCK_SIZE;
-    return get_pool_meta(cache_id, block_base)[block_id] + (tag % BLOCK_SIZE);
+    return get_pool_meta(cache_id, block_base)[block_id] + (tag & block_size_mask);
   }
 }
 

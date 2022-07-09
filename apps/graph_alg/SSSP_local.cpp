@@ -62,7 +62,7 @@ int main(int argc, char const *argv[])
   dijkstra(graph, 0, solution);
 
   uint64_t end = getCurNs();
-  printf("ms: %lu\n", (end - start) / 1000);
+  printf("us: %lu\n", (end - start) / 1000);
 
   FILE *out = fopen("solution_disagg.txt", "w");
   for (int i = 0; i < total_v; ++ i)

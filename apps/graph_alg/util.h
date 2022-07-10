@@ -97,8 +97,8 @@ struct Graph* init_graph(uint8_t redundant, uint8_t need_fake, const char *fpath
     }
   }
   fclose(fptr);
-  g->V = vid_max;
-  *total_v = vid_max;
+  g->V = vid_max + 1;
+  *total_v = vid_max + 1;
 
   return g;
 }

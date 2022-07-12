@@ -44,13 +44,32 @@ struct cache_req {
     #define MEMMAP_CACHE_REQ (sbuf)
 #endif
 
+/* Cache options
+   Option: Runtime acqurie flag */
+// #define CACHE_CONFIG_ACQUIRE
+
+/* Option: runtime check */
+// #define CACHE_CONFIG_RUNTIME_CHECK 
+
+#ifndef __cache_access_handler 
+    #define __cache_access_handler _cache_access_groupassoc
+#endif
+#ifndef __cache_select 
+    #define __cache_select _cache_select_groupassoc_lru
+#endif
+
 /* cache interface */
 // TODO: hold pointer?
 typedef union {
     uint64_t ser;
     struct {
         uint32_t slot;
+#ifdef CAHCE_CONFIG_RUNTIME_CHECK
+        uint16_t ver;
+        uint16_t cache;
+#else
         uint32_t cache;
+#endif
     };
 } cache_token_t;
 #define cache_token_slot(token) (token.slot)
@@ -105,32 +124,13 @@ cache_token_t cache_request(cache_t cache, intptr_t addr);
 
 void cache_sync(cache_token_t token);
 void cache_await(cache_token_t token);
+
 void * cache_access(cache_token_t token);
 void * cache_access_mut(cache_token_t token);
+void cache_access_check(cache_token_t *token, intptr_t addr);
 
-/* Utils */
+void cache_evict(cache_token_t token, intptr_t addr);
 
-// is power of 2, non-zero
-static inline int is_pow2(unsigned v) {
-        return v && ((v & (v - 1)) == 0);
-}
-
-static inline uint64_t align_with_pow2(uint64_t x) {
-    if (is_pow2(x)) return x;
-    int nlz = __builtin_clzll(x);
-    return ((uint64_t)1 << (64 - nlz));
-}
-
-static inline uint64_t cache_tag_mask(uint64_t linesize, intptr_t addr) {
-    return ((uint64_t)addr & (linesize - 1));
-}
-
-// align addr to cache line size
-static inline uint64_t align_next_free(uint64_t addr, size_t ds, uint64_t cls) {
-    if ((cls - (addr % cls)) >= ds) return addr;
-    // else align to next cls
-    return addr + cls - (addr % cls);
-}
 
 #ifdef __cplusplus
 }

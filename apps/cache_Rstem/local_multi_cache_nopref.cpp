@@ -30,8 +30,8 @@ int main(int argc, char * argv[]) {
         line_sizes[0] / sizeof(uint64_t), 
         line_sizes[1] / sizeof(uint64_t) };
     
-    cache_t cache0 = cache_create_ronly(cache_sizes[0], line_sizes[0], (char *)rbuf);
-    cache_t cache1 = cache_create_ronly(cache_sizes[1], line_sizes[1], (char *) rbuf + cache_sizes[0]);
+    cache_t cache0 = cache_create(cache_sizes[0], line_sizes[0], (char *)rbuf);
+    cache_t cache1 = cache_create(cache_sizes[1], line_sizes[1], (char *)rbuf + (cache_sizes[0]/line_sizes[0]) * (sizeof(line_header) + line_sizes[0]));
 
     vector<size_t> access_pattern0 = gen_access_pattern_seq(num_access_times, array_size);
     vector<size_t> access_pattern1 = gen_access_pattern_seq(num_access_times, num_access_times / 2);

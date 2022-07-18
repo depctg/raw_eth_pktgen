@@ -27,7 +27,7 @@ using namespace std;
 int main(int argc, char * argv[]) {
 	init(TRANS_TYPE_RC, argv[1]);
     cache_init();
-    cache_t cache = cache_create_ronly(cache_size, cache_line_size, (char *)rbuf);
+    cache_t cache = cache_create(cache_size, cache_line_size, rbuf);
 
     vector<size_t> access_pattern = gen_access_pattern_seq(num_access_times, array_size);
 
@@ -38,22 +38,21 @@ int main(int argc, char * argv[]) {
     for (int i = 0; i < num_access_times; i += 1) {
         uint64_t addr = i * sizeof(uint64_t);
 
-        token = cache_request(cache, addr);
-        cache_await(token);
+        cache_request(cache, addr, &token);
+        cache_await(&token);
         // do computation
-        uint64_t *target = (uint64_t*) ((char *)cache_access_mut(token) + cache_tag_mask(cache_line_size, addr));
+        uint64_t *target = (uint64_t*) cache_access_mut(&token);
         *target = access_pattern[i];
     }
 
     for (int i = 0; i < num_access_times; i += 1) {
         uint64_t addr = i * sizeof(uint64_t);
 
-        // if need fetch
-        token = cache_request(cache, addr);
+        cache_request(cache, addr, &token);
 
-        cache_await(token);
+        cache_await(&token);
         // do computation
-        uint64_t *target = (uint64_t*) ((char *)cache_access_mut(token) + cache_tag_mask(cache_line_size, addr));
+        uint64_t *target = (uint64_t*) cache_access(&token);
         cout << i << " " << *target << endl;
     }
 

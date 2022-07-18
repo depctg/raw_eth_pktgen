@@ -102,6 +102,13 @@ static inline uint64_t getCurNs() {
     return t;
 }
 
+static inline uint64_t microtime() {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    uint64_t t = ts.tv_sec*1000*1000 + ts.tv_nsec/1000;
+    return t;
+}
+
 #ifdef __cplusplus
 }
 #endif

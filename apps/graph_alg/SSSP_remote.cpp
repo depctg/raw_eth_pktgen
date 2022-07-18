@@ -1,9 +1,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "util_disagg_aifm.hpp"
+#include "util_disagg_aifm_naive.hpp"
 #include "common.h"
 #include "remote_pool.h"
+#include "helper.h"
 
 typedef struct cache_req_full REQ_TYPE;
 
@@ -14,7 +15,6 @@ int main(int argc, char * argv[]) {
     const uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
     add_pool(0, graph_node_cls);
     add_pool(1, heap_node_cls);
-    // add_pool(0, heap_node_cls);
 
     const int max_recvs = 64;
     const int inflights = max_recvs / 2;

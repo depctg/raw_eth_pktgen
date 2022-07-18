@@ -8,28 +8,18 @@ extern "C"
 {
 #endif
 
-enum {
-    CACHE_REQ_WRITE = 0,
-    CACHE_REQ_READ,
-    CACHE_REQ_EVICT,
-    CACHE_REQ_MEMCOPY,
-    CACHE_REQ_MEMMOVE
-};
+/* Cache options
+   Option: Runtime acqurie flag */
+// #define CACHE_CONFIG_ACQUIRE
 
-// #define CACHE_TAG_ALIGN (4)
-// #define CACHE_TAG_MASK (~(((uint64_t)(1 << CACHE_TAG_ALIGN))-1))
-#define CACHE_REQ_META (8)
-#define CACHE_LINE_LIMIT (1 << 10)
-#define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
-
-// TODO: Constant Propogation?
-#define OPT_NUM_CACHE 16
+/* Option: runtime check */
+#define CACHE_CONFIG_RUNTIME_CHECK 
 
 // Requests
 struct cache_req {
     uint64_t tag;
     union {
-        uint64_t newtag;
+        uint64_t tag2;
         struct {
             uint64_t _unused : 56; // implies cache line <= 2^55 B
             uint8_t type     : 4; 
@@ -38,18 +28,69 @@ struct cache_req {
     };
 };
 
-/* cache request structure */
+/* token interface */
+// DONE: hold pointer ?
+// DONE: use tag as verification key
+typedef struct cache_token_t {
+    struct {
+        uint64_t tag: 48; // addr = tag + line_ofst
+        uint16_t cache;
+    };
+
+    union {
+        uint64_t ptr;
+        struct {
+            uint64_t head_addr: 48;
+            // uint8_t ver;
+            uint16_t line_ofst;
+        };
+    };
+} cache_token_t;
+
+/* cache line header */
+typedef struct line_header {
+    struct {
+        uint64_t tag: 48;
+        uint16_t acq_count;
+    };
+    union {
+        uint64_t line_meta;
+        struct {
+            uint32_t slot;
+            uint16_t weight; 
+            // uint8_t version;
+            // flags
+            uint8_t _unused;
+            uint8_t status: 4;
+            uint8_t flags: 4;
+        };
+    };
+} line_header;
+
+
+/* Cache REQ spec */
+enum {
+    CACHE_REQ_WRITE = 0,
+    CACHE_REQ_READ,
+    CACHE_REQ_EVICT,
+    CACHE_REQ_MEMCOPY,
+    CACHE_REQ_MEMMOVE
+};
+
+#define CACHE_REQ_META (8)
+#define CACHE_LINE_LIMIT (1 << 10)
+#define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
+
 #define CACHE_REQ_INFLIGHT 64
 #ifndef MEMMAP_CACHE_REQ 
     #define MEMMAP_CACHE_REQ (sbuf)
 #endif
 
-/* Cache options
-   Option: Runtime acqurie flag */
-// #define CACHE_CONFIG_ACQUIRE
 
-/* Option: runtime check */
-// #define CACHE_CONFIG_RUNTIME_CHECK 
+/* Cache spec */
+typedef unsigned cache_t;
+// TODO: Constant Propogation?
+#define OPT_NUM_CACHE 16
 
 #ifndef __cache_access_handler 
     #define __cache_access_handler _cache_access_groupassoc
@@ -58,79 +99,52 @@ struct cache_req {
     #define __cache_select _cache_select_groupassoc_lru
 #endif
 
-/* cache interface */
-// TODO: hold pointer?
-typedef union {
-    uint64_t ser;
-    struct {
-        uint32_t slot;
-#ifdef CAHCE_CONFIG_RUNTIME_CHECK
-        uint16_t ver;
-        uint16_t cache;
-#else
-        uint32_t cache;
-#endif
-    };
-} cache_token_t;
-#define cache_token_slot(token) (token.slot)
-#define cache_token_set(offset) offset
-#define cache_token_ser(token) (token.ser)
-#define cache_token_deser(token,wr) token.ser=(wr)
 
-struct cache_meta {
-    uint64_t tag;
-    uint64_t newtag;
-    union {
-        struct {
-            // flags
-            uint8_t status : 4;
-            uint8_t _unused : 4;
-            uint8_t version;
-            uint8_t flags;
-            uint8_t group;
-            // info for eviction
-            int access;
-        };
-    };
-};
-
+/* Cache Line Spec */
+// line flags
 enum {
-    CACHE_FLAGS_ACQUIRE = 1 << 0,
-    CACHE_FLAGS_DIRTY   = 1 << 1,
-    CACHE_FLAGS_RACCESS = 1 << 2
+    LINE_FLAGS_DIRTY   = 1 << 0,
+    LINE_FLAGS_RACCESS = 1 << 1,
+    // LINE_FLAGS_ACQUIRE = 1 << 2,
 };
 
-typedef unsigned cache_t;
+// line status
+enum line_status {
+    LINE_IDLE=0, // IDLE only happens on init
+    LINE_ALLOC,
+    LINE_READY,
+    LINE_SYNC,
+    LINE_END
+};
+
+/* 
+High-level interfaces 
+*/
 
 // init, should be called only after common init
 void cache_init();
 
 // create
-cache_t cache_create(unsigned size, unsigned linesize, void * metabase, void * linebase);
-cache_t cache_create_ronly(unsigned size, unsigned linesize, void * linebase);
-
-enum {
-    CACHE_ACCESS_NONE = 0,
-    CACHE_ACCESS_ACQUIRE = 1,
-};
+cache_t cache_create(unsigned size, unsigned linesize, void * linebase);
 
 // Access Level, token interface
-void cache_acquire(cache_t cache, intptr_t addr, size_t size, cache_token_t *tokens, int acquire);
+void cache_acquire(cache_t cache, intptr_t addr, size_t nitems, size_t size, cache_token_t *tokens);
 void cache_release(cache_token_t *tokens, int cnt);
 
 // TODO: consider inline
 // TODO: fixed base?
-cache_token_t cache_request(cache_t cache, intptr_t addr);
+void cache_request(cache_t cache, intptr_t addr, cache_token_t *token);
 
-void cache_sync(cache_token_t token);
-void cache_await(cache_token_t token);
+void cache_sync(cache_token_t *token);
+void cache_await(cache_token_t *token);
 
-void * cache_access(cache_token_t token);
-void * cache_access_mut(cache_token_t token);
-void cache_access_check(cache_token_t *token, intptr_t addr);
+// need to call await beforehand
+void * cache_access(cache_token_t *token);
+void * cache_access_mut(cache_token_t *token);
 
-void cache_evict(cache_token_t token, intptr_t addr);
-
+// if version missmatch, request new one
+void cache_access_check(cache_token_t *token);
+void cache_evict(cache_token_t *token, intptr_t addr);
 
 #ifdef __cplusplus
 }

@@ -10,7 +10,10 @@ extern "C"
 {
 #endif
 
-#define BLOCK_SIZE (4 << 20)
+#define POOL_MAX_BLOCK 2048
+const int block_size_bits = 21;
+const uint64_t BLOCK_SIZE = (1U << block_size_bits);
+
 /* Remote pool layout 
 pool is a series of discontinuous blocks of the same size
 each pool has a mapping from pool-based virtual address to the 
@@ -18,7 +21,7 @@ actual block
 */
 struct remote_pool {
   uint64_t linesize;
-  char *block_base[1024]; // bitmap of blocks for this pool
+  char *block_base[POOL_MAX_BLOCK]; // bitmap of blocks for this pool
 };
 
 struct cache_req_full {

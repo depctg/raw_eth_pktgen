@@ -28,8 +28,8 @@ struct GraphNode
   GraphNode(int dest, double w): w(w), dest(dest) {}
 };
 cache_t graph_node_cache;
-uint64_t graph_node_size = (32U << 20);
-uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
+uint64_t graph_node_size = (4U << 20);
+uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 8);
 uint64_t free_graph_node_addr = align_next_free(sizeof(GraphNode) /* 0 for null*/, sizeof(GraphNode), graph_node_cls);
 
 // MinHeapNode pointer -> cache token
@@ -42,8 +42,8 @@ struct MinHeapNode
   MinHeapNode(double dist, int v): dist(dist), v(v) {}
 };
 cache_t heap_node_cache;
-uint64_t heap_node_size = (64U << 20);
-uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
+uint64_t heap_node_size = (2U << 20);
+uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 4);
 uint64_t free_heap_node_addr = align_next_free(sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
 
 
@@ -224,7 +224,7 @@ struct MinHeap<capacity> *init_min_heap()
 }
 
 // swap pointer of HeapNode ptr (cache_token_t)
-void swap_heap_node(cache_token_t *a, cache_token_t *b)
+static inline void swap_heap_node(cache_token_t *a, cache_token_t *b)
 {
   cache_token_t t = *a;
   *a = *b;

@@ -12,6 +12,12 @@ static struct cache_internal {
     unsigned linesize;
     unsigned size;
     unsigned slots;
+
+    uint64_t total_reqs;
+    uint64_t miss_reqs;
+
+    uint64_t total_awaits;
+    uint64_t early_awaits;
 } caches[OPT_NUM_CACHE];
 
 static int cache_cnt = 0;

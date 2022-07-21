@@ -37,7 +37,7 @@ static inline  void _cache_access_check(cache_token_t *token, int mut) {
 static inline int _cache_eviction_check(cache_t cache, unsigned slot) {
 	int error = 0;
 #ifdef CACHE_CONFIG_ACQUIRE
-	error |= (cache_header_field(cache,slot,acq_count) == 0);
+	error |= (cache_header_field(cache,slot,acq_count) != 0);
 #endif
 	return error;
 }
@@ -87,7 +87,6 @@ static inline void _cache_select_groupassoc_rand(cache_t cache, uint64_t tag, ca
 }
 
 static inline void _cache_select_groupassoc_lru(cache_t cache, uint64_t tag, cache_token_t *token) {
-	token->cache = cache;
 	// try group assoc
 	unsigned linesize = cache_get_field(cache,linesize);
 	unsigned base = (tag/linesize/groups) & (cache_get_field(cache,slots)/groups - 1);

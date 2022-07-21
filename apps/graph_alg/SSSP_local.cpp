@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <float.h>
-#include "util_disagg_aifm_naive.hpp"
+#include "util_disagg_naive_rtc.hpp"
 #include "common.h"
 #include "cache.h"
 
@@ -29,7 +29,6 @@ void dijkstra(Graph* graph, int src, double *solution)
   // barrier();
   solution[src] = 0.0;
   decrease_key(heap, src, 0.0);
-  MinHeapNode *alast_n = access_heap_node_view(&heap_last(heap), 0);
 
   while (!is_heap_empty(heap))
   {
@@ -71,43 +70,24 @@ int main(int argc, char const *argv[])
   dijkstra(graph, 0, solution);
 
   uint64_t end = getCurNs();
-  printf("us: %lu\n", (end - start) / 1000);
+  printf("s: %f\n", (end - start) / (double) 1e9);
 
   FILE *out = fopen("solution_disagg.txt", "w");
   for (int i = 0; i < total_v; ++ i)
     fprintf(out, "%lf\n", solution[i]);
   fclose(out);
 
-  // MinHeap<5> *h = init_min_heap<5>();
-  // for (int i = 0; i < 5; ++i) h->pos[i] = i;
-  // h->array[0] = new_heap_node(0, 4.2);
-  // h->array[1] = new_heap_node(1, 3.2);
-  // h->array[2] = new_heap_node(2, 1.5);
-  // h->array[3] = new_heap_node(3, 0.3);
-  // h->array[4] = new_heap_node(4, 10.4);
-  // h->size = 5;
-  // // for (int i = 0; i < 5; ++ i) {
-  // //   MinHeapNode *m = access_heap_node_view(&h->array[i], 0);
-  // //   std::cout << m->v << " " << m->dist << std::endl;
-  // // }
-
-  // for (int i = parent_idx(h->size - 1); i > -1; i--)
-  // {
-  //   heapify(h, i);
-  // }
-
-  // // insert(h, 0, 4.2);
-  // // insert(h, 1, 3.2);
-  // // insert(h, 2, 1.5);
-  // // insert(h, 3, 0.3);
-  // // insert(h, 4, 10.4);
-  // decrease_key(h, 0, 0.0);
-  // while (!is_heap_empty(h))
-  // {
-  //   cache_token_t min_ptr = extract_min(h);
-  //   MinHeapNode *mn = access_heap_node_view(&min_ptr, 0);
-  //   std::cout << mn->v << " " << mn->dist << std::endl;
-  // }
+#ifdef CACHE_LOG_REQ
+  cache_stats cs[OPT_NUM_CACHE];
+  int num_cs = get_cache_logs(cs);
+  for (int i = 0; i < num_cs; ++ i) {
+    printf("cache %d stats: \n", cs[i].cache_id);
+    printf("total reqs: %lu\n", cs[i].total_reqs);
+    printf("miss reqs: %f\n", cs[i].miss_reqs / (double)cs[i].total_reqs);
+    printf("total awaits: %lu\n", cs[i].total_awaits);
+    printf("early awaits: %f\n", cs[i].early_awaits / (double)cs[i].total_awaits);
+  }
+#endif
 
   return 0;
 }

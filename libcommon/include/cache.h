@@ -10,10 +10,13 @@ extern "C"
 
 /* Cache options
    Option: Runtime acqurie flag */
-// #define CACHE_CONFIG_ACQUIRE
+#define CACHE_CONFIG_ACQUIRE
 
 /* Option: runtime check */
-#define CACHE_CONFIG_RUNTIME_CHECK 
+// #define CACHE_CONFIG_RUNTIME_CHECK 
+
+/* Option: Log req stats */
+#define CACHE_LOG_REQ
 
 // Requests
 struct cache_req {
@@ -34,16 +37,13 @@ struct cache_req {
 typedef struct cache_token_t {
     struct {
         uint64_t tag: 48; // addr = tag + line_ofst
-        uint16_t cache;
+        uint16_t line_ofst;
     };
 
-    union {
-        uint64_t ptr;
-        struct {
-            uint64_t head_addr: 48;
-            // uint8_t ver;
-            uint16_t line_ofst;
-        };
+    struct {
+        uint64_t head_addr: 48;
+        // uint8_t ver;
+        uint16_t cache;
     };
 } cache_token_t;
 
@@ -57,14 +57,14 @@ typedef struct line_header {
         uint64_t line_meta;
         struct {
             uint32_t slot;
-            uint16_t weight; 
+            uint32_t weight; 
             // uint8_t version;
-            // flags
-            uint8_t _unused;
-            uint8_t status: 4;
-            uint8_t flags: 4;
         };
     };
+
+    // compatible with shenango atomic
+    int status;
+    int flags;
 } line_header;
 
 
@@ -130,6 +130,7 @@ cache_t cache_create(unsigned size, unsigned linesize, void * linebase);
 // Access Level, token interface
 void cache_acquire(cache_t cache, intptr_t addr, size_t nitems, size_t size, cache_token_t *tokens);
 void cache_release(cache_token_t *tokens, int cnt);
+void cache_re_acquire(cache_token_t *token);
 
 // TODO: consider inline
 // TODO: fixed base?
@@ -138,13 +139,24 @@ void cache_request(cache_t cache, intptr_t addr, cache_token_t *token);
 void cache_sync(cache_token_t *token);
 void cache_await(cache_token_t *token);
 
-// need to call await beforehand
 void * cache_access(cache_token_t *token);
 void * cache_access_mut(cache_token_t *token);
+void * cache_access_nrtc(cache_token_t *token);
+void * cache_access_nrtc_mut(cache_token_t *token);
 
 // if version missmatch, request new one
 void cache_access_check(cache_token_t *token);
 void cache_evict(cache_token_t *token, intptr_t addr);
+
+typedef struct cache_stats {
+    cache_t cache_id;
+    uint64_t total_reqs;
+    uint64_t miss_reqs;
+    
+    uint64_t total_awaits;
+    uint64_t early_awaits;
+} cache_stats;
+int get_cache_logs(cache_stats *cs);
 
 #ifdef __cplusplus
 }

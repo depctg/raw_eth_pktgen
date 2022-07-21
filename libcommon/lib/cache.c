@@ -13,7 +13,8 @@
 
 /* request level */
 static struct cache_req * req_buf;
-static int head = 0, nout = 0;
+static int head = 0;
+static int nout = 0;
 
 void cache_init() {
     req_buf = MEMMAP_CACHE_REQ;
@@ -31,7 +32,6 @@ static inline void cache_poll() {
     struct ibv_wc wc[MAX_POLL];
 
     int n = ibv_poll_cq(cq, MAX_POLL, wc);
-    if (n > 0) dprintf("%d", n);
     for (int i = 0; i < n; i++) {
         if (wc[i].status != IBV_WC_SUCCESS) {
             printf("WR failed\n");
@@ -41,8 +41,6 @@ static inline void cache_poll() {
             line_header *h = (line_header *) wc[i].wr_id;
             h->status = LINE_READY;
             // clear statics?
-            h->weight = 0;
-            h->flags = 0;
         } else if (wc[i].opcode == IBV_WC_SEND) {
             nout --;
         }
@@ -134,7 +132,7 @@ static inline void cache_post(const cache_token_t *token, int type, uint64_t tag
 
 
 cache_t cache_create(unsigned size, unsigned linesize, void * linebase) {
-    // assert(is_pow2(size));
+    assert(is_pow2(size));
     assert(is_pow2(linesize));
     // assert(linesize > 16); // required by tag layout
     assert(linesize <= CACHE_LINE_LIMIT);
@@ -156,14 +154,27 @@ cache_t cache_create(unsigned size, unsigned linesize, void * linebase) {
 
 // TODO: cache_poll_token
 void cache_await(cache_token_t *token) {
+#ifdef CACHE_LOG_REQ
+    cache_get_field(token->cache,total_awaits) ++;
+#endif
     dprintf("Await token slot %u, status %d", token_header_field(token,slot), (int)token_header_field(token,status));
-    // while (cache_header_field(token->cache,token->slot,status) == LINE_SYNC)
-    while (token_header_field(token,status) == LINE_SYNC)
+    int s = token_header_field(token,status);
+    if (s != LINE_SYNC) {
+        return;
+    }
+#ifdef CACHE_LOG_REQ
+    cache_get_field(token->cache,early_awaits) ++;
+#endif
+    do {
         cache_poll();
+    } while (token_header_field(token,status) == LINE_SYNC);
 }
 
 void cache_request(cache_t cache, intptr_t addr, cache_token_t *token) {
     // find slot and eviction
+#ifdef CACHE_LOG_REQ
+    cache_get_field(cache,total_reqs) ++;
+#endif
     uint64_t tag = cache_ofst_mask(cache_get_field(cache,linesize), addr);
     uint16_t ofst = cache_tag_mask(cache_get_field(cache,linesize), addr);
     token->cache = cache;
@@ -181,6 +192,9 @@ void cache_request(cache_t cache, intptr_t addr, cache_token_t *token) {
     } else if (token_header_field(token,status) != LINE_IDLE &&
             token_header_field(token,tag) != tag &&
             token_check_flag(token,LINE_FLAGS_DIRTY)) {
+#ifdef CACHE_LOG_REQ
+        cache_get_field(cache,miss_reqs) ++;
+#endif
 
         // wait prev request to finish?
         cache_await(token);
@@ -188,9 +202,14 @@ void cache_request(cache_t cache, intptr_t addr, cache_token_t *token) {
         uint64_t tag2 = token_header_field(token,tag);
         token_header_field(token,tag) = tag;
         token_header_field(token,status) = LINE_SYNC;
+        token_header_field(token,weight) = 0;
+        token_header_field(token,flags) = 0;
         dprintf("-> EVICT %lu, FETCH %lu", tag2, token_header_field(token, tag));
         cache_post(token, CACHE_REQ_EVICT, tag2);
     } else {
+#ifdef CACHE_LOG_REQ
+        cache_get_field(cache,miss_reqs) ++;
+#endif
         token_header_field(token,tag) = tag;
         token_header_field(token,status) = LINE_SYNC;
         dprintf("-> FETCH %lu", token->tag);
@@ -205,18 +224,26 @@ void cache_access_check(cache_token_t *token) {
 }
 
 void * cache_access(cache_token_t *token) {
-#ifdef CACHE_CONFIG_RUNTIME_CHECK
     cache_access_check(token);
-#endif
     cache_await(token);
     __cache_access_handler(token, 0);
     return token_get_data(token);
 }
 
 void * cache_access_mut(cache_token_t *token) {
-#ifdef CACHE_CONFIG_RUNTIME_CHECK
     cache_access_check(token);
-#endif
+    cache_await(token);
+    __cache_access_handler(token, 1);
+    return token_get_data(token);
+}
+
+void * cache_access_nrtc(cache_token_t *token) {
+    cache_await(token);
+    __cache_access_handler(token, 0);
+    return token_get_data(token);
+}
+
+void * cache_access_nrtc_mut(cache_token_t *token) {
     cache_await(token);
     __cache_access_handler(token, 1);
     return token_get_data(token);
@@ -246,10 +273,19 @@ void cache_acquire(cache_t cache, intptr_t addr, size_t nitems, size_t size, cac
     }
 }
 
+void cache_re_acquire(cache_token_t *token) {
+    if (token->tag != token_header_field(token,tag)) {
+        cache_request(token->cache, token->tag+token->line_ofst, token); 
+    }
+#ifdef CACHE_CONFIG_ACQUIRE
+    token_header_field(token,acq_count) ++;
+#endif
+}
+
 // TODO check negative ?
 void cache_release(cache_token_t *tokens, int cnt) {
     for (int i = 0; i < cnt; i++)
-        token_header_field(tokens+i,acq_count)--;
+        token_header_field(tokens+i,acq_count) --;
 }
 
 // TODO: inline cachesize?
@@ -260,4 +296,16 @@ void cache_evict(cache_token_t *token, intptr_t addr) {
     token->tag = tag;
     token_header_field(token, tag) = tag;
     cache_post(token, CACHE_REQ_EVICT, tag2);
+}
+
+int get_cache_logs(cache_stats *cs) {
+    for (cache_t cid = 0; cid < cache_cnt; ++cid) {
+        cs[cid].cache_id = cid;
+        cs[cid].total_reqs = cache_get_field(cid,total_reqs);
+        cs[cid].miss_reqs = cache_get_field(cid,miss_reqs);
+
+        cs[cid].total_awaits = cache_get_field(cid,total_awaits);
+        cs[cid].early_awaits = cache_get_field(cid,early_awaits);
+    }
+    return cache_cnt;
 }

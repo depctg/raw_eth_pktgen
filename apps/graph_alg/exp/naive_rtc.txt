@@ -1,0 +1,22 @@
+device 0, mlx5_0 | mlx5_1
+device 1, mlx5_1 | mlx5_1
+connecting to server tcp://localhost:2333...
+received mr, with bytes 32, num 0
+Graph CLS: 128 B
+Graph CS 4.000000 MB
+After graph init
+MinHeap CLS: 64 B
+MinHeap CS 2.000000 MB
+After heap init
+After heapify
+s: 22.657449
+cache 0 stats: 
+total reqs: 4901639
+miss reqs: 0.224564
+total awaits: 6535915
+early awaits: 0.168413
+cache 1 stats: 
+total reqs: 9060411
+miss reqs: 0.707300
+total awaits: 104371516
+early awaits: 0.061400

@@ -11,7 +11,7 @@
 #include "cache_internal.h"
 #include "helper.h"
 
-static const int inital_blocks = 64;
+static const int initial_blocks = 64;
 static uint64_t block_size_mask = BLOCK_SIZE - 1;
 static struct remote_pool pools[OPT_NUM_CACHE];
 static char *pool_base;
@@ -34,7 +34,7 @@ void add_pool(int pid, uint64_t linesize) {
 
   for (int i = 0; i < POOL_MAX_BLOCK; ++i) {
     pools[pid].block_base[i] = NULL;
-    if (i < inital_blocks) {
+    if (i < initial_blocks) {
       pools[pid].block_base[i] = pool_base + free_start;
       free_start += BLOCK_SIZE;
     }

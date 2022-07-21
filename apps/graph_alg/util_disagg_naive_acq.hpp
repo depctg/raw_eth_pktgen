@@ -66,16 +66,16 @@ struct Graph
 GraphNode *access_graph_node_view(cache_token_t *node_t, int mut)
 {
   if (mut)
-    return (GraphNode *) cache_access_mut(node_t);
+    return (GraphNode *) cache_access_nrtc_mut(node_t);
   else
-    return (GraphNode *) cache_access(node_t);
+    return (GraphNode *) cache_access_nrtc(node_t);
 }
 
 cache_token_t new_graph_node(int dest, double w)
 {
   uint64_t cur_addr = free_graph_node_addr;
   cache_token_t node_t;
-  cache_request(graph_node_cache, cur_addr, &node_t);
+  cache_acquire(graph_node_cache, cur_addr, 1, sizeof(GraphNode), &node_t);
 
   // move free pointer
   free_graph_node_addr = align_next_free(free_graph_node_addr + sizeof(GraphNode), sizeof(GraphNode), graph_node_cls);
@@ -83,6 +83,7 @@ cache_token_t new_graph_node(int dest, double w)
   GraphNode *rel = access_graph_node_view(&node_t, 1);
   rel->dest = dest;
   rel->w = w;
+  cache_release(&node_t, 1);
   return node_t;
 }
 
@@ -100,11 +101,6 @@ void add_edge(struct Graph *g, int s, int t, double w)
 
 Graph* init_graph(uint8_t redundant, uint8_t need_fake, const char *fpath, int *total_v)
 {
-  printf("Graph CLS: %lu B\n", graph_node_cls);
-  printf("Graph CS %f MB\n", graph_node_size / (double)(1<<20));
-  // init server must be done before this
-  graph_node_cache = cache_create(graph_node_size, graph_node_cls, (char *)rbuf);
-
   Graph *g = new Graph();
 
   FILE *fptr = fopen(fpath, "r");
@@ -201,24 +197,21 @@ cache_token_t new_heap_node(int v, double dist)
 {
   uint64_t cur_addr = free_heap_node_addr;
   cache_token_t node_t;
-  cache_request(heap_node_cache, cur_addr, &node_t);
+  cache_acquire(heap_node_cache, cur_addr, 1, sizeof(MinHeapNode), &node_t);
 
   // move free pointer
   free_heap_node_addr = align_next_free(free_heap_node_addr + sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
 
-  MinHeapNode *n = access_heap_node_view(&node_t, 1);
+  MinHeapNode *n = (MinHeapNode *) cache_access_nrtc_mut(&node_t);
   n->v = v;
   n->dist = dist;
+  cache_release(&node_t, 1);
   return node_t;
 }
 
 template<int capacity>
 struct MinHeap<capacity> *init_min_heap()
 {
-  printf("MinHeap CLS: %lu B\n", heap_node_cls);
-  printf("MinHeap CS %f MB\n", heap_node_size / (double)(1<<20));
-  heap_node_cache = cache_create(heap_node_size, heap_node_cls, (char *)rbuf + (graph_node_size/graph_node_cls) * (sizeof(line_header) + graph_node_cls));
-
   MinHeap<capacity> *heap = new MinHeap<capacity>();
   return heap;
 }
@@ -232,37 +225,6 @@ static inline void swap_heap_node(cache_token_t *a, cache_token_t *b)
 }
 
 template<int capacity>
-void insert(MinHeap<capacity> *heap, int v, double dist)
-{
-  if (heap->size == heap->capacity)
-  {
-    printf("Not enough space in Heap");
-    exit(1);
-  }
-
-  // insert at the end
-  heap->size ++;
-  heap_last(heap) = new_heap_node(v, dist);
-  for (int i = heap->size - 1; 
-       i;
-       i = parent_idx(i))
-  {
-    MinHeapNode *parent_view = access_heap_node_view(&heap_idx(heap, parent_idx(i)), 0);
-    MinHeapNode *cur_view = access_heap_node_view(&heap_idx(heap, i), 0);
-    if (parent_view->dist > cur_view->dist)
-    {
-      heap->pos[parent_view->v] = i;
-      heap->pos[cur_view->v] = parent_idx(i);
-      swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
-    } 
-    else
-    {
-      break;
-    }
-  }
-}
-
-template<int capacity>
 void heapify(MinHeap<capacity> *heap, int idx)
 {
   int min, left, right;
@@ -270,17 +232,21 @@ void heapify(MinHeap<capacity> *heap, int idx)
   left = left_child(idx);
   right = right_child(idx);
 
+  cache_re_acquire(&heap_idx(heap,min));
+  if (left < heap->size) cache_re_acquire(&heap_idx(heap,left));
+  if (right < heap->size) cache_re_acquire(&heap_idx(heap,right));
+
   // find min among left, right children and idx
   if (left < heap->size)
   {
-    MinHeapNode *min_node = access_heap_node_view(&heap_idx(heap,min), 0);
-    MinHeapNode *left_node = access_heap_node_view(&heap_idx(heap,left), 0);
+    MinHeapNode *min_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,min));
+    MinHeapNode *left_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,left));
     if (left_node->dist < min_node->dist) min = left;
   }
   if (right < heap->size)
   {
-    MinHeapNode *min_node = access_heap_node_view(&heap_idx(heap,min), 0);
-    MinHeapNode *right_node = access_heap_node_view(&heap_idx(heap,right), 0);
+    MinHeapNode *min_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,min));
+    MinHeapNode *right_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,right));
     if (right_node->dist < min_node->dist) min = right;
   }
   if (min != idx)
@@ -291,8 +257,16 @@ void heapify(MinHeap<capacity> *heap, int idx)
     heap->pos[min_node->v] = idx;
     heap->pos[idx_node->v] = min;
 
+    cache_release(&heap_idx(heap,idx), 1);
+    if (left < heap->size) cache_release(&heap_idx(heap,left), 1);
+    if (right < heap->size) cache_release(&heap_idx(heap,right), 1);
+
     swap_heap_node(&heap->array[min], &heap->array[idx]);
     heapify(heap, min);
+  } else {
+    cache_release(&heap_idx(heap,idx), 1);
+    if (left < heap->size) cache_release(&heap_idx(heap,left), 1);
+    if (right < heap->size) cache_release(&heap_idx(heap,right), 1);
   }
 }
 
@@ -306,16 +280,20 @@ cache_token_t extract_min(MinHeap<capacity> *heap)
 {
   if (is_heap_empty(heap)) return {};
   cache_token_t root = heap->array[0];
-  MinHeapNode *root_view = access_heap_node_view(&root, 0);
+  cache_re_acquire(&root);
+  MinHeapNode *root_view = (MinHeapNode *) cache_access_nrtc(&root);
 
   // replace with last node
   cache_token_t last = heap_last(heap);
-  MinHeapNode *last_view = access_heap_node_view(&last, 0);
+  cache_re_acquire(&last);
+  MinHeapNode *last_view = (MinHeapNode *) cache_access_nrtc(&last);
   heap->array[0] = last;
 
   // update position of last node
   heap->pos[root_view->v] = heap->size - 1;
+  cache_release(&root, 1);
   heap->pos[last_view->v] = 0;
+  cache_release(&last, 1);
 
   // heapify
   heap->size --;
@@ -328,21 +306,33 @@ template<int capacity>
 void decrease_key(MinHeap<capacity> *heap, int v, double dist)
 {
   int i = heap->pos[v];
-  MinHeapNode *i_node = access_heap_node_view(&heap_idx(heap, i), 1);
+  cache_re_acquire(&heap_idx(heap,i));
+  MinHeapNode *i_node = (MinHeapNode *) cache_access_nrtc_mut(&heap_idx(heap,i));
   i_node->dist = dist;
+  cache_release(&heap_idx(heap,i), 1);
   while (i)
   {
-    i_node = access_heap_node_view(&heap_idx(heap, i), 0); 
-    MinHeapNode *parent_node = access_heap_node_view(&heap_idx(heap, parent_idx(i)), 0);
+    cache_re_acquire(&heap_idx(heap,i));
+    cache_re_acquire(&heap_idx(heap,parent_idx(i)));
+
+    i_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,i)); 
+    MinHeapNode *parent_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap,parent_idx(i)));
+
     if (i_node->dist < parent_node->dist)
     {
       heap->pos[i_node->v] = parent_idx(i);
       heap->pos[parent_node->v] = i;
       swap_heap_node(&heap->array[i], &heap->array[parent_idx(i)]);
+      
+      cache_release(&heap_idx(heap,i), 1);
+      cache_release(&heap_idx(heap,parent_idx(i)), 1);
+
       i = parent_idx(i);
     }
     else
     {
+      cache_release(&heap_idx(heap,i), 1);
+      cache_release(&heap_idx(heap,parent_idx(i)), 1);
       break;
     }
   }

@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "util_disagg_naive_rtc.hpp"
+#include "util_disagg_naive_acq.hpp"
 #include "common.h"
 #include "remote_pool.h"
 #include "helper.h"

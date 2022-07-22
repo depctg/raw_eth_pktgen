@@ -251,8 +251,8 @@ void heapify(MinHeap<capacity> *heap, int idx)
   }
   if (min != idx)
   {
-    MinHeapNode *min_node = access_heap_node_view(&heap_idx(heap, min), 0);
-    MinHeapNode *idx_node = access_heap_node_view(&heap_idx(heap, idx), 0);
+    MinHeapNode *min_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap, min));
+    MinHeapNode *idx_node = (MinHeapNode *) cache_access_nrtc(&heap_idx(heap, idx));
 
     heap->pos[min_node->v] = idx;
     heap->pos[idx_node->v] = min;

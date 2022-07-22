@@ -171,7 +171,6 @@ void cache_await(cache_token_t *token) {
 }
 
 void cache_request(cache_t cache, intptr_t addr, cache_token_t *token) {
-    // find slot and eviction
 #ifdef CACHE_LOG_REQ
     cache_get_field(cache,total_reqs) ++;
 #endif
@@ -181,39 +180,38 @@ void cache_request(cache_t cache, intptr_t addr, cache_token_t *token) {
     token->tag = tag;
     token->line_ofst = ofst;
 
-    // set line position
+    // find slot and eviction
     __cache_select(cache, tag, token);
-    dprintf("translate addr %lu tag %lu cache %d, slot %d",
-            addr, tag, cache, token_header_field(token,slot));
-    if (token_header_field(token,tag) == tag &&
-            token_header_field(token,status) != LINE_IDLE) {
-        // do nothing, just return
-        dprintf("-> READY");
-    } else if (token_header_field(token,status) != LINE_IDLE &&
-            token_header_field(token,tag) != tag &&
-            token_check_flag(token,LINE_FLAGS_DIRTY)) {
-#ifdef CACHE_LOG_REQ
-        cache_get_field(cache,miss_reqs) ++;
-#endif
+    dprintf("translate addr %lu tag %lu cache %d, slot tag %lu", addr, tag, cache, token_header_field(token,tag));
 
-        // wait prev request to finish?
-        cache_await(token);
-        // do eviction
-        uint64_t tag2 = token_header_field(token,tag);
-        token_header_field(token,tag) = tag;
-        token_header_field(token,status) = LINE_SYNC;
-        token_header_field(token,weight) = 0;
-        token_header_field(token,flags) = 0;
-        dprintf("-> EVICT %lu, FETCH %lu", tag2, token_header_field(token, tag));
-        cache_post(token, CACHE_REQ_EVICT, tag2);
+    int status = token_header_field(token,status);
+    if (token_header_field(token,tag) == tag) {
+        dprintf("-> tag match, do nothing");
     } else {
 #ifdef CACHE_LOG_REQ
         cache_get_field(cache,miss_reqs) ++;
 #endif
-        token_header_field(token,tag) = tag;
-        token_header_field(token,status) = LINE_SYNC;
-        dprintf("-> FETCH %lu", token->tag);
-        cache_post(token, CACHE_REQ_READ, -1);
+        // wait prev req ?
+        if (status != LINE_IDLE) cache_await(token);
+
+        if (token_check_flag(token,LINE_FLAGS_DIRTY)) {
+            // eviction
+            uint64_t tag2 = token_header_field(token,tag);
+            token_header_field(token,tag) = tag;
+            token_header_field(token,status) = LINE_SYNC;
+            token_header_field(token,weight) = 0;
+            token_header_field(token,flags) = 0;
+            dprintf("-> EVICT %lu, FETCH %lu", tag2, token_header_field(token,tag));
+            cache_post(token, CACHE_REQ_EVICT, tag2);
+        } else {
+            // fetch
+            token_header_field(token,tag) = tag;
+            token_header_field(token,status) = LINE_SYNC;
+            token_header_field(token,weight) = 0;
+            token_header_field(token,flags) = 0;
+            dprintf("-> FETCH: %lu", token_header_field(token,tag));
+            cache_post(token, CACHE_REQ_READ, -1);
+        }
     }
 }
 

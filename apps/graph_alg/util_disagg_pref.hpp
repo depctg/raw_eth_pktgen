@@ -80,6 +80,10 @@ cache_token_t new_graph_node(int dest, double w)
   // move free pointer
   free_graph_node_addr = align_next_free(free_graph_node_addr + sizeof(GraphNode), sizeof(GraphNode), graph_node_cls);
 
+  /* prefetch next free line */
+  static cache_token_t pref_next_free;
+  cache_request(graph_node_cache, free_graph_node_addr, &pref_next_free);
+
   GraphNode *rel = access_graph_node_view(&node_t, 1);
   rel->dest = dest;
   rel->w = w;
@@ -202,6 +206,10 @@ cache_token_t new_heap_node(int v, double dist)
   // move free pointer
   free_heap_node_addr = align_next_free(free_heap_node_addr + sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
 
+  /* prefetch next free line */
+  static cache_token_t pref_next_free;
+  cache_request(heap_node_cache, free_heap_node_addr, &pref_next_free);
+
   MinHeapNode *n = (MinHeapNode *) cache_access_nrtc_mut(&node_t);
   n->v = v;
   n->dist = dist;
@@ -235,6 +243,24 @@ void heapify(MinHeap<capacity> *heap, int idx)
   cache_re_acquire(&heap_idx(heap,min));
   if (left < heap->size) cache_re_acquire(&heap_idx(heap,left));
   if (right < heap->size) cache_re_acquire(&heap_idx(heap,right));
+
+  /* prefetch left, right as idx */
+  if (left_child(left) < heap->size) {
+    cache_token_t *left_left = &heap_idx(heap,left_child(left));
+    cache_request(left_left->cache, left_left->tag + left_left->line_ofst, left_left);
+  }
+  if (right_child(left) < heap->size) {
+    cache_token_t *left_right = &heap_idx(heap,right_child(left));
+    cache_request(left_right->cache, left_right->tag + left_right->line_ofst, left_right);
+  }
+  if (left_child(right) < heap->size) {
+    cache_token_t *right_left = &heap_idx(heap,left_child(right));
+    cache_request(right_left->cache, right_left->tag + right_left->line_ofst, right_left);
+  }
+  if (right_child(right) < heap->size) {
+    cache_token_t *right_right = &heap_idx(heap,right_child(right));
+    cache_request(right_right->cache, right_right->tag + right_right->line_ofst, right_right);
+  }
 
   // find min among left, right children and idx
   if (left < heap->size)

@@ -4,5 +4,7 @@ link_libraries(common graph_util)
 
 add_executable(${app}-SSSP SSSP.c)
 add_executable(${app}-SSSP-Local SSSP_local_naive_acq.cpp)
+add_executable(${app}-SSSP-Local-Pref SSSP_local_pref.cpp)
+add_executable(${app}-SSSP-Local-1C SSSP_local_naive_acq_1c.cpp)
 #add_executable(${app}-SSSP-TEST SSSP_local_test.cpp)
 add_executable(${app}-SSSP-Remote SSSP_remote.cpp)

@@ -27,10 +27,6 @@ struct GraphNode
 
   GraphNode(int dest, double w): w(w), dest(dest) {}
 };
-cache_t graph_node_cache;
-uint64_t graph_node_size = (4U << 20);
-uint64_t graph_node_cls = align_with_pow2(sizeof(GraphNode) * 16);
-uint64_t free_graph_node_addr = align_next_free(sizeof(GraphNode) /* 0 for null*/, sizeof(GraphNode), graph_node_cls);
 
 // MinHeapNode pointer -> cache token
 struct MinHeapNode
@@ -41,11 +37,10 @@ struct MinHeapNode
   MinHeapNode() {}
   MinHeapNode(double dist, int v): dist(dist), v(v) {}
 };
-cache_t heap_node_cache;
-uint64_t heap_node_size = (8U << 20);
-uint64_t heap_node_cls = align_with_pow2(sizeof(MinHeapNode) * 8);
-uint64_t free_heap_node_addr = align_next_free(sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
-
+cache_t node_cache;
+uint64_t node_size = (6U << 20);
+uint64_t node_cls = align_with_pow2(sizeof(MinHeapNode) * 4);
+uint64_t free_node_addr = align_next_free(sizeof(MinHeapNode), sizeof(MinHeapNode), node_cls);
 
 struct AdjList
 {
@@ -73,12 +68,12 @@ GraphNode *access_graph_node_view(cache_token_t *node_t, int mut)
 
 cache_token_t new_graph_node(int dest, double w)
 {
-  uint64_t cur_addr = free_graph_node_addr;
+  uint64_t cur_addr = free_node_addr;
   cache_token_t node_t;
-  cache_acquire(graph_node_cache, cur_addr, 1, sizeof(GraphNode), &node_t);
+  cache_acquire(node_cache, cur_addr, 1, sizeof(GraphNode), &node_t);
 
   // move free pointer
-  free_graph_node_addr = align_next_free(free_graph_node_addr + sizeof(GraphNode), sizeof(GraphNode), graph_node_cls);
+  free_node_addr = align_next_free(free_node_addr + sizeof(GraphNode), sizeof(GraphNode), node_cls);
 
   GraphNode *rel = access_graph_node_view(&node_t, 1);
   rel->dest = dest;
@@ -195,12 +190,12 @@ MinHeapNode* access_heap_node_view(cache_token_t *node_t, int mut)
 
 cache_token_t new_heap_node(int v, double dist)
 {
-  uint64_t cur_addr = free_heap_node_addr;
+  uint64_t cur_addr = free_node_addr;
   cache_token_t node_t;
-  cache_acquire(heap_node_cache, cur_addr, 1, sizeof(MinHeapNode), &node_t);
+  cache_acquire(node_cache, cur_addr, 1, sizeof(MinHeapNode), &node_t);
 
   // move free pointer
-  free_heap_node_addr = align_next_free(free_heap_node_addr + sizeof(MinHeapNode), sizeof(MinHeapNode), heap_node_cls);
+  free_node_addr = align_next_free(free_node_addr + sizeof(MinHeapNode), sizeof(MinHeapNode), node_cls);
 
   MinHeapNode *n = (MinHeapNode *) cache_access_nrtc_mut(&node_t);
   n->v = v;

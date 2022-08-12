@@ -5,8 +5,8 @@ set (LLVM_LIB_ROOT "${CMAKE_SOURCE_DIR}/external/llvm-project/build/lib" CACHE P
 
 set(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ standard to conform to")
 
-# list(APPEND CMAKE_PREFIX_PATH "${LLVM_LIB_ROOT}/cmake/llvm")
-# list(APPEND CMAKE_PREFIX_PATH "${LLVM_LIB_ROOT}/cmake/clang")
+list(APPEND CMAKE_PREFIX_PATH "${LLVM_LIB_ROOT}/cmake/llvm")
+list(APPEND CMAKE_PREFIX_PATH "${LLVM_LIB_ROOT}/cmake/clang")
 list(APPEND CMAKE_PREFIX_PATH "${LLVM_LIB_ROOT}/cmake/mlir")
 
 message(STATUS "PATH: ${CMAKE_MODULE_PATH}")

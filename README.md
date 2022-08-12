@@ -11,7 +11,13 @@ make <app>
 ### Build clang-passes
 
 requires ninja build tool. (apt install ninja-build)
-first, build clang libraries
+
+init llvm-project submodule (if not already)
+```bash
+git submodule update --init --recursive --progress
+```
+
+build clang libraries
 
 ```bash
 mkdir external/llvm-project/build

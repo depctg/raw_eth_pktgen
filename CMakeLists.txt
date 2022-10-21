@@ -30,4 +30,3 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 add_subdirectory(libcommon)
 # add_subdirectory(clang-passes)
 add_subdirectory(apps)
-

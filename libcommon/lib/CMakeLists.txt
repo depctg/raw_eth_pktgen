@@ -20,3 +20,5 @@ if(COMMON_IMPL_SHM)
     target_link_libraries(${COMMON_EXE_SHM_EXECUTOR} common)
 endif()
 
+add_executable(remote_server apps/remote_server.c)
+target_link_libraries(remote_server common)

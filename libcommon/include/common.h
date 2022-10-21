@@ -25,6 +25,9 @@ extern "C" {
             exit(c); } while(0)
 #endif /* NDEBUG */
 
+#define fdprintf(t, args...) \
+    fprintf(stderr, "[%s:%d:%s] " t "\n", __FILE__, __LINE__, __func__, ## args)
+
 /* send switch */
 #define SEND_CMPL 1
 #define SEND_INLINE 1

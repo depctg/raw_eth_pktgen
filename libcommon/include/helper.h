@@ -8,6 +8,7 @@ extern "C" {
 #include <stdint.h>
 
 #define barrier() asm volatile("" ::: "memory")
+#define UNUSED(x) (void)(x)
 
 // is power of 2, non-zero
 static inline int is_pow2(unsigned v) {

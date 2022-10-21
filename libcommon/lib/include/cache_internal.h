@@ -1,26 +1,30 @@
 #ifndef _CACHE_INTERNAL_H_
 #define _CACHE_INTERNAL_H_
 #include "cache.h"
-#include <stdint.h>
+#include "stats_internal.h"
+#include <stdlib.h>
+
+#define CACHE_ID_OFFSET 2
+typedef union {
+    uint64_t ser;
+    struct {
+        uint64_t addr:56;
+        uint8_t cache;
+    };
+} virt_addr_t;
 
 static struct cache_internal {
     // pointers
-    // meta stay with cache lines
-    // | header | data ... |
     char * linebase;
+    // line meta
+    line_header * metabase;
     // linesizes
     unsigned linesize;
     unsigned size;
     unsigned slots;
+} caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 
-    uint64_t total_reqs;
-    uint64_t miss_reqs;
-
-    uint64_t total_awaits;
-    uint64_t early_awaits;
-} caches[OPT_NUM_CACHE];
-
-static int cache_cnt = 0;
+static int cache_cnt = CACHE_ID_OFFSET;
 
 static inline uint64_t cache_tag_mask(uint64_t linesize, intptr_t addr) {
     return ((uint64_t)addr & (linesize - 1));
@@ -30,47 +34,43 @@ static inline uint64_t cache_ofst_mask(uint64_t linesize, intptr_t addr) {
     return ((uint64_t)addr & ~(linesize - 1));
 }
 
-/* Cache Line Header Inlines */
-#define header_get_field(h_ptr,field) \
+/* Cache line header */
+#define header_get_field(h_ptr) \
     ((h_ptr)->field)
 #define header_set_flag(h_ptr,flag) \
-    ((h_ptr)->flags |= (flag))
+    ((h_ptr)->flags |= flag)
 #define header_clear_flag(h_ptr,flag) \
     ((h_ptr)->flags &= (~(flag)))
 #define header_check_flag(h_ptr,flag) \
     ((h_ptr)->flags & (flag))
 
-/* Token Inlines/Macros */
-#define token_get_header(t_ptr) \
-    ((struct line_header *)(uintptr_t)((t_ptr)->head_addr))
-#define token_get_data(t_ptr) \
-    ((void *) ((char *)(uintptr_t)((t_ptr)->head_addr)+sizeof(struct line_header)+(t_ptr->line_ofst)))
-#define token_set_flag(t_ptr,flag) \
-    (header_set_flag(token_get_header(t_ptr), flag))
-#define token_clear_flag(t_ptr,flag) \
-    (header_clear_flag(token_get_header(t_ptr), flag))
-#define token_check_flag(t_ptr,flag) \
-    (header_check_flag(token_get_header(t_ptr), flag))
-#define token_header_field(t_ptr,field) \
-    (header_get_field(token_get_header(t_ptr),field))
-
 /* Cache Inlines/Macros */
 #define cache_get_field(cache,field) \
     (caches[cache].field)
 #define cache_get_line(cache,slot) \
-    (caches[cache].linebase+(slot)*(sizeof(line_header)+cache_get_field(cache,linesize)))
-#define cache_get_header(cache,slot) \
-    ((struct line_header *)cache_get_line(cache,slot))
-#define cache_get_ldata(cache,slot) \
-    (cache_get_line(cache,slot)+sizeof(line_header))
+    (caches[cache].linebase+(slot)*cache_get_field(cache,linesize))
 #define cache_header_field(cache,slot,field) \
-    (header_get_field(cache_get_header(cache,slot),field))
+    ((caches[cache].metabase)[(slot)].field)
 
 #define cache_set_flag(cache,slot,flag) \
-    header_set_flag(cache_get_header(cache,slot), flag)
+    (cache_header_field(cache,slot,flags) |= flag)
 #define cache_clear_flag(cache,slot,flag) \
-    header_clear_flag(cache_get_header(cache,slot), flag)
+    (cache_header_field(cache,slot,flags) &= (~(flag)))
 #define cache_check_flag(cache,slot,flag) \
-    header_check_flag(cache_get_header(cache,slot), flag)
+    (cache_header_field(cache,slot,flags) & (flag))
+
+/* Token Inlines/Macros */
+#define token_header_field(tk,field) \
+    (cache_header_field((tk).cache,(tk).slot,field))
+#define token_header_ptr2int(tk) \
+    ((intptr_t) (caches[(tk).cache].metabase+((tk).slot)))
+#define token_get_data(tk) \
+    (cache_get_line((tk).cache,(tk).slot)+(tk).line_ofst)
+#define token_set_flag(tk,flag) \
+    (cache_set_flag((tk).cache,(tk).slot,flag))
+#define token_clear_flag(tk,flag) \
+    (cache_clear_flag((tk).cache,(tk).slot,flag))
+#define token_check_flag(tk,flag) \
+    (cache_check_flag((tk).cache,(tk).slot,flag))
 
 #endif

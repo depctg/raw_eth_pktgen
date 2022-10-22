@@ -191,10 +191,10 @@ static inline void cache_await(cache_token_t token) {
 }
 
 cache_token_t cache_request(uint64_t vaddr) {
-    dprintf("requesting vaddr: %lu", vaddr);
     virt_addr_t ser = {.ser = vaddr};
     uint64_t addr = ser.addr;
     cache_t cache = ser.cache;
+    dprintf("requesting from %d addr: %lu", cache, addr);
 
     if (unlikely(cache < CACHE_ID_OFFSET )) {
         // requesing local memory

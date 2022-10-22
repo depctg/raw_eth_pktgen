@@ -22,3 +22,6 @@ endif()
 
 add_executable(remote_server apps/remote_server.c)
 target_link_libraries(remote_server common)
+
+# copy objects to /home/wuklab/projects/pl-zijian/raw_eth_pktgen/from_mlir/libs
+

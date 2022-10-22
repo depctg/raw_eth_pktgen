@@ -16,15 +16,15 @@ A *as;
 cache_t _cache_ids[1];
 
 int main(int argc, char *argv[]) {
-  if (argc < 3) {
-    printf("Usage cache_array [url] [n]");
+  if (argc < 2) {
+    printf("Usage cache_array [n]");
   }
-  init(TRANS_TYPE_RC, argv[1]);
 
+  init_client();
   cache_init();
 
   _cache_ids[0] = cache_create(64, 16);
-  int n = atoi(argv[2]);
+  int n = atoi(argv[1]);
   printf("%d\n", n);
   as = (A *) _disagg_alloc(_cache_ids[0], sizeof(A) * n);
 

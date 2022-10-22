@@ -73,6 +73,10 @@ extern uint64_t recv_post_id;
 extern uint64_t recv_poll_id;
 
 int init(int type, const char * server_url);
+
+// oblivious init
+void init_client();
+void init_server();
 int steer();
 
 uint64_t send(void * buf, size_t size);

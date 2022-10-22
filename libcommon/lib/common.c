@@ -23,6 +23,24 @@ uint64_t send_poll_id = 0;
 uint64_t recv_post_id = 0;
 uint64_t recv_poll_id = 0;
 
+void init_client() {
+    char* url = getenv("SERVER_URL");
+    if (!url) {
+        printf("Set SERVER_URL env before running\n");
+        exit(1);
+    }
+    init(TRANS_TYPE_RC, url);
+}
+
+void init_server() {
+    char* url = getenv("SERVER_URL");
+    if (!url) {
+        printf("Set SERVER_URL env before running\n");
+        exit(1);
+    }
+    init(TRANS_TYPE_RC_SERVER, url);
+}
+
 int init(int type, const char * server_url) {
     struct ibv_pd *pd;
 

@@ -17,7 +17,7 @@
 #include "local_mr.h"
 
 /* request level */
-static struct cache_req * req_buf;
+static RPC_rr_t * req_buf;
 // head, nout not used
 // post work will block if is full
 static int head = 0;
@@ -77,15 +77,14 @@ static inline void cache_post(cache_token_t token, int type, uint64_t tag2) {
     head = (head + 1) & (CACHE_REQ_INFLIGHT - 1);
     nout ++;
 
-    req_buf[cur].tag = tag;
-    req_buf[cur].tag2 = tag2;
-    req_buf[cur].type = type;
-    req_buf[cur].cache_id = cache;
-
+    req_buf[cur].op_code = type;
+    req_buf[cur].cache_r_header.tag = tag;
+    req_buf[cur].cache_r_header.tag2 = tag2;
+    req_buf[cur].cache_r_header.cache_id = cache;
 
     /* Send Packets */
     s_sge[0].addr = (uint64_t)(req_buf + cur);
-    s_sge[0].length = sizeof(struct cache_req);
+    s_sge[0].length = sizeof(*req_buf);
     s_sge[0].lkey = smr->lkey;
 
     // sge 1 for accessing cache line

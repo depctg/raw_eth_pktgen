@@ -41,11 +41,11 @@ int main(int argc, char *argv[]) {
 	struct ibv_wc wc[MAX_POLL];
 
   unsigned int post_recvs = 0, poll_recvs = 0;
-	R_REQ_TYPE *reqs = (R_REQ_TYPE *) rbuf;
+	RPC_rrf_t *req_fulls = (RPC_rrf_t *) rbuf;
 
   // First, we post multiple requests
   for (int i = 0; i < inflights; i++)
-    recv_async(reqs + i, sizeof(R_REQ_TYPE));
+    recv_async(req_fulls + i, sizeof(*req_fulls));
   post_recvs += inflights;
 
 	while (1) {
@@ -60,13 +60,16 @@ int main(int argc, char *argv[]) {
 
         // process request
         // sleep here to change the latency
-        process_req(reqs + idx);
+        if (req_fulls[idx].rr.op_code <= CACHE_REQ_MEMMOVE) 
+          process_cache_req(req_fulls + idx);
+        else
+          process_call_req(req_fulls + idx);
       }
     }
     // fill the recv queue
     while (post_recvs < poll_recvs + inflights) {
       int idx = post_recvs % MAX_POLL;
-      recv_async(reqs + idx, sizeof(R_REQ_TYPE));
+      recv_async(req_fulls + idx, sizeof(*req_fulls));
       post_recvs ++;
     }
 	}

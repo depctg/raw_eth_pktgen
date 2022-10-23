@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "app.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -16,13 +17,6 @@ extern "C"
 /* Option: runtime check */
 // #define CACHE_CONFIG_RUNTIME_CHECK 
 
-// Requests
-struct cache_req {
-    uint64_t tag;
-    uint64_t tag2: 48;
-    uint8_t type; 
-    uint8_t cache_id; 
-};
 
 /* token interface */
 // DONE: hold pointer ?
@@ -52,18 +46,8 @@ typedef struct line_header {
     };
 } line_header;
 
-/* Cache REQ spec */
-enum {
-    CACHE_REQ_WRITE = 0,
-    CACHE_REQ_READ,
-    CACHE_REQ_EVICT,
-    CACHE_REQ_MEMCOPY,
-    CACHE_REQ_MEMMOVE
-};
 
-#define CACHE_REQ_META (8)
-#define CACHE_LINE_LIMIT (4 << 10)
-#define REQ_META_MASK (((uint64_t)1 << (64-CACHE_REQ_META)) - 1)
+#define CACHE_LINE_LIMIT PAYLOAD_LIMIT
 
 #define CACHE_REQ_INFLIGHT 64
 #ifndef MEMMAP_CACHE_REQ 

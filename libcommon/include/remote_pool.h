@@ -3,22 +3,19 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "cache.h"
+#include "app.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-typedef struct cache_req_full {
-  struct cache_req r;
-  char* data[CACHE_LINE_LIMIT];
-} R_REQ_TYPE;
-
 /* sbuf starting from base_sbuf is occupied by remote pools */
 void manager_init(void *base_sbuf);
 void add_pool(int pid, uint64_t linesize);
-void process_req(struct cache_req_full *req);
+
+void process_cache_req(RPC_rrf_t *req);
+void process_call_req(RPC_rrf_t *req);
 
 #ifdef __cplusplus
 }

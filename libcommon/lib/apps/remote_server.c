@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   }
 
 	// init remote server mem
-	manager_init(sbuf);
+	manager_init();
 
   // init caches
   while (1) {
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
         // process request
         // sleep here to change the latency
-        if (req_fulls[idx].rr.op_code <= CACHE_REQ_MEMMOVE) 
+        if (req_fulls[idx].rr.op_code < FUNC_CALL_BASE) 
           process_cache_req(req_fulls + idx);
         else
           process_call_req(req_fulls + idx);

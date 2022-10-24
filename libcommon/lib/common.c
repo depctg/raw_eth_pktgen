@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "packet.h"
+#include "app.h"
 
 /* global data */
 void *sbuf, *rbuf;
@@ -22,6 +23,7 @@ uint64_t send_post_id = 0;
 uint64_t send_poll_id = 0;
 uint64_t recv_post_id = 0;
 uint64_t recv_poll_id = 0;
+
 
 void init_client() {
     char* url = getenv("SERVER_URL");

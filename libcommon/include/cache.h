@@ -49,10 +49,6 @@ typedef struct line_header {
 
 #define CACHE_LINE_LIMIT PAYLOAD_LIMIT
 
-#define CACHE_REQ_INFLIGHT 64
-#ifndef MEMMAP_CACHE_REQ 
-    #define MEMMAP_CACHE_REQ (sbuf)
-#endif
 
 /* Cache spec */
 typedef unsigned cache_t;

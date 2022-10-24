@@ -8,31 +8,42 @@
 #include "cache_internal.h"
 #include "helper.h"
 
-#define POOL_MAX_BLOCK 2048
-const int block_size_bits = 21;
+typedef void (*rpc_service_t)(void *arg, void *ret);
+
+// populate by offload obj
+extern rpc_service_t *services;
+extern void init_rpc_services();
+
+#define POOL_MAX_BLOCK 4096
+const int block_size_bits = 22;
 const uint64_t BLOCK_SIZE = (1U << block_size_bits);
 
-struct remote_pool {
+
+static const int initial_blocks = 64;
+static uint64_t block_size_mask = BLOCK_SIZE - 1;
+
+static char *pool_base;
+static char *rpc_ret_base;
+static uint64_t free_start = 0;
+
+static struct remote_pool {
   uint64_t linesize;
   // bitmap of blocks in this pool
   // indicate maximum mem size of BLOCK_SIZE * POOL_MAX_BLOCK for each pool
   char *block_base[POOL_MAX_BLOCK]; 
-};
-
-static const int initial_blocks = 64;
-static uint64_t block_size_mask = BLOCK_SIZE - 1;
-static struct remote_pool pools[OPT_NUM_CACHE + CACHE_ID_OFFSET];
-static char *pool_base;
-static uint64_t free_start = 0;
+} pools[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 
 /* Remote pool layout 
 pool is a series of discontinuous blocks of the same size
 each pool has a mapping from pool-based virtual address to the actual block
 */
 
-void manager_init(void *base_sbuf) {
+void manager_init() {
   assert(is_pow2(BLOCK_SIZE) && BLOCK_SIZE > 0);
-  pool_base = base_sbuf;
+
+  rpc_ret_base = sbuf;
+  pool_base = (char *) sbuf + RPC_RET_LIMIT;
+  init_rpc_services();
 }
 
 #define get_pool_meta(id, field) \
@@ -75,6 +86,17 @@ static inline void *tag_mapping(uint64_t tag, uint8_t cache_id) {
   }
 }
 
+void * deref_disagg_vaddr(uint64_t dvaddr) {
+  virt_addr_t ser = {.ser = dvaddr};
+  uint64_t addr = ser.addr;
+  cache_t cache = ser.cache;
+  dprintf("remotely access %d addr: %lu", cache, addr);
+
+  uint64_t cache_line_size = get_pool_meta(cache, linesize);
+  char *line_base = tag_mapping(addr, cache);
+  return line_base + (addr & (cache_line_size - 1));
+}
+
 // inline?
 void process_cache_req(RPC_rrf_t *req_full) {
   cache_req_t req = req_full->rr.cache_r_header;
@@ -110,5 +132,12 @@ void process_cache_req(RPC_rrf_t *req_full) {
 }
 
 void process_call_req(RPC_rrf_t *req) {
-  UNUSED(req);
+  int fid = req->rr.call_r_header.procedure_id;
+  dprintf("Calling %d service", fid);
+
+  void *arg = req->rr.call_r_header.arg_size ? req->data_seg_base : NULL;
+  void *ret = req->rr.call_r_header.ret_size ? rpc_ret_base : NULL;
+  services[fid](arg, ret);
+  if (req->rr.call_r_header.ret_size)
+    send_async(rpc_ret_base, req->rr.call_r_header.ret_size);
 }

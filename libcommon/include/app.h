@@ -18,9 +18,10 @@ enum {
   CACHE_REQ_READ,
   CACHE_REQ_EVICT,
   CACHE_REQ_MEMCOPY,
-  CACHE_REQ_MEMMOVE
+  CACHE_REQ_MEMMOVE,
 
-  // function call code
+  // Always push at the last one
+  FUNC_CALL_BASE
 };
 
 typedef struct cache_req {
@@ -33,7 +34,8 @@ typedef struct cache_req {
 typedef struct call_req {
   uint64_t procedure_id;
   uint32_t arg_size;
-  uint32_t unued;
+  uint16_t ret_size;
+  uint16_t unued;
 } call_req_t;
 
 typedef struct RemoteRequest {

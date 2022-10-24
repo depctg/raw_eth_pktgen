@@ -15,138 +15,22 @@
 #include "stats_internal.h"
 #include "stack_like.h"
 #include "local_mr.h"
+#include "exchanger.h"
 
-/* request level */
-static RPC_rr_t * req_buf;
-// head, nout not used
-// post work will block if is full
-static int head = 0;
-static int nout = 0;
+
+static char *_start_base = NULL;
 
 void cache_init() {
-  req_buf = MEMMAP_CACHE_REQ;
-
-  // init space for local memory interface
-  stack_init();
-  local_mr_init();
+    // init space for local memory interface
+    _start_base = MEMMAP_CACHE_BASE;
+    init_exchanger();
+    stack_init();
+    local_mr_init();
 }
-
-static inline void _cache_poll() {
-    static struct ibv_wc wc[MAX_POLL];
-
-    int n = ibv_poll_cq(cq, MAX_POLL, wc);
-    for (int i = 0; i < n; ++ i) {
-        if (wc[i].status != IBV_WC_SUCCESS) {
-            printf("WR failed\n");
-            exit(1);
-        }
-        if (wc[i].opcode == IBV_WC_RECV) {
-            line_header *h = (line_header *) wc[i].wr_id;
-            dprintf("poll cq tag %lu", h->tag);
-            // for SGE write, no need to copy around
-            h->status = LINE_READY;
-            // clear statics?
-        } else if (wc[i].opcode == IBV_WC_SEND) {
-            nout --;
-            // fdprintf("sout now %d", now);
-        } 
-    }
-}
-
-// TODO: multiple lines
-// TODO: write notification by sge
-// TODO: inline this funciton?
-static inline void cache_post(cache_token_t token, int type, uint64_t tag2) {
-    /* prepare work packet */
-    struct ibv_sge s_sge[2], r_sge;
-    struct ibv_send_wr swr, *bad_wr;
-    struct ibv_recv_wr rwr, *bad_rwr;
-
-    /* populate work packet */
-    cache_t cache = token.cache;
-    uint64_t tag = token.tag;
-    unsigned slot = token.slot;
-
-    dprintf("cache %d, token slot %u, tag %lu, tag2 %lu, op %d", cache, slot, tag, tag2, type);
-    while (nout >= CACHE_REQ_INFLIGHT) {
-        _cache_poll();
-    }
-
-    /* Fill the buf */
-    unsigned cur = head;
-    head = (head + 1) & (CACHE_REQ_INFLIGHT - 1);
-    nout ++;
-
-    req_buf[cur].op_code = type;
-    req_buf[cur].cache_r_header.tag = tag;
-    req_buf[cur].cache_r_header.tag2 = tag2;
-    req_buf[cur].cache_r_header.cache_id = cache;
-
-    /* Send Packets */
-    s_sge[0].addr = (uint64_t)(req_buf + cur);
-    s_sge[0].length = sizeof(*req_buf);
-    s_sge[0].lkey = smr->lkey;
-
-    // sge 1 for accessing cache line
-    s_sge[1].addr = (uint64_t)(cache_get_line(cache,slot));
-    s_sge[1].length = cache_get_field(cache,linesize);
-    s_sge[1].lkey = rmr->lkey;
-
-    swr.num_sge = type == CACHE_REQ_READ ? 1 : 2;
-    swr.sg_list = &s_sge[0];
-    swr.opcode = IBV_WR_SEND;
-    // wr_id is the address of cache line header 
-    // where the received data is expected to be placed at
-    // only useful when the request is expecting a reply
-    swr.wr_id = 0;
-    swr.next = NULL;
-
-    swr.send_flags = 0;
-#if SEND_CMPL
-    swr.send_flags |= IBV_SEND_SIGNALED;
-#endif
-#if SEND_INLINE
-    if (cache_get_field(cache,linesize) < 512)
-        swr.send_flags |= IBV_SEND_INLINE;
-#endif
-    int ret = ibv_post_send(qp, &swr, &bad_wr);
-
-#ifndef NDEBUG
-    if (unlikely(ret) != 0) {
-        fprintf(stderr, "failed in post send\n");
-        exit(1);
-    }
-#endif
-
-    // need reply?
-    if (type == CACHE_REQ_READ || type == CACHE_REQ_EVICT) {
-        r_sge.addr = (uint64_t) (cache_get_line(cache,slot));
-        r_sge.length = cache_get_field(cache,linesize);
-        r_sge.lkey = rmr->lkey;
-
-        rwr.num_sge = 1;
-        rwr.wr_id = token_header_ptr2int(token);
-        rwr.sg_list = &r_sge;
-        rwr.next = NULL;
-
-        ret = ibv_post_recv(qp, &rwr, &bad_rwr);
-#ifndef NDEBUG
-        if (unlikely(ret) != 0) {
-            fprintf(stderr, "failed in post send\n");
-            exit(1);
-        }
-#endif
-    }
-}
-
 
 cache_t cache_create(unsigned size, unsigned linesize) {
     // user should not manage starting address of 
     // the cache line base
-    static char *_start_base = NULL;
-    if (!_start_base)
-        _start_base = rbuf;
-
     assert(is_pow2(size));
     assert(is_pow2(linesize));
     assert(linesize <= CACHE_LINE_LIMIT);
@@ -178,14 +62,14 @@ static inline void cache_await(cache_token_t token) {
 	}
 
     // clear inque work complete
-    _cache_poll();
+    _cq_poll();
 	if (likely(token_header_field(token,status) != LINE_SYNC)) {
 		return;
 	}
     ldf_inc(token.cache);
 
 	do {
-        _cache_poll();
+        _cq_poll();
 	} while (token_header_field(token,status) == LINE_SYNC);
 }
 

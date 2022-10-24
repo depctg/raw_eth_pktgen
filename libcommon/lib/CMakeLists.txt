@@ -3,6 +3,7 @@ add_library(common OBJECT
     net.c
     packet.c
     remote_pool.c
+    offload.c
     $<IF:$<BOOL:${COMMON_IMPL_SHM}>, common_shm.c, common.c>
     )
 
@@ -20,7 +21,7 @@ if(COMMON_IMPL_SHM)
     target_link_libraries(${COMMON_EXE_SHM_EXECUTOR} common)
 endif()
 
-add_executable(remote_server apps/remote_server.c)
+add_executable(remote_server apps/remote_server.c apps/offloads/foo.c)
 target_link_libraries(remote_server common)
 
 # copy objects to /home/wuklab/projects/pl-zijian/raw_eth_pktgen/from_mlir/libs

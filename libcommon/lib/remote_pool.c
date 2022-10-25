@@ -18,8 +18,7 @@ static unsigned linesize_cfgs[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 static char *rpc_ret_base;
 
 static char *baseva_shared_addrspace;
-static uint64_t local_remote_delimiter = 2ULL<<48;
-static char *baseva_ralloc_addrspace;
+uint64_t local_remote_delimiter = 2ULL<<48;
 
 /* Remote pool layout 
 pool is a series of discontinuous blocks of the same size
@@ -27,7 +26,6 @@ each pool has a mapping from pool-based virtual address to the actual block
 */
 
 void manager_init() {
-  assert(is_pow2(BLOCK_SIZE) && BLOCK_SIZE > 0);
 
   rpc_ret_base = sbuf;
   baseva_shared_addrspace = (char *) sbuf + RPC_RET_LIMIT;
@@ -57,13 +55,16 @@ void manager_init() {
   }
   fclose(cache_cfg);
 
+  // 
+
+  // register rpc services
   init_rpc_services();
 }
 
 void add_pool(int pid, unsigned line_size) {
   assert(pid < OPT_NUM_CACHE + CACHE_ID_OFFSET);
-  assert(linesize <= PAYLOAD_LIMIT);
-  assert(is_pow2(linesize) && linesize > 0);
+  assert(line_size <= PAYLOAD_LIMIT);
+  assert(is_pow2(line_size) && line_size > 0);
 
   linesize_cfgs[pid] = line_size;
 }
@@ -72,7 +73,7 @@ void add_pool(int pid, unsigned line_size) {
 // map tag to the corresponding start address of this line
 static inline void *addr_mapping(uint64_t addr) {
   if (addr >= local_remote_delimiter)
-    return baseva_ralloc_addrspace + (addr - local_remote_delimiter);
+    return (void *)(addr - local_remote_delimiter);
   else
     return baseva_shared_addrspace + addr;
 }
@@ -81,7 +82,7 @@ void * deref_disagg_vaddr(uint64_t cid_dvaddr) {
   virt_addr_t ser = {.ser = cid_dvaddr};
   uint64_t dvaddr = ser.addr;
   cache_t cache = ser.cache;
-  dprintf("remotely access %d addr: %lu", cache, addr);
+  dprintf("remotely access %d addr: %lu", cache, dvaddr);
   UNUSED(cache);
   return addr_mapping(dvaddr);
 }

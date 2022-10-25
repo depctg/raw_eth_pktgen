@@ -29,6 +29,12 @@ A *expand(A* node, int v) {
   return new_node;
 }
 
+A *offloaded_expand(A* node, int v) {
+  * (A **) offload_arg_buf = node;
+  * (int *) ((A **) offload_arg_buf + 1) = v;
+  return * (A**) call_offloaded_service(1, sizeof(A*) + sizeof(int), sizeof(A*));
+}
+
 void visit(int n) {
   A *head = glob[n];
   printf("struct chasing from %d\n", n);
@@ -61,15 +67,17 @@ int main(int argc, char **argv) {
   int n = atoi(argv[2]);
 
   glob = malloc(sizeof(A*) * l);
-  A *prev = _disagg_stack_alloc(sizeof(*prev));
+  // A *prev = _disagg_stack_alloc(sizeof(*prev));
+  A *prev = _disagg_alloc(2, sizeof(*prev));
   for (int i = 0; i < l; ++i) {
-    A *an = expand(prev, i);
+    // A *an = expand(prev, i);
+    A *an = offloaded_expand(prev, i);
     glob[i] = an;
     prev = an;
   }
 
   // visit(n);
-  visit_offloadable(glob[n]);
-  // offloaded_visit_offloadable(glob[n]);
+  // visit_offloadable(glob[n]);
+  offloaded_visit_offloadable(glob[n]);
   return 0;
 }

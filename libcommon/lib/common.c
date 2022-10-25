@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "common.h"
 #include "packet.h"
@@ -184,8 +185,10 @@ int init(int type, const char * server_url) {
 
     /* 9. Register MR */
     const size_t align = 1024 * 4;
-    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
-    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
+    // sbuf = aligned_alloc(align, SEND_BUF_SIZE);
+    // rbuf = aligned_alloc(align, RECV_BUF_SIZE);
+    sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
     if (!sbuf || !rbuf) {
         fprintf(stderr, "Coudln't allocate memory\n");

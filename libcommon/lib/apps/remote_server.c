@@ -10,32 +10,8 @@
 
 int main(int argc, char *argv[]) {
   init_server();
-
-  char *cfg_path = (getenv("SERVER_CFG"));
-  if (!cfg_path) {
-    printf("Set SERVER_CFG env to path to the configuration file before running\n");
-    exit(1);
-  }
-
-  FILE *server_cfg = fopen(cfg_path, "r");
-  if (!server_cfg) {
-    printf("Cannot open configuration file %s\n", argv[1]);
-    exit(1);
-  }
-
 	// init remote server mem
 	manager_init();
-
-  // init caches
-  while (1) {
-    int cid; 
-    uint64_t linesize;
-    if (fscanf(server_cfg, "%d %lu\n", &cid, &linesize) == EOF) break;
-    linesize = align_with_pow2(linesize);
-    printf("Regist cache %d, line size %lu bytes\n", cid, linesize);
-    add_pool(cid, linesize);
-  }
-  fclose(server_cfg);
 
   const int inflights = MAX_POLL / 2;
 	struct ibv_wc wc[MAX_POLL];

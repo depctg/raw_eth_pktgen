@@ -19,8 +19,8 @@ static struct cache_internal {
     // line meta
     line_header * metabase;
     // linesizes
+    uint64_t size;
     unsigned linesize;
-    unsigned size;
     unsigned slots;
 } caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 

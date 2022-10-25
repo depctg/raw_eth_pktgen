@@ -83,10 +83,6 @@ enum line_status {
 // init, should be called only after common init
 void cache_init();
 
-// create
-// need to init device first
-cache_t cache_create(unsigned size, unsigned linesize);
-
 // Access Level, token interface
 void cache_acquire(intptr_t vaddr, size_t nitems, size_t size, cache_token_t *tokens);
 void cache_re_acquire(cache_token_t *token);

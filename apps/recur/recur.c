@@ -57,7 +57,6 @@ void offloaded_visit_offloadable(A *head) {
 int main(int argc, char **argv) {
   init_client();
   cache_init();
-  cache_create(64, 16);
   int l = atoi(argv[1]);
   int n = atoi(argv[2]);
 
@@ -70,7 +69,7 @@ int main(int argc, char **argv) {
   }
 
   // visit(n);
-  // visit_offloadable(glob[n]);
-  offloaded_visit_offloadable(glob[n]);
+  visit_offloadable(glob[n]);
+  // offloaded_visit_offloadable(glob[n]);
   return 0;
 }

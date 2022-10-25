@@ -20,15 +20,12 @@
 
 static char *_start_base = NULL;
 
-void cache_init() {
-    // init space for local memory interface
-    _start_base = MEMMAP_CACHE_BASE;
-    init_exchanger();
-    stack_init();
-    local_mr_init();
-}
+// starting address of each cache
+// currently used as free pointer base
+static uint64_t _addr_space_base[OPT_NUM_CACHE + CACHE_ID_OFFSET] = { 0 };
 
-cache_t cache_create(unsigned size, unsigned linesize) {
+cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
+    static uint64_t _start_addr = 16;
     // user should not manage starting address of 
     // the cache line base
     assert(is_pow2(size));
@@ -52,8 +49,46 @@ cache_t cache_create(unsigned size, unsigned linesize) {
     }
 
     _start_base += size;
+    _addr_space_base[cache_cnt] = _start_addr;
+    _start_addr += r_mem_limit;
     return cache_cnt++;
 }
+
+void cache_init() {
+    // init space for local memory interface
+    _start_base = MEMMAP_CACHE_BASE;
+    init_exchanger();
+    stack_init();
+    local_mr_init();
+
+    // set cache configurations
+    char *cfg_path = (getenv("CACHE_CFG"));
+    if (!cfg_path) {
+        printf("Set CACHE_CFG env to path to the configuration file\n");
+        exit(1);
+    }
+    FILE *cache_cfg = fopen(cfg_path, "r");
+    if (!cache_cfg) {
+        printf("Cannot open configuration file %s\n", cfg_path);
+        exit(1);
+    }
+
+    fscanf(cache_cfg, "%*[^\n]\n");
+    while (1) {
+        int cid; 
+        uint64_t cache_size;
+        uint64_t remote_usage_limit;
+        unsigned line_size;
+        if (fscanf(cache_cfg, "%d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
+        cache_size = align_with_pow2(cache_size);
+        line_size = align_with_pow2(line_size);
+        cache_create(cache_size, line_size, remote_usage_limit);
+        printf("Regist cache %d, size %lu, line size %lu bytes\n", cid, cache_size, line_size);
+    }
+    fclose(cache_cfg);
+}
+
+
 
 static inline void cache_await(cache_token_t token) {
     dprintf("Await token slot %u, status %d", token_header_field(token,slot), token_header_field(token,status));
@@ -289,14 +324,12 @@ void cache_release(cache_token_t *tokens, int cnt) {
 //     cache_post(token,CACHE_REQ_EVICT,tag2);
 // }
 
-// Assert cache != 0 ?
+// TODO: 
+//  1. Assert cache != 0 ?
+//  2. Assert boundary crossing
 void * _disagg_alloc(cache_t cache, size_t size) {
-    // round to next power of 2
-    // TODO: align according to cache line size
-    // dprintf("allocating %lu from %u", size, cache);
-    static uint64_t start_free = 16;
-    intptr_t addr = start_free;
-    start_free += size;
+    intptr_t addr = _addr_space_base[cache];
+    _addr_space_base[cache] += size;
     virt_addr_t vaddr = { .cache = cache, .addr = addr };
     return (void *) vaddr.ser;
 }

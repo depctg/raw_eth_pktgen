@@ -12,8 +12,13 @@ typedef struct A {
   int y;
 } A;
 
+typedef struct B {
+  int x;
+  int y;
+} B;
+
 A *as;
-cache_t _cache_ids[1];
+B *bs;
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -23,10 +28,11 @@ int main(int argc, char *argv[]) {
   init_client();
   cache_init();
 
-  _cache_ids[0] = cache_create(64, 16);
   int n = atoi(argv[1]);
   printf("%d\n", n);
-  as = (A *) _disagg_alloc(_cache_ids[0], sizeof(A) * n);
+
+  as = (A *) _disagg_alloc(2, sizeof(A) * n);
+  bs = (B *) _disagg_alloc(3, sizeof(B) * n);
 
   for (int i = 0; i < n; i++) {
     cache_token_t token = cache_request((intptr_t) (as + i));
@@ -34,12 +40,22 @@ int main(int argc, char *argv[]) {
     // printf("%p\n", ai);
     ai->x = i;
     ai->y = i * i;
+
+    token = cache_request((intptr_t) (bs + i));
+    B *bi = (B *) cache_access_mut(&token);
+    // printf("%p\n", ai);
+    bi->x = i;
+    bi->y = i + i;
   }
 
   for (int i = 0; i < n; i++) {
     cache_token_t token = cache_request((intptr_t) (as + i));
     A *ai = (A *) cache_access(&token);
     printf("%d: %d = %d * %d\n",i, ai->y, ai->x, ai->x);
+
+    token = cache_request((intptr_t) (bs + i));
+    B *bi = (B *) cache_access(&token);
+    printf("%d: %d = %d + %d\n",i, bi->y, bi->x, bi->x);
   }
 
 	return 0;

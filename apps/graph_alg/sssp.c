@@ -52,7 +52,6 @@ int main(int argc, char const *argv[])
     /* disagg env init */
   init_client();
   cache_init();
-  cache_create((uint64_t) 4 << 20, 64 * sizeof(GraphNode));
 
   int total_v = 0;
   int redundant_data = atoi(argv[2]);

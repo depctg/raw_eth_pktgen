@@ -6,7 +6,8 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define barrier() asm volatile("" ::: "memory")
 #define UNUSED(x) (void)(x)
 

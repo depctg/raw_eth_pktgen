@@ -53,7 +53,7 @@ typedef struct line_header {
 /* Cache spec */
 typedef unsigned cache_t;
 // TODO: Constant Propogation?
-#define OPT_NUM_CACHE 8
+#define OPT_NUM_CACHE 16
 
 #ifndef __cache_access_handler 
     #define __cache_access_handler _cache_access_groupassoc
@@ -92,7 +92,8 @@ void cache_release(cache_token_t *tokens, int cnt);
 // TODO: fixed base?
 cache_token_t cache_request(uint64_t vaddr);
 // TODO: inline ?
-void cache_prefetch(intptr_t vaddr);
+cache_token_t cache_prefetch(uint64_t vaddr);
+uint64_t redirect(uint64_t vaddr, unsigned cid);
 
 // void cache_sync(cache_token_t *token);
 // void cache_await(cache_token_t *token);
@@ -105,7 +106,8 @@ void * cache_access_nrtc_mut(cache_token_t *token);
 
 // if version missmatch, request new one
 void cache_access_check(cache_token_t *token);
-// void cache_evict(cache_token_t *token, intptr_t addr);
+// will invalidate the entry
+void cache_flush(unsigned cache, uint64_t vaddr);
 // void cache_poll(void *arg);
 
 void * _disagg_alloc(cache_t cache, size_t size);

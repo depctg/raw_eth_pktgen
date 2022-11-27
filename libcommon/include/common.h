@@ -67,26 +67,13 @@ extern struct ibv_context *context;
 extern uint64_t post_id;
 extern uint64_t poll_id;
 
-extern uint64_t send_post_id;
-extern uint64_t send_poll_id;
-extern uint64_t recv_post_id;
-extern uint64_t recv_poll_id;
+#define ARG_BUF_LIMIT 4096 // Bytes
+#define RPC_RET_LIMIT 512 // Bytes
+#define SGE_ADDR_LIMIT 512 // num
 
-#define ARG_BUF_LIMIT 4096
-#define RPC_RET_LIMIT 512
-
-#ifndef MEMMAP_CLIENT_REQ 
-    #define MEMMAP_CLIENT_REQ (sbuf)
-#endif
-
-#ifndef MEMMAP_CLIENT_RPC_RET
-    #define MEMMAP_CLIENT_RPC_RET (rbuf)
-#endif
-
-#ifndef MEMMAP_CACHE_BASE
-    #define MEMMAP_CACHE_BASE ((char *)rbuf + RPC_RET_LIMIT)
-#endif
-
+// local address layout
+// sbuf: rpc_arg | sge_addr | req_header
+// rbug: rpc_ret | caches
 
 int init(int type, const char * server_url);
 

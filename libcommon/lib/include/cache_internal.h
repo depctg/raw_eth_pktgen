@@ -2,18 +2,12 @@
 #define _CACHE_INTERNAL_H_
 #include "cache.h"
 #include "stats_internal.h"
+#include "app.h"
 #include <stdlib.h>
 
 #define CACHE_ID_OFFSET 2
-typedef union {
-    uint64_t ser;
-    struct {
-        uint64_t addr:56;
-        uint8_t cache;
-    };
-} virt_addr_t;
 
-static struct cache_internal {
+struct cache_internal {
     // pointers
     char * linebase;
     // line meta
@@ -22,7 +16,9 @@ static struct cache_internal {
     uint64_t size;
     unsigned linesize;
     unsigned slots;
-} caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
+};
+
+extern struct cache_internal caches[];
 
 static int cache_cnt = CACHE_ID_OFFSET;
 

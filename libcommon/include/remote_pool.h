@@ -16,6 +16,7 @@ void manager_init();
 void add_pool(int pid, unsigned linesize);
 
 void process_cache_req(RPC_rrf_t *req);
+void process_channel_req(RPC_rrf_t *req_full);
 void process_call_req(RPC_rrf_t *req);
 
 void * deref_disagg_vaddr(uint64_t dvaddr);

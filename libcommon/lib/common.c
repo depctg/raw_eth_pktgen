@@ -20,12 +20,6 @@ struct ibv_context *context = NULL;
 uint64_t post_id = 0;
 uint64_t poll_id = 0;
 
-uint64_t send_post_id = 0;
-uint64_t send_poll_id = 0;
-uint64_t recv_post_id = 0;
-uint64_t recv_poll_id = 0;
-
-
 void init_client() {
     char* url = getenv("SERVER_URL");
     if (!url) {
@@ -185,10 +179,10 @@ int init(int type, const char * server_url) {
 
     /* 9. Register MR */
     const size_t align = 1024 * 4;
-    // sbuf = aligned_alloc(align, SEND_BUF_SIZE);
-    // rbuf = aligned_alloc(align, RECV_BUF_SIZE);
-    sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
+    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
+    // sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    // rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
     if (!sbuf || !rbuf) {
         fprintf(stderr, "Coudln't allocate memory\n");
@@ -331,7 +325,7 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
 
     /* inline ? */
     wr.send_flags = 0;
-    wr.wr_id = ++send_post_id;
+    wr.wr_id = ++post_id;
 
 #if SEND_INLINE
     size_t size = 0;
@@ -351,8 +345,7 @@ static inline uint64_t _send_async_impl(struct ibv_sge *sge, int num_sge) {
         fprintf(stderr, "failed in post send %d:%s\n", ret, strerror(errno));
         exit(1);
     }
-    post_id ++;
-    return send_post_id;
+    return post_id;
 }
 
 uint64_t send_async(void *buf, size_t size) {
@@ -458,14 +451,13 @@ uint64_t recv_async(void * buf, size_t size) {
     wr.sg_list = &sge;
     wr.next = NULL;
 
-    wr.wr_id = ++recv_post_id;
+    wr.wr_id = ++post_id;
     ret = ibv_post_recv(qp, &wr, &bad_wr);
     if (unlikely(ret) != 0) {
         fprintf(stderr, "failed in post recv\n");
         exit(1);
     }
-    post_id ++;
-    return recv_post_id;
+    return post_id;
 }
 
 int poll(uint64_t wr_id) {

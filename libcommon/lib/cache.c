@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdatomic.h>
 #include <assert.h>
 #include <errno.h>
 
@@ -17,8 +16,8 @@
 #include "local_mr.h"
 #include "exchanger.h"
 
-
 static char *_start_base = NULL;
+struct cache_internal caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 
 // starting address of each cache
 // currently used as free pointer base
@@ -56,10 +55,10 @@ cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
 
 void cache_init() {
     // init space for local memory interface
-    _start_base = MEMMAP_CACHE_BASE;
-    init_exchanger();
+    _start_base = (char *)rbuf + RPC_RET_LIMIT;
     stack_init();
     local_mr_init();
+    init_exchanger();
 
     // set cache configurations
     char *cfg_path = (getenv("CACHE_CFG"));
@@ -73,19 +72,27 @@ void cache_init() {
         exit(1);
     }
 
-    fscanf(cache_cfg, "%*[^\n]\n");
     while (1) {
         int cid; 
         uint64_t cache_size;
         uint64_t remote_usage_limit;
         unsigned line_size;
-        if (fscanf(cache_cfg, "%d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
+
+        int h = fgetc(cache_cfg);
+        if (h == '#') {
+            fscanf(cache_cfg, "%*[^\n]\n");
+            continue;
+        } else if (h == EOF)
+            break;
+
+        if (fscanf(cache_cfg, " %d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
         cache_size = align_with_pow2(cache_size);
         line_size = align_with_pow2(line_size);
         cache_create(cache_size, line_size, remote_usage_limit);
-        printf("Regist cache %d, size %lu, line size %lu bytes\n", cid, cache_size, line_size);
+        printf("Regist cache %d, size %lu, line size %u bytes\n", cid, cache_size, line_size);
     }
     fclose(cache_cfg);
+    init_cache_stats();
 }
 
 
@@ -106,6 +113,12 @@ static inline void cache_await(cache_token_t token) {
 	do {
         _cq_poll();
 	} while (token_header_field(token,status) == LINE_SYNC);
+}
+
+uint64_t redirect(uint64_t vaddr, unsigned cid) {
+    virt_addr_t ser = {.ser = vaddr};
+    ser.cache = cid;
+    return ser.ser;
 }
 
 cache_token_t cache_request(uint64_t vaddr) {
@@ -138,12 +151,8 @@ cache_token_t cache_request(uint64_t vaddr) {
     add_trace(token, EVNT_REQ);
 
     dprintf("translate addr %lu tag %lu cache %d, slot %u old tag %lu", addr, tag, cache, token.slot, token_header_field(token, tag));
-    if (token_header_field(token, status) == LINE_IDLE) {
-        token_header_field(token,tag) = tag;
-        token_header_field(token,status) = LINE_READY;
-        miss_inc(cache, tag/cache_get_field(cache,linesize));
-    }
-    if (token_header_field(token,tag) == tag) {
+
+    if (token_header_field(token,tag) == tag && token_header_field(token,status) != LINE_IDLE) {
         dprintf("-> tag match, do nothing");
     } else {
         miss_inc(cache, tag/cache_get_field(cache,linesize));
@@ -157,7 +166,9 @@ cache_token_t cache_request(uint64_t vaddr) {
         // wait prev req ?
         if (token_header_field(token,status) != LINE_IDLE) cache_await(token);
 
-        if (token_check_flag(token,LINE_FLAGS_DIRTY)) {
+        if (token_header_field(token,status) != LINE_IDLE &&
+            token_header_field(token,tag) != tag &&
+            token_check_flag(token,LINE_FLAGS_DIRTY)) {
             // eviction
             uint64_t tag2 = token_header_field(token,tag);
             token_header_field(token,tag) = tag;
@@ -181,17 +192,18 @@ cache_token_t cache_request(uint64_t vaddr) {
     return token;
 }
 
-void cache_prefetch(intptr_t vaddr) {
+cache_token_t cache_prefetch(uint64_t vaddr) {
 #ifdef CACHE_LOG_PREF
     virt_addr_t ser = {.ser = vaddr};
     uint64_t addr = ser.addr;
     cache_t cache = ser.cache;
     pref_inc(cache);
 #endif
-    cache_request(vaddr);
+    cache_token_t token = cache_request(vaddr);
 #ifdef CACHE_LOG_PREF
     token_set_flag(token,LINE_FLAGS_PREFED);
 #endif
+    return token;
 }
 
 // 0, 1 are local
@@ -227,9 +239,8 @@ void * cache_access(cache_token_t *token) {
 }
 
 void * cache_access_mut(cache_token_t *token) {
-    if (token->cache == 0) {
-        return stack_access(token->tag);
-    }
+    void *dat = placement_check(*token);
+    if (dat) return dat;
     access_inc(token->cache);
     cache_access_check(token);
     cache_await(*token);
@@ -242,9 +253,8 @@ void * cache_access_mut(cache_token_t *token) {
 }
 
 void * cache_access_nrtc(cache_token_t *token) {
-    if (token->cache == 0) {
-        return stack_access(token->tag);
-    }
+    void *dat = placement_check(*token);
+    if (dat) return dat;
     access_inc(token->cache);
     cache_await(*token);
     __cache_access_handler(*token, 0);
@@ -256,9 +266,8 @@ void * cache_access_nrtc(cache_token_t *token) {
 }
 
 void * cache_access_nrtc_mut(cache_token_t *token) {
-    if (token->cache == 0) {
-        return stack_access(token->tag);
-    }
+    void *dat = placement_check(*token);
+    if (dat) return dat;
     access_inc(token->cache);
     cache_await(*token);
     __cache_access_handler(*token, 1);
@@ -312,6 +321,31 @@ void cache_release(cache_token_t *tokens, int cnt) {
             token_header_field(tokens[i],acq_count) --;
             add_trace(tokens[i], EVNT_RLS);
         }
+    }
+}
+
+void cache_flush(unsigned cache, uint64_t vaddr) {
+    uint64_t tag = cache_ofst_mask(cache_get_field(cache,linesize), vaddr);
+    cache_token_t token = __cache_select(cache, tag);
+    token.tag = tag;
+    token.cache = cache;
+    dprintf("Flushing tag %lu, token slot %u tag %lu" ,
+        tag, token.slot, token_header_field(token,tag)
+    );
+    if (token_header_field(token,tag) != tag || token_header_field(token,status) == LINE_IDLE) {
+        // target not in cache
+        dprintf("Flusing target not in cache");
+        return;
+    }
+    cache_await(token);
+    if (token_header_field(token,status) != LINE_IDLE &&
+        token_check_flag(token,LINE_FLAGS_DIRTY)) {
+        // invalidate entry
+        token_header_field(token,tag) = 0; 
+        token_header_field(token,status) = LINE_SYNC;
+        token_header_field(token,weight) = 0;
+        token_header_field(token,flags) = 0;
+        cache_post(token, CACHE_REQ_FLUSH, tag);
     }
 }
 
@@ -399,8 +433,10 @@ void get_cache_logs() {
 #ifdef CACHE_LOG_MISS
     uint64_t total_miss = csts[i].num_miss;
     printf("total miss: %lu\n", total_miss);
+#ifdef CACHE_CLASS_MISS
     printf("compulsory miss: %lu %f\n", csts[i].miss_compulsory, (double) csts[i].miss_compulsory / total_miss);
     printf("conflict miss: %lu %f\n", csts[i].miss_conflict, (double) csts[i].miss_conflict / total_miss);
+#endif
 #endif
 #ifdef CACHE_LOG_PREF
     printf("total pref: %lu\n", csts[i].num_pref);

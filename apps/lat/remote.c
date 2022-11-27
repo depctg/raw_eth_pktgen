@@ -7,17 +7,18 @@
 #include "remote_pool.h"
 #include "cache.h"
 #include "helper.h"
+#include "lat_app.h"
+
 
 int main(int argc, char *argv[]) {
   init_server();
-	// init remote server mem
-	manager_init();
 
   const int inflights = MAX_POLL / 2;
 	struct ibv_wc wc[MAX_POLL];
 
   unsigned int post_recvs = 0, poll_recvs = 0;
-	RPC_rrf_t *req_fulls = (RPC_rrf_t *) rbuf;
+	payload_t* req_fulls = (payload_t*) rbuf;
+  payload_t* respond = (payload_t*) sbuf;
 
   // First, we post multiple requests
   for (int i = 0; i < inflights; i++)
@@ -33,21 +34,17 @@ int main(int argc, char *argv[]) {
       // not a timeout
       if (wc[i].status == IBV_WC_SUCCESS && wc[i].opcode == IBV_WC_RECV) {
         int idx = (poll_recvs++) % MAX_POLL;
-
+        // dprintf("%d", req_fulls[idx].buf[0]);
         // process request
         // sleep here to change the latency
-        if (req_fulls[idx].rr.op_code < SIDE_READ) 
-          process_cache_req(req_fulls + idx);
-        else if (req_fulls[idx].rr.op_code < FUNC_CALL_BASE)
-          process_channel_req(req_fulls + idx);
-        else
-          process_call_req(req_fulls + idx);
+        respond[idx].buf[0] = req_fulls[idx].buf[0];
+        send_async(respond + idx, sizeof(payload_t));
       }
     }
     // fill the recv queue
     while (post_recvs < poll_recvs + inflights) {
       int idx = post_recvs % MAX_POLL;
-      recv_async(req_fulls + idx, sizeof(*req_fulls));
+      recv_async(req_fulls + idx, sizeof(payload_t));
       post_recvs ++;
     }
 	}

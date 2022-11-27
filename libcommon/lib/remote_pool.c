@@ -7,6 +7,7 @@
 #include "cache.h"
 #include "cache_internal.h"
 #include "helper.h"
+#include "channel_internal.h"
 
 typedef void (*rpc_service_t)(void *arg, void *ret);
 
@@ -41,24 +42,32 @@ void manager_init() {
     printf("Cannot open configuration file %s\n", cfg_path);
     exit(1);
   }
-  fscanf(cache_cfg, "%*[^\n]\n");
-  
+
   while (1) {
     int cid; 
     uint64_t cache_size;
     uint64_t remote_usage_limit;
     unsigned line_size;
-    if (fscanf(cache_cfg, "%d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
+
+    int h = fgetc(cache_cfg);
+    if (h == '#') {
+      fscanf(cache_cfg, "%*[^\n]\n");
+      continue;
+    } else if (h == EOF)
+      break;
+
+    if (fscanf(cache_cfg, " %d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
     line_size = align_with_pow2(line_size);
     add_pool(cid, line_size);
     printf("Regist cache %d, line size %u bytes\n", cid, line_size);
   }
   fclose(cache_cfg);
 
-  // 
-
   // register rpc services
   init_rpc_services();
+  *(uint64_t *)sbuf = (intptr_t) baseva_shared_addrspace;
+  send(sbuf, sizeof(uint64_t));
+  printf("Remote server: cache base addr = %p\n", baseva_shared_addrspace);
 }
 
 void add_pool(int pid, unsigned line_size) {
@@ -102,7 +111,7 @@ void process_cache_req(RPC_rrf_t *req_full) {
     // printf("READ: pool %d, tag %lu\n", cache_id, read_offset);
     send_async(addr_mapping(read_offset), cache_line_size);
   }
-  if (type == CACHE_REQ_WRITE) {
+  else if (type == CACHE_REQ_WRITE || type == CACHE_REQ_FLUSH) {
     uint64_t write_offset = req.tag;
     dprintf("WRITE: pool %d, tag %lu", cache_id, write_offset);
     // printf("WRITE: pool %d, tag %lu\n", cache_id, write_offset);
@@ -110,7 +119,7 @@ void process_cache_req(RPC_rrf_t *req_full) {
     // TODO: zero-copy
     memcpy(addr_mapping(write_offset), req_full->data_seg_base, cache_line_size);
   }
-  if (type == CACHE_REQ_EVICT) {
+  else if (type == CACHE_REQ_EVICT) {
     uint64_t read_offset = req.tag;
     uint64_t write_offset = req.tag2;
     dprintf("EVICT: pool %d, write %lu, read %lu", cache_id, write_offset, read_offset);
@@ -118,6 +127,30 @@ void process_cache_req(RPC_rrf_t *req_full) {
     send_async(addr_mapping(read_offset), cache_line_size);
     // TODO: zero-copying
     memcpy(addr_mapping(write_offset), req_full->data_seg_base, cache_line_size);
+  }
+  else {
+    fprintf(stderr, "get unknown req type: %d\n", type);
+  }
+}
+
+void process_channel_req(RPC_rrf_t *req_full) {
+  side_channel_t req = req_full->rr.side_r_header;
+  uint8_t type = req_full->rr.op_code;
+  if (type == SIDE_READ) {
+    dprintf("Channel READ addr %lu size %d", req.raddr, req.rsize);
+    send_async(addr_mapping(req.raddr), req.rsize);
+  }
+  else if (type == SIDE_WRITE) {
+    dprintf("Channel WRITE addr %lu size %d", req.waddr, req.wsize);
+    memcpy(addr_mapping(req.waddr), req_full->data_seg_base, req.wsize);
+  }
+  else if (type == SIDE_EVICT) {
+    dprintf("Channel EVICT %lu %d -> %lu %d ", req.waddr, req.wsize, req.raddr, req.rsize);
+    send_async(addr_mapping(req.raddr), req.rsize);
+    memcpy(addr_mapping(req.waddr), req_full->data_seg_base, req.wsize);
+  }
+  else {
+    fprintf(stderr, "get unknown req type: %d\n", type);
   }
 }
 

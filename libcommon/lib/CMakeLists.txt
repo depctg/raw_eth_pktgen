@@ -4,6 +4,7 @@ add_library(common OBJECT
     packet.c
     remote_pool.c
     offload.c
+    side_channel.c
     $<IF:$<BOOL:${COMMON_IMPL_SHM}>, common_shm.c, common.c>
     )
 

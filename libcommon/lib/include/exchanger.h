@@ -42,8 +42,9 @@ static inline void init_exchanger() {
   offload_arg_buf = sbuf;
   offload_ret_buf.data = rbuf;
 
-  sge_buf = (uint64_t *) (sbuf + ARG_BUF_LIMIT);
-  req_buf = (RPC_rr_t *) (sge_buf + SGE_ADDR_LIMIT);
+  // sge_buf = (uint64_t *) (sbuf + ARG_BUF_LIMIT);
+  // req_buf = (RPC_rr_t *) (sge_buf + SGE_ADDR_LIMIT);
+  req_buf = (RPC_rr_t *) (sbuf + ARG_BUF_LIMIT);
 
   // agree on remote base addr
   // so that local side can map the address proactively
@@ -52,10 +53,8 @@ static inline void init_exchanger() {
   printf("Remote base addr: %lx\n", remote_vaddr_base);
 }
 
-// head, nout not used
-// post work will block if is full
-static int req_head = 0;
-static int req_nout = 0;
+extern int req_head;
+extern int req_nout;
 
 // static int sge_head = 0;
 // static int sge_nout = 0;
@@ -69,6 +68,7 @@ static inline void _cq_poll() {
             printf("WR failed\n");
             exit(1);
         }
+        req_nout --;
         if (wc[i].opcode == IBV_WC_RECV) {
             wr_id_t id = (wr_id_t) {.ser = wc[i].wr_id};
             switch (id.detail.type)
@@ -77,10 +77,11 @@ static inline void _cq_poll() {
               offload_ret_buf.available = 1;
               break;
             case WR_ID_CACHE_RECV:
-              dprintf("poll cq tag %lu", cache_header_field(id.detail.cache_or_channel, id.detail.slot, tag));
+              dprintf("poll cache cq tag %lu", cache_header_field(id.detail.cache_or_channel, id.detail.slot, tag));
               cache_header_field(id.detail.cache_or_channel, id.detail.slot, status) = LINE_READY;
               break;
             case WR_ID_CHANNEL_RECV:
+              dprintf("poll channel cq slot %d", id.detail.slot);
               channel_get_status(id.detail.cache_or_channel,id.detail.slot) = CHANNEL_SLOT_READY;
               break;
             default:
@@ -88,15 +89,17 @@ static inline void _cq_poll() {
             }
             // clear statics?
         } else if (wc[i].opcode == IBV_WC_SEND) {
-            req_nout --;
             wr_id_t id = (wr_id_t) {.ser = wc[i].wr_id};
             switch (id.detail.type)
             {
             case WR_ID_CACHE_FLUSH:
+              dprintf("poll cache %u flush slot %u", id.detail.cache_or_channel, id.detail.slot);
               cache_header_field(id.detail.cache_or_channel,id.detail.slot,status) = LINE_IDLE;
               break;
             case WR_ID_CHANNEL_FLUSH:
+              dprintf("poll channel %u flush slot %d", id.detail.cache_or_channel, id.detail.slot);
               channel_get_status(id.detail.cache_or_channel,id.detail.slot) = CHANNEL_SLOT_IDLE;
+              break;
             default:
               break;
             }
@@ -119,7 +122,9 @@ static inline void cache_post(cache_token_t token, int type, uint64_t tag2) {
     uint64_t tag = token.tag;
     unsigned slot = token.slot;
 
-    dprintf("cache %d, token slot %u, tag %lu, tag2 %lu, op %d", cache, slot, tag, tag2, type);
+    dprintf("cache %d, slot id %u tag %lu\ntoken tag %lu, tag2 %lu, op %d", cache, slot, cache_header_field(cache,slot,tag), tag, tag2, type);
+    // printf("cache %d, slot id %u tag %lu\ntoken tag %lu, tag2 %lu, op %d\n", cache, slot, cache_header_field(cache,slot,tag), tag, tag2, type);
+
     while (req_nout >= REQ_INFLIGHT) {
       _cq_poll();
     }
@@ -196,6 +201,11 @@ static inline void cache_post(cache_token_t token, int type, uint64_t tag2) {
         rwr.sg_list = &r_sge;
         rwr.next = NULL;
 
+        while (req_nout >= REQ_INFLIGHT) {
+          _cq_poll();
+        }
+        req_nout ++;
+
         ret = ibv_post_recv(qp, &rwr, &bad_rwr);
 #ifndef NDEBUG
         if (unlikely(ret) != 0) {
@@ -230,7 +240,10 @@ static inline void side_channel_request(
   unsigned cur = req_head;
   req_head = (req_head + 1) & (REQ_INFLIGHT - 1);
   req_nout ++;
+
   dprintf("Channel req: read %lu - %u, write %lu - %u, type %d", read_wr.disagg_r_vaddr, read_wr.num, write_wr.disagg_r_vaddr, write_wr.num, type);
+  // printf("Channel req: read %lu - %u, write %lu - %u, type %d\n", read_wr.disagg_r_vaddr, read_wr.num, write_wr.disagg_r_vaddr, write_wr.num, type);
+
   req_buf[cur].op_code = type;
   if (type == SIDE_READ || type == SIDE_EVICT) {
     req_buf[cur].side_r_header.raddr = read_wr.disagg_r_vaddr;
@@ -272,9 +285,11 @@ static inline void side_channel_request(
   swr.send_flags |= IBV_SEND_SIGNALED;
 #endif
 #if SEND_INLINE
-  if (type == SIDE_READ || req_buf[cur].side_r_header.wsize < 512)
+  if (req_buf[cur].side_r_header.wsize < 512)
       swr.send_flags |= IBV_SEND_INLINE;
 #endif
+
+
   int ret = ibv_post_send(qp, &swr, &bad_wr);
 
 #ifndef NDEBUG
@@ -288,7 +303,7 @@ static inline void side_channel_request(
 
   if (type == SIDE_READ || type == SIDE_EVICT) {
     r_sge.addr = (uint64_t) (channel_get_data(channel,read_wr.ele_id));
-    r_sge.length = req_buf[cur].side_r_header.rsize;
+    r_sge.length = read_wr.num * channel_get_field(channel,size_each);
     r_sge.lkey = rmr->lkey;
 
     rwr.num_sge = 1;
@@ -300,6 +315,11 @@ static inline void side_channel_request(
     rwr.wr_id = id.ser;
     rwr.sg_list = &r_sge;
     rwr.next = NULL;
+
+    while (req_nout >= REQ_INFLIGHT) {
+      _cq_poll();
+    }
+    req_nout ++;
 
     ret = ibv_post_recv(qp, &rwr, &bad_rwr);
 #ifndef NDEBUG

@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   const int inflights = MAX_POLL / 2;
 	struct ibv_wc wc[MAX_POLL];
 
-  unsigned int post_recvs = 0, poll_recvs = 0;
+  uint64_t post_recvs = 0, poll_recvs = 0;
 	RPC_rrf_t *req_fulls = (RPC_rrf_t *) rbuf;
 
   // First, we post multiple requests

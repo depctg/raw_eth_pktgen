@@ -30,7 +30,6 @@ static inline void foo(dat_t *node) {
 
 int main(int argc, char* argv[]) {
   int depth = atoi(argv[1]);
-  int batch = atoi(argv[2]);
   printf("prefetch depth: %d\n", depth);
   init_client();
   cache_init();
@@ -40,6 +39,7 @@ int main(int argc, char* argv[]) {
 
   uint64_t start = getCurNs();
   unsigned channel;
+  int batch = 512 / sizeof(dat_t);
   channel = channel_create(
     (uintptr_t) A, INNER, sizeof(dat_t), depth+batch, batch, depth, CHANNEL_STORE
   );

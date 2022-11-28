@@ -6,10 +6,10 @@
 #include <stdint.h>
 
 static size_t mr_size = 16 << 20;
-static size_t mr_align = 16;
+static size_t mr_align = 4 << 10;
 
 static char *mr_base = NULL;
-static intptr_t fp = 16;
+static intptr_t fp = 16; // no need to worry about cache line boundary
 
 static void local_mr_init() {
   mr_base = (char *) aligned_alloc(mr_align, mr_size);

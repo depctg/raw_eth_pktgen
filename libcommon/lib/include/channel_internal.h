@@ -12,10 +12,11 @@ struct channel_internal {
   char * status;
 
   unsigned cache;
+  unsigned N_on_line;
   uint64_t disagg_vaddr; // starting disagg vaddr
   uint64_t upper_bound; // access pattern: [0, 1, upper_bound)
   uint64_t max_reached;
-  uint64_t size_each;
+  unsigned size_each;
   unsigned prefetch_distance;
   unsigned num_slots; // capacity of this ringbuffer
   unsigned batch;

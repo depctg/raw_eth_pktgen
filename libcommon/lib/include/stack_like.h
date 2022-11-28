@@ -6,9 +6,9 @@
 #include <stdint.h>
 
 static size_t stack_size = 4 << 10;
-static size_t stack_align = 8;
+static size_t stack_align = 4 << 10;
 
-static intptr_t rsp = 8;
+static intptr_t rsp = 16; // no need to worry about cache line boundary
 static char *stack_base = NULL;
 
 static void stack_init() {

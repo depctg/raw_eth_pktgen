@@ -138,6 +138,7 @@ void process_channel_req(RPC_rrf_t *req_full) {
   uint8_t type = req_full->rr.op_code;
   if (type == SIDE_READ) {
     dprintf("Channel READ addr %lu size %d", req.raddr, req.rsize);
+    // printf("Channel READ addr %lu size %d\n", req.raddr, req.rsize);
     send_async(addr_mapping(req.raddr), req.rsize);
   }
   else if (type == SIDE_WRITE) {

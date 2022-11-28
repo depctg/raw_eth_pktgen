@@ -23,8 +23,13 @@ struct cache_internal caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 // currently used as free pointer base
 static uint64_t _addr_space_base[OPT_NUM_CACHE + CACHE_ID_OFFSET] = { 0 };
 
+int req_head = 0;
+int req_nout = 0;
+
 cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
-    static uint64_t _start_addr = 16;
+    // to seperate from NULL
+    // and should be bigger than the sizeof(struct) in cache 2
+    static uint64_t _start_addr = 128;
     // user should not manage starting address of 
     // the cache line base
     assert(is_pow2(size));
@@ -341,7 +346,7 @@ void cache_flush(unsigned cache, uint64_t vaddr) {
     if (token_header_field(token,status) != LINE_IDLE &&
         token_check_flag(token,LINE_FLAGS_DIRTY)) {
         // invalidate entry
-        token_header_field(token,tag) = 0; 
+        token_header_field(token,tag) = -1; 
         token_header_field(token,status) = LINE_SYNC;
         token_header_field(token,weight) = 0;
         token_header_field(token,flags) = 0;

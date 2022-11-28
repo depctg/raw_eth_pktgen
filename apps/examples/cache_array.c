@@ -37,14 +37,14 @@ int main(int argc, char *argv[]) {
   as = (A *) _disagg_alloc(2, sizeof(A) * n);
   // bs = (B *) _disagg_alloc(3, sizeof(B) * n);
 
-  channel = channel_create(
-    (uintptr_t) as,
-    n, sizeof(A), 4, 2, 2, CHANNEL_STORE
-  );
+  // channel = channel_create(
+  //   (uintptr_t) as,
+  //   n, sizeof(A), 4, 2, 2, CHANNEL_STORE
+  // );
   for (int i = 0; i < n; i++) {
-    // cache_token_t token = cache_request((intptr_t) (as + i));
-    // A *ai = (A *) cache_access_mut(&token);
-    A *ai = (A *) channel_access(channel,i);
+    cache_token_t token = cache_request((intptr_t) (as + i));
+    A *ai = (A *) cache_access_mut(&token);
+    // A *ai = (A *) channel_access(channel,i);
     // printf("%p\n", ai);
     ai->x = i;
     ai->y = i * i;
@@ -55,10 +55,10 @@ int main(int argc, char *argv[]) {
     // bi->x = i;
     // bi->y = i + i;
   }
-  channel_destroy(channel);
+  // channel_destroy(channel);
   channel = channel_create(
     (uintptr_t) as,
-    n, sizeof(A), 3, 2, 2, CHANNEL_LOAD
+    n, sizeof(A), 6, 2, 4, CHANNEL_STORE
   );
 
   for (int i = 0; i < n; i++) {
@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
     // A *ai = (A *) cache_access(&token);
     A *ai = (A *) channel_access(channel, i);
     printf("%d: %d = %d * %d\n",i, ai->y, ai->x, ai->x);
+    ai->x *= 2;
 
     // token = cache_request((intptr_t) (bs + i));
     // B *bi = (B *) cache_access(&token);
@@ -73,6 +74,19 @@ int main(int argc, char *argv[]) {
   }
 
   channel_destroy(channel);
+
+  for (int i = 0; i < n; i++) {
+    cache_token_t token = cache_request((intptr_t) (as + i));
+    A *ai = (A *) cache_access_mut(&token);
+    // A *ai = (A *) channel_access(channel,i);
+    printf("%d: %d, %d\n",i, ai->x, ai->y);
+
+    // token = cache_request((intptr_t) (bs + i));
+    // B *bi = (B *) cache_access_mut(&token);
+    // // printf("%p\n", ai);
+    // bi->x = i;
+    // bi->y = i + i;
+  }
 
 	return 0;
 }

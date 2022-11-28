@@ -1,6 +1,11 @@
 #ifndef SIDE_CHANNEL_H
 #define SIDE_CHANNEL_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -24,14 +29,18 @@ enum {
 unsigned channel_create(
   uint64_t original_start_vaddr, 
   uint64_t upper_bound, 
-  uint64_t size_each, 
+  unsigned size_each, 
   unsigned num_slots, 
   unsigned batch, 
   unsigned dist, 
   int kind);
 
-void * channel_access(unsigned channel, unsigned i);
+void * channel_access(unsigned channel, uint64_t i);
 
 void channel_destroy(unsigned channel);
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

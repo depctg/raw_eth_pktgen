@@ -9,27 +9,48 @@
 #include "helper.h"
 #include "channel_internal.h"
 
-typedef void (*rpc_service_t)(void *arg, void *ret);
-
-// populate by offload obj
-extern rpc_service_t *services;
-extern void init_rpc_services();
 
 static unsigned linesize_cfgs[OPT_NUM_CACHE + CACHE_ID_OFFSET];
-static char *rpc_ret_base;
+static char * rpc_ret_base;
 
-static char *baseva_shared_addrspace;
+static char * baseva_shared_addrspace;
 uint64_t local_remote_delimiter = 2ULL<<48;
+
+static struct {
+  char * buf_base;
+  int i;
+} peeling_rbuf;
+
+// used to free peeling_rbuf
+typedef union {
+  uint64_t ser;
+  struct {
+    unsigned code;
+    int slot;
+  };
+} sswrid_t;
+
+enum {
+  NORMAL_RECV = 0,
+  CACHE_SEND,
+  CHANNEL_SEND,
+  RPC_SEND
+};
+
+static RPC_rrf_t * req_fulls;
 
 /* Remote pool layout 
 pool is a series of discontinuous blocks of the same size
 each pool has a mapping from pool-based virtual address to the actual block
 */
-
 void manager_init() {
 
   rpc_ret_base = sbuf;
   baseva_shared_addrspace = (char *) sbuf + RPC_RET_LIMIT;
+
+  peeling_rbuf.buf_base = rbuf;
+  peeling_rbuf.i = 0;
+  req_fulls = (RPC_rrf_t *) ((char*)rbuf + MAX_POLL * PAYLOAD_LIMIT);
 
   // set cache configurations
   char *cfg_path = (getenv("CACHE_CFG"));
@@ -65,6 +86,7 @@ void manager_init() {
 
   // register rpc services
   init_rpc_services();
+  init_assem_lambdas();
   *(uint64_t *)sbuf = (intptr_t) baseva_shared_addrspace;
   send(sbuf, sizeof(uint64_t));
   printf("Remote server: cache base addr = %p\n", baseva_shared_addrspace);
@@ -97,11 +119,13 @@ void * deref_disagg_vaddr(uint64_t cid_dvaddr) {
 }
 
 // inline?
-void process_cache_req(RPC_rrf_t *req_full) {
+static inline void process_cache_req(RPC_rrf_t *req_full) {
   cache_req_t req = req_full->rr.cache_r_header;
   uint8_t type = req_full->rr.op_code;
   uint8_t cache_id = req.cache_id;
   uint64_t cache_line_size = linesize_cfgs[cache_id];
+
+  // sswrid_t wrid = (sswrid_t) {.code = CACHE_SEND, .slot = 0}; 
 
   // fdprintf("cid %d, tag %lu, tag2 %lu, op %d", req->cache_id, req->tag, req->tag2, req->type);
 
@@ -133,20 +157,38 @@ void process_cache_req(RPC_rrf_t *req_full) {
   }
 }
 
-void process_channel_req(RPC_rrf_t *req_full) {
+static inline void channel_send_from_rbuf(uint64_t buf, unsigned size) {
+  struct ibv_sge s_sge = {.addr = buf, .length = size, .lkey = rmr->lkey};
+  send_async_sge(&s_sge, 1);
+}
+
+typedef struct arc {
+  char payload[16];
+  uint64_t i;
+  uint64_t j;
+  struct arc* next; 
+  struct arc* prev;
+  unsigned hit;
+  int x;
+  int y;
+} arc_t;
+
+static inline void channel_no_peeling(RPC_rrf_t *req_full) {
   side_channel_t req = req_full->rr.side_r_header;
   uint8_t type = req_full->rr.op_code;
+
   if (type == SIDE_READ) {
-    dprintf("Channel READ addr %lu size %d", req.raddr, req.rsize);
+    dprintf("Channel READ addr %lu size %d nop", req.raddr, req.rsize);
     // printf("Channel READ addr %lu size %d\n", req.raddr, req.rsize);
     send_async(addr_mapping(req.raddr), req.rsize);
   }
   else if (type == SIDE_WRITE) {
-    dprintf("Channel WRITE addr %lu size %d", req.waddr, req.wsize);
+    dprintf("Channel WRITE addr %lu size %d nop", req.waddr, req.wsize);
     memcpy(addr_mapping(req.waddr), req_full->data_seg_base, req.wsize);
   }
   else if (type == SIDE_EVICT) {
-    dprintf("Channel EVICT %lu %d -> %lu %d ", req.waddr, req.wsize, req.raddr, req.rsize);
+    dprintf("Channel EVICT %lu %d -> %lu %d", req.waddr, req.wsize, req.raddr, req.rsize);
+
     send_async(addr_mapping(req.raddr), req.rsize);
     memcpy(addr_mapping(req.waddr), req_full->data_seg_base, req.wsize);
   }
@@ -155,7 +197,61 @@ void process_channel_req(RPC_rrf_t *req_full) {
   }
 }
 
-void process_call_req(RPC_rrf_t *req) {
+static inline void process_channel_req(RPC_rrf_t *req_full) {
+  side_channel_t req = req_full->rr.side_r_header;
+  uint8_t type = req_full->rr.op_code;
+
+  // to disable assembly
+  if (!req_full->rr.assem_id) {
+    channel_no_peeling(req_full);
+    return;
+  }
+
+  if (type == SIDE_READ) {
+    int buf_id = peeling_rbuf.i;
+    peeling_rbuf.i = (peeling_rbuf.i + 1) & (MAX_POLL - 1);
+    assemFns[req_full->rr.assem_id](
+      addr_mapping(req.raddr), 
+      peeling_rbuf.buf_base + PAYLOAD_LIMIT * buf_id,
+      req.rsize
+    );
+    dprintf("Channel READ addr %lu size %d asm %d", req.raddr, req.rsize, req_full->rr.assem_id);
+    // printf("Channel READ addr %lu size %d\n", req.raddr, req.rsize);
+    channel_send_from_rbuf((uint64_t)(peeling_rbuf.buf_base + PAYLOAD_LIMIT * buf_id), req.rsize);
+  }
+  else if (type == SIDE_WRITE) {
+    // call disassemble handler
+    assemFns[req_full->rr.assem_id + 1](
+      addr_mapping(req.waddr), 
+      req_full->data_seg_base,
+      req.wsize
+    );
+    dprintf("Channel WRITE addr %lu size %d", req.waddr, req.wsize);
+  }
+  else if (type == SIDE_EVICT) {
+    dprintf("Channel EVICT %lu %d -> %lu %d asm %d", req.waddr, req.wsize, req.raddr, req.rsize, req_full->rr.assem_id);
+
+    int buf_id = peeling_rbuf.i;
+    peeling_rbuf.i = (peeling_rbuf.i + 1) & (MAX_POLL - 1);
+    assemFns[req_full->rr.assem_id](
+      addr_mapping(req.raddr), 
+      peeling_rbuf.buf_base + PAYLOAD_LIMIT * buf_id,
+      req.rsize
+    );
+    channel_send_from_rbuf((uint64_t)peeling_rbuf.buf_base + PAYLOAD_LIMIT * buf_id, req.rsize);
+
+    assemFns[req_full->rr.assem_id + 1](
+      addr_mapping(req.waddr), 
+      req_full->data_seg_base,
+      req.wsize
+    );
+  }
+  else {
+    fprintf(stderr, "get unknown req type: %d\n", type);
+  }
+}
+
+static inline void process_call_req(RPC_rrf_t *req) {
   int fid = req->rr.call_r_header.procedure_id;
   dprintf("Calling %d service", fid);
 
@@ -164,4 +260,44 @@ void process_call_req(RPC_rrf_t *req) {
   services[fid](arg, ret);
   if (req->rr.call_r_header.ret_size)
     send_async(rpc_ret_base, req->rr.call_r_header.ret_size);
+}
+
+void start_server_service() {
+  const int inflights = MAX_POLL / 2;
+	struct ibv_wc wc[MAX_POLL];
+
+  uint64_t post_recvs = 0, poll_recvs = 0;
+
+  // First, we post multiple requests
+  for (int i = 0; i < inflights; i++)
+    recv_async(req_fulls + i, sizeof(*req_fulls));
+  post_recvs += inflights;
+
+	while (1) {
+    // here we do not want to poll by id, just call ibv_xxx
+    int n = ibv_poll_cq(cq, MAX_POLL, wc);
+
+    // process the requests
+    for (int i = 0; i < n; i++) {
+      // not a timeout
+      if (wc[i].status == IBV_WC_SUCCESS && wc[i].opcode == IBV_WC_RECV) {
+        int idx = (poll_recvs++) % MAX_POLL;
+
+        // process request
+        // sleep here to change the latency
+        if (req_fulls[idx].rr.op_code < SIDE_READ) 
+          process_cache_req(req_fulls + idx);
+        else if (req_fulls[idx].rr.op_code < FUNC_CALL_BASE)
+          process_channel_req(req_fulls + idx);
+        else
+          process_call_req(req_fulls + idx);
+      }
+    }
+    // fill the recv queue
+    while (post_recvs < poll_recvs + inflights) {
+      int idx = post_recvs % MAX_POLL;
+      recv_async(req_fulls + idx, sizeof(*req_fulls));
+      post_recvs ++;
+    }
+	}
 }

@@ -53,19 +53,21 @@ typedef struct call_req {
 } call_req_t;
 
 typedef struct side_channel {
-  uint64_t raddr: 48;
+  uint64_t raddr: 48; // disagg_vaddr
   uint16_t rsize;
-  uint64_t waddr: 48;
+  uint64_t waddr: 48; // disagg_vaddr
   uint16_t wsize;
 } side_channel_t;
 
 typedef struct RemoteRequest {
-  uint8_t op_code;
   union {
     cache_req_t cache_r_header;
     call_req_t call_r_header;
     side_channel_t side_r_header;
   };
+  uint16_t assem_id; // for side_channel only
+  uint8_t stride_not_in_use;
+  uint8_t op_code;
 } RPC_rr_t;
 
 typedef struct RemoteRequestFULL {

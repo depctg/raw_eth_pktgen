@@ -6,13 +6,15 @@
 #include <stdint.h>
 
 struct channel_internal {
-  // data array [num * size]
+  // data array [num * size_each]
   char * buf_base;
   // status array [num / batch]
   char * status;
 
   unsigned cache;
   unsigned N_on_line;
+  uint64_t ori_unit_size;
+
   uint64_t disagg_vaddr; // starting disagg vaddr
   uint64_t upper_bound; // access pattern: [0, 1, upper_bound)
   uint64_t max_reached;
@@ -20,6 +22,7 @@ struct channel_internal {
   unsigned prefetch_distance;
   unsigned num_slots; // capacity of this ringbuffer
   unsigned batch;
+  uint16_t assem_id;
   int kind; // load / store
 };
 

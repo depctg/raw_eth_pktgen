@@ -22,6 +22,7 @@ void channel_init() {
 // start: idx w.r.t a for loop, guaranteed aligned to batch
 // n: size to prefetch, guaranteed n <= batch size
 static inline void channel_prefetch(unsigned channel, unsigned start, unsigned n) {
+  dprintf("Prefetch channel %u start %u n %u", channel,start,n);
   // flush whatever is touched
   for (unsigned i = start; 
                 i < start + n; 
@@ -29,28 +30,31 @@ static inline void channel_prefetch(unsigned channel, unsigned start, unsigned n
     // invalidate cache entries
     cache_flush(
       channel_get_field(channel,cache), 
-      channel_get_field(channel,disagg_vaddr) + i * channel_get_field(channel,size_each)
+      channel_get_field(channel,disagg_vaddr) + i * channel_get_field(channel,ori_unit_size)
     );
   }
-  cache_flush(
-    channel_get_field(channel,cache), 
-    channel_get_field(channel,disagg_vaddr) + (start+n-1) * channel_get_field(channel,size_each)
-  );
+  // TODO: check if divisible
+  if (channel_get_field(channel,N_on_line) < n) {
+    cache_flush(
+      channel_get_field(channel,cache), 
+      channel_get_field(channel,disagg_vaddr) + (start+n-1) * channel_get_field(channel,ori_unit_size)
+    );
+  }
 
-  // batch aligned
+  // start is batch aligned
   unsigned ele_ring_id = start % channel_get_field(channel,num_slots); 
   unsigned batch_ring_id = ele_ring_id / channel_get_field(channel,batch);
 
   channel_wr_t rwr, wwr;
   rwr.disagg_r_vaddr = channel_get_field(channel,disagg_vaddr) + 
-    channel_get_field(channel,size_each) * start;
+    channel_get_field(channel,ori_unit_size) * start;
   rwr.ele_id = ele_ring_id;
   rwr.num = n;
   wwr = (channel_wr_t) { 0 };
   int type = SIDE_READ;
   if (channel_get_field(channel,kind) == CHANNEL_STORE && 
       channel_get_status(channel,batch_ring_id) != CHANNEL_SLOT_IDLE) {
-    wwr.disagg_r_vaddr = rwr.disagg_r_vaddr - channel_get_field(channel,size_each) * channel_get_field(channel,num_slots);
+    wwr.disagg_r_vaddr = rwr.disagg_r_vaddr - channel_get_field(channel,ori_unit_size) * channel_get_field(channel,num_slots);
     wwr.ele_id = ele_ring_id;
     // previously filled batch must be full
     wwr.num = channel_get_field(channel,batch);
@@ -64,30 +68,39 @@ static inline void channel_prefetch(unsigned channel, unsigned start, unsigned n
   );
 }
 
-unsigned channel_create(uint64_t original_start_addr, uint64_t upper_bound, unsigned size_each, unsigned num, unsigned batch, unsigned dist, int kind) {
+unsigned channel_create(
+  uint64_t original_start_addr, 
+  uint64_t upper_bound, uint64_t ori_unit_size,
+  unsigned size_each, unsigned num, unsigned batch, unsigned dist, uint16_t assem_id, int kind) {
   // make life easier
   dist += (dist % batch);
   num += (num % batch);
   unsigned channel_id = channel_cnt ++;
   _base_top -= (size_each * num);
 
+  channels[channel_id].buf_base = _base_top;
+  channels[channel_id].status = calloc(num/batch, sizeof(char));
+
   virt_addr_t vaddr = (virt_addr_t) {.ser = original_start_addr};
   // not using real remote addr here
   // might exceed 48 bits
   channels[channel_id].cache = vaddr.cache;
   channels[channel_id].N_on_line = cache_get_field(
-    vaddr.cache, linesize) / size_each;
+    vaddr.cache, linesize) / ori_unit_size;
+  channels[channel_id].ori_unit_size = ori_unit_size;
+
   channels[channel_id].disagg_vaddr = vaddr.addr;
   channels[channel_id].upper_bound = upper_bound;
   channels[channel_id].max_reached = 0;
   channels[channel_id].size_each = size_each;
-  channels[channel_id].num_slots = num;
-  channels[channel_id].buf_base = _base_top;
-  channels[channel_id].status = calloc(num/batch, sizeof(char));
-  channels[channel_id].batch = batch;
   channels[channel_id].prefetch_distance = dist;
+  channels[channel_id].num_slots = num;
+  channels[channel_id].batch = batch;
+  channels[channel_id].assem_id = assem_id;
   channels[channel_id].kind = kind;
 
+  if (!dist)
+    return channel_id;
   /* prefetch prologue */ 
   if (upper_bound <= batch) {
     channel_prefetch(channel_id, 0, upper_bound);
@@ -130,16 +143,17 @@ void * channel_access(unsigned channel, uint64_t i) {
 
 void channel_destroy(unsigned channel) {
   // flush modified entry to remote server
+  dprintf("Channel kind %d, flushing ?", channel_get_field(channel,kind));
   if (channel_get_field(channel,kind) == CHANNEL_STORE) {
     uint64_t visited = channel_get_field(channel,max_reached);
     uint64_t disagg_base_vaddr = channel_get_field(channel,disagg_vaddr);
     unsigned batch = channel_get_field(channel,batch);
     unsigned num_slots = channel_get_field(channel,num_slots);
-    unsigned size_each = channel_get_field(channel,size_each);
+    uint64_t ori_unit_size = channel_get_field(channel,ori_unit_size);
 
     channel_wr_t rwr = {0}; 
     unsigned ele_ring_id = (visited % num_slots) / batch * batch;
-    disagg_base_vaddr += (visited - visited % batch) * size_each;
+    disagg_base_vaddr += (visited - visited % batch) * ori_unit_size;
 
     channel_wr_t wwr;
     // clear within current batch block
@@ -147,6 +161,7 @@ void channel_destroy(unsigned channel) {
     wwr.disagg_r_vaddr = disagg_base_vaddr;
     wwr.ele_id = ele_ring_id;
     wwr.num = visited % batch + 1;
+    dprintf("Channel write to addr %lu num %d", wwr.disagg_r_vaddr, wwr.num);
     side_channel_request(channel, SIDE_WRITE, rwr, wwr);
 
     int last_flush_batch = wwr.ele_id / batch;
@@ -156,7 +171,7 @@ void channel_destroy(unsigned channel) {
     if (num_slots > batch) {
       for (unsigned i = 0; i < num_slots / batch - 1; ++ i) {
         (void)i;
-        disagg_base_vaddr -= batch * size_each;
+        disagg_base_vaddr -= batch * ori_unit_size;
         ele_ring_id = (ele_ring_id + num_slots - batch) % num_slots;
         wwr.disagg_r_vaddr = disagg_base_vaddr;
         wwr.ele_id = ele_ring_id;
@@ -167,6 +182,7 @@ void channel_destroy(unsigned channel) {
           _cq_poll();
         }
         if (channel_get_status(channel,ele_ring_id/batch) == CHANNEL_SLOT_READY) {
+          dprintf("Channel write to addr %lu num %d", wwr.disagg_r_vaddr, wwr.num);
           last_flush_batch = ele_ring_id / batch;
           channel_get_status(channel,ele_ring_id/batch) = CHANNEL_SLOT_SYNC;
           side_channel_request(channel, SIDE_WRITE, rwr, wwr);

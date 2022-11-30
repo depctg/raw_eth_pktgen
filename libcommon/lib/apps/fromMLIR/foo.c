@@ -54,7 +54,7 @@ void service_wrapper_expand(void *arg, void *ret) {
 }
 
 void init_rpc_services() {
-  services = malloc(1 * sizeof(*services));
+  services = malloc(2 * sizeof(*services));
   services[0] = service_wrapper_visit_offloadable;
   services[1] = service_wrapper_expand;
 }

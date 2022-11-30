@@ -22,7 +22,7 @@ if(COMMON_IMPL_SHM)
     target_link_libraries(${COMMON_EXE_SHM_EXECUTOR} common)
 endif()
 
-add_executable(remote_server apps/remote_server.c apps/offloads/foo.c)
+add_executable(remote_server apps/remote_server.c apps/fromMLIR/foo.c apps/fromMLIR/assem.c)
 target_link_libraries(remote_server common)
 
 # copy objects to /home/wuklab/projects/pl-zijian/raw_eth_pktgen/from_mlir/libs

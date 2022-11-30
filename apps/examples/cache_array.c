@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
   // channel_destroy(channel);
   channel = channel_create(
     (uintptr_t) as,
-    n, sizeof(A), 6, 2, 4, CHANNEL_STORE
+    n, sizeof(A), 6, 2, 4, 0, CHANNEL_STORE
   );
 
   for (int i = 0; i < n; i++) {
@@ -74,19 +74,6 @@ int main(int argc, char *argv[]) {
   }
 
   channel_destroy(channel);
-
-  for (int i = 0; i < n; i++) {
-    cache_token_t token = cache_request((intptr_t) (as + i));
-    A *ai = (A *) cache_access_mut(&token);
-    // A *ai = (A *) channel_access(channel,i);
-    printf("%d: %d, %d\n",i, ai->x, ai->y);
-
-    // token = cache_request((intptr_t) (bs + i));
-    // B *bi = (B *) cache_access_mut(&token);
-    // // printf("%p\n", ai);
-    // bi->x = i;
-    // bi->y = i + i;
-  }
 
 	return 0;
 }

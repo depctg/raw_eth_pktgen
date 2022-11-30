@@ -85,6 +85,7 @@ static inline void _cq_poll() {
               channel_get_status(id.detail.cache_or_channel,id.detail.slot) = CHANNEL_SLOT_READY;
               break;
             default:
+              // dprintf("get unknown recv cq %d", id.detail.type);
               break;
             }
             // clear statics?
@@ -101,6 +102,7 @@ static inline void _cq_poll() {
               channel_get_status(id.detail.cache_or_channel,id.detail.slot) = CHANNEL_SLOT_IDLE;
               break;
             default:
+              // dprintf("get unknown send code %d", id.detail.type);
               break;
             }
             // fdprintf("sout now %d", now);
@@ -253,6 +255,7 @@ static inline void side_channel_request(
     req_buf[cur].side_r_header.waddr = write_wr.disagg_r_vaddr;
     req_buf[cur].side_r_header.wsize = write_wr.num * channel_get_field(channel,size_each);
   }
+  req_buf[cur].assem_id = channel_get_field(channel,assem_id);
   /* Send Packets */
   s_sge[0].addr = (uint64_t)(req_buf + cur);
   s_sge[0].length = sizeof(RPC_rr_t);

@@ -11,7 +11,8 @@
 
 void setup() {
   unsigned channel = channel_create(
-    (uintptr_t) dat, M, sizeof(arc_t), 32, 32, 0, CHANNEL_STORE
+    (uintptr_t) dat, M, sizeof(arc_t), 
+    sizeof(arc_t), 32, 32, 0, 0, CHANNEL_STORE
   );
   for (int i = 0; i < M; ++ i) {
     // cache_token_t token = cache_request((uintptr_t)(dat + i));
@@ -53,7 +54,8 @@ void obv_work(arc_t *arc, unsigned n) {
 
 void seq_work(arc_t *arc, unsigned n) {
   unsigned channel = channel_create(
-    (uintptr_t) arc, n, sizeof(arc_t), 32, 32, 0, CHANNEL_STORE
+    (uintptr_t) arc, n, sizeof(arc_t), 
+    sizeof(arc_t), 32, 32, 0, 0, CHANNEL_STORE
   );
   for (unsigned i = 0; i < n; ++ i) {
     // cache_token_t token = cache_request((uintptr_t)(arc+i));
@@ -74,7 +76,8 @@ void seq_work(arc_t *arc, unsigned n) {
 
 void check() {
   unsigned channel = channel_create(
-    (uintptr_t) dat, M, sizeof(arc_t), 64, 32, 32, CHANNEL_LOAD
+    (uintptr_t) dat, M, sizeof(arc_t), 
+    sizeof(arc_t), 64, 32, 32, 0, CHANNEL_LOAD
   );
   for (int i = 0; i < M; ++ i) {
     // printf("%d - %d\n", i, M);

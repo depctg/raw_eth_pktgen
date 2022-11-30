@@ -13,13 +13,20 @@ extern "C"
 /* sbuf starting from base_sbuf is occupied by remote pools */
 extern uint64_t local_remote_delimiter;
 void manager_init();
+void start_server_service();
+
 void add_pool(int pid, unsigned linesize);
 
-void process_cache_req(RPC_rrf_t *req);
-void process_channel_req(RPC_rrf_t *req_full);
-void process_call_req(RPC_rrf_t *req);
-
 void * deref_disagg_vaddr(uint64_t dvaddr);
+
+typedef void (*rpc_service_t)(void *arg, void *ret);
+typedef void (*assem_lambda_t)(void *base, void *buf, uint16_t size);
+
+// populate by offload obj
+extern rpc_service_t *services;
+extern void init_rpc_services();
+extern assem_lambda_t *assemFns;
+extern void init_assem_lambdas();
 
 #ifdef __cplusplus
 }

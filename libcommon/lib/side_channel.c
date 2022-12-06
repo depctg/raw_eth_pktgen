@@ -73,8 +73,9 @@ unsigned channel_create(
   uint64_t upper_bound, uint64_t ori_unit_size,
   unsigned size_each, unsigned num, unsigned batch, unsigned dist, uint16_t assem_id, int kind) {
   // make life easier
-  dist += (dist % batch);
-  num += (num % batch);
+  // compiler gives num = dist + batch
+  dist = dist > batch ? ((dist / batch + 1) * batch) : 0;
+  num = (num / batch + 1) * batch;
   unsigned channel_id = channel_cnt ++;
   _base_top -= (size_each * num);
 

@@ -6,7 +6,8 @@
 #include "workload.hpp"
 
 void setup() {
-  // cache_token_t token = cache_requ
+  dat = (arc_t *) calloc(M, sizeof(arc_t));
+
   for (int i = 0; i < M; ++ i) {
     int nexti = nextRand();
     if (nexti == i)
@@ -72,11 +73,7 @@ void check() {
 }
 
 int main(int argc, char **argv) {
-  int it = atoi(argv[1]);
-  dat = (arc_t *) calloc(M, sizeof(arc_t));
-
   do_work();
-
   check();
-
+  return 0;
 }

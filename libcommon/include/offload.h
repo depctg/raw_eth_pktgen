@@ -2,7 +2,7 @@
 #define __REMOTE_OFFLOAD_H__
 
 #ifdef __cplusplus
-#extern "C" 
+extern "C" 
 {
 #endif
 

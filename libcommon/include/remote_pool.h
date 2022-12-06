@@ -10,6 +10,8 @@ extern "C"
 {
 #endif
 
+#define MAX_OFFLOAD_FUNCTIONS (64)
+
 /* sbuf starting from base_sbuf is occupied by remote pools */
 extern uint64_t local_remote_delimiter;
 void manager_init();
@@ -24,9 +26,9 @@ typedef void (*assem_lambda_t)(void *base, void *buf, uint16_t size);
 
 // populate by offload obj
 extern rpc_service_t *services;
-extern void init_rpc_services();
+void init_rpc_services();
 extern assem_lambda_t *assemFns;
-extern void init_assem_lambdas();
+void init_assem_lambdas();
 
 #ifdef __cplusplus
 }

@@ -15,7 +15,7 @@ extern "C"
 // #define CACHE_LOG_ACCESS
 
 /* Option: Log Misses */
-#define CACHE_LOG_MISS
+// #define CACHE_LOG_MISS
 // #define CACHE_CLASS_MISS
 
 /* Option: Log Late Data Fetch*/

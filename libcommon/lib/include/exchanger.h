@@ -26,8 +26,7 @@ typedef union {
   } detail;
 } wr_id_t;
 
-RPC_rr_t * req_buf;
-uint64_t * sge_buf;
+extern RPC_rr_t * req_buf;
 static uint64_t remote_vaddr_base;
 
 enum {
@@ -74,6 +73,7 @@ static inline void _cq_poll() {
             switch (id.detail.type)
             {
             case WR_ID_RPC_RET:
+              dprintf("Offload ret available, fid %u", id.detail.slot);
               offload_ret_buf.available = 1;
               break;
             case WR_ID_CACHE_RECV:
@@ -351,6 +351,7 @@ static inline void rpc_call_post(int function_id, size_t arg_size, size_t ret_si
   unsigned cur = req_head;
   req_head = (req_head + 1) & (REQ_INFLIGHT - 1);
   req_nout ++;
+
   req_buf[cur].op_code = FUNC_CALL_BASE;
   req_buf[cur].call_r_header.arg_size = arg_size;
   req_buf[cur].call_r_header.ret_size = ret_size;
@@ -399,6 +400,7 @@ static inline void rpc_call_post(int function_id, size_t arg_size, size_t ret_si
     rwr.num_sge = 1;
     wr_id_t id = (wr_id_t) {.detail = {
       .type = WR_ID_RPC_RET,
+      .slot = function_id
     }};
     rwr.wr_id = id.ser;
     rwr.sg_list = &r_sge;

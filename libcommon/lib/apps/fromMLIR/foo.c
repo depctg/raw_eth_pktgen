@@ -12,8 +12,6 @@ typedef struct A {
   struct A *next;
 } A;
 
-typedef void (*rpc_service_t)(void *arg, void *ret);
-
 // populate by offload obj
 rpc_service_t *services;
 

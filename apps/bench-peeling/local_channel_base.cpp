@@ -9,6 +9,8 @@
 #include "workload.hpp"
 
 void setup() {
+  dat = (arc_t *) _disagg_alloc(2, sizeof(arc_t) * M);
+
   unsigned channel = channel_create(
     (uint64_t) dat, M, sizeof(arc_t),
     sizeof(arc_t), 32, 32, 0, 0, CHANNEL_STORE
@@ -35,19 +37,13 @@ void setup() {
   channel_destroy(channel);
 }
 
-typedef struct {
-  unsigned hit;
-  int x;
-  int y;
-} arc_x_y_hit_t;
-
 void seq_work_small(arc_t *arc, unsigned n) {
   unsigned channel = channel_create(
     (uint64_t) arc, n, sizeof(arc_t),
-    sizeof(arc_x_y_hit_t), 86, 86, 0, 3, CHANNEL_STORE
+    sizeof(arc_t), 32, 32, 0, 0, CHANNEL_STORE
   );
   for (unsigned i = 0; i < n; ++ i) {
-    arc_x_y_hit_t *arc_i = (arc_x_y_hit_t*) channel_access(channel, i);
+    arc_t *arc_i = (arc_t*) channel_access(channel, i);
     dprintf("%d: %d %d %u", i, arc_i->x, 
                                arc_i->y, 
                                arc_i->hit);
@@ -58,25 +54,16 @@ void seq_work_small(arc_t *arc, unsigned n) {
   channel_destroy(channel);
 }
 
-typedef struct {
-  char payload[16];
-  uint64_t i;
-  uint64_t j;
-  struct arc* next; 
-  struct arc* prev;
-  unsigned hit;
-} arc_except_x_y_t;
-
 void seq_work_large(arc_t *arc, unsigned n) {
   unsigned channel = channel_create(
     (uint64_t) arc, n, sizeof(arc_t),
-    sizeof(arc_except_x_y_t), 32, 32, 0, 5, CHANNEL_STORE
+    sizeof(arc_t), 32, 32, 0, 0, CHANNEL_STORE
   );
   for (unsigned i = 0; i < n; ++ i) {
-    arc_except_x_y_t* arc_i = (arc_except_x_y_t*) channel_access(channel, i);
+    arc_t* arc_i = (arc_t*) channel_access(channel, i);
     dprintf("%d: %lu %lu %u", i,  arc_i->i, 
-                                  arc_i->j, 
-                                  arc_i->hit);
+                                        arc_i->j, 
+                                        arc_i->hit);
     arc_i->hit ++ ;
     arc_i->i += arc_i->prev - arc;
     arc_i->j -= arc - arc_i->next;
@@ -117,9 +104,6 @@ int main(int argc, char **argv) {
   init_client();
   cache_init();
   channel_init();
-
-  int it = atoi(argv[1]);
-  dat = (arc_t *) _disagg_alloc(2, sizeof(arc_t) * M);
 
   do_work();
 

@@ -22,6 +22,7 @@ struct cache_internal caches[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 // starting address of each cache
 // currently used as free pointer base
 static uint64_t _addr_space_base[OPT_NUM_CACHE + CACHE_ID_OFFSET] = { 0 };
+RPC_rr_t * req_buf = NULL;
 
 int req_head = 0;
 int req_nout = 0;
@@ -29,7 +30,7 @@ int req_nout = 0;
 cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
     // to seperate from NULL
     // and should be bigger than the sizeof(struct) in cache 2
-    static uint64_t _start_addr = 128;
+    static uint64_t _start_addr = 4096;
     // user should not manage starting address of 
     // the cache line base
     assert(is_pow2(size));

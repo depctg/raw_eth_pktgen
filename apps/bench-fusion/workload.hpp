@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include "offload.h"
 #include "common.h"
-#include "patterns.hpp"
+#include "generator.hpp"
 
 using namespace std;
 
@@ -77,13 +77,16 @@ public:
   
 };
 
-#define ARY_SIZE (1ULL << 27)
+#define ARY_SIZE (4ULL << 27)
 vector<dat_type> v;
 vector<index_type> indices;
 
 void setup() {
-  v = gen_access_pattern_uniform(ARY_SIZE, ARY_SIZE, 1, 2333);
-  indices = gen_access_pattern_seq(ARY_SIZE, ARY_SIZE);
+  v.reserve(ARY_SIZE);
+  indices.reserve(ARY_SIZE);
+
+  ref_gen_uniform(ARY_SIZE, v, 2333);
+  ref_gen_seq(ARY_SIZE, indices);
 }
 
 extern void post_setup();

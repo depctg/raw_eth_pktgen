@@ -25,9 +25,9 @@ void setup() {
 void visit() {
   for( int i = 0; i < M_arc; i++ )
   {
-    arc[i].nextout = arc->tail->firstout;
+    arc[i].nextout = arc[i].tail->firstout;
     arc[i].tail->firstout = arc + i;
-    arc[i].nextin = arc->head->firstin;
+    arc[i].nextin = arc[i].head->firstin;
     arc[i].head->firstin = arc + i;
   }
 }

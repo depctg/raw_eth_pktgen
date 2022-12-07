@@ -220,68 +220,68 @@ static inline void * placement_check(cache_token_t token) {
     return NULL;
 }
 
-// TODO: inline ?
-void cache_access_check(cache_token_t *token) {
-    if (token->tag != token_header_field(*token,tag)) {
-        virt_addr_t ser = { .cache = token->cache, .addr = (token->tag + token->line_ofst)};
-        *token = cache_request(ser.ser);
+extern inline cache_token_t cache_access_check(cache_token_t token) {
+    if (token.tag != token_header_field(token,tag)) {
+        virt_addr_t ser = { .cache = token.cache, .addr = (token.tag + token.line_ofst)};
+        return cache_request(ser.ser);
     }
+    return token;
 }
 
-void * cache_access(cache_token_t *token) {
-    void *dat = placement_check(*token);
+void * cache_access(cache_token_t token) {
+    void *dat = placement_check(token);
     if (dat) return dat;
     // add addr trace
-    access_inc(token->cache);
+    access_inc(token.cache);
 
     cache_access_check(token);
-    cache_await(*token);
-    __cache_access_handler(*token, 0);
+    cache_await(token);
+    __cache_access_handler(token, 0);
 #ifdef CACHE_LOG_PREF
     token_clear_flag(token,LINE_FLAGS_PREFED);
 #endif
-    add_trace(*token, EVNT_ACC);
-    return token_get_data(*token);
+    add_trace(token, EVNT_ACC);
+    return token_get_data(token);
 }
 
-void * cache_access_mut(cache_token_t *token) {
-    void *dat = placement_check(*token);
+void * cache_access_mut(cache_token_t token) {
+    void *dat = placement_check(token);
     if (dat) return dat;
-    access_inc(token->cache);
+    access_inc(token.cache);
     cache_access_check(token);
-    cache_await(*token);
-    __cache_access_handler(*token, 1);
+    cache_await(token);
+    __cache_access_handler(token, 1);
 #ifdef CACHE_LOG_PREF
     token_clear_flag(token,LINE_FLAGS_PREFED);
 #endif
-    add_trace(*token, EVNT_ACC_MUT);
-    return token_get_data(*token);
+    add_trace(token, EVNT_ACC_MUT);
+    return token_get_data(token);
 }
 
-void * cache_access_nrtc(cache_token_t *token) {
-    void *dat = placement_check(*token);
+void * cache_access_nrtc(cache_token_t token) {
+    void *dat = placement_check(token);
     if (dat) return dat;
-    access_inc(token->cache);
-    cache_await(*token);
-    __cache_access_handler(*token, 0);
+    access_inc(token.cache);
+    cache_await(token);
+    __cache_access_handler(token, 0);
 #ifdef CACHE_LOG_PREF
     token_clear_flag(token,LINE_FLAGS_PREFED);
 #endif
-    add_trace(*token, EVNT_ACC);
-    return token_get_data(*token);
+    add_trace(token, EVNT_ACC);
+    return token_get_data(token);
 }
 
-void * cache_access_nrtc_mut(cache_token_t *token) {
-    void *dat = placement_check(*token);
+void * cache_access_nrtc_mut(cache_token_t token) {
+    void *dat = placement_check(token);
     if (dat) return dat;
-    access_inc(token->cache);
-    cache_await(*token);
-    __cache_access_handler(*token, 1);
+    access_inc(token.cache);
+    cache_await(token);
+    __cache_access_handler(token, 1);
 #ifdef CACHE_LOG_PREF
     token_clear_flag(token,LINE_FLAGS_PREFED);
 #endif
-    add_trace(*token, EVNT_ACC_MUT);
-    return token_get_data(*token);
+    add_trace(token, EVNT_ACC_MUT);
+    return token_get_data(token);
 }
 
 // void cache_sync(cache_token_t *token) {
@@ -306,17 +306,17 @@ void cache_acquire(intptr_t vaddr, size_t nitems, size_t size, cache_token_t *to
     }
 }
 
-void cache_re_acquire(cache_token_t *token) {
-    if (unlikely(token->cache == 0)) {
+void cache_re_acquire(cache_token_t token) {
+    if (unlikely(token.cache > 1)) {
         // access stack mem
         return;
     }
     // fdprintf("reacq addr %lu tag %lu cache %d, slot tag %lu", token->tag+token->line_ofst, token->tag, token->cache, token_header_field(token,tag)); 
     cache_access_check(token);
 #ifdef CACHE_CONFIG_ACQUIRE
-    token_header_field(*token,acq_count) ++;
+    token_header_field(token,acq_count) ++;
 #endif
-    add_trace(*token, EVNT_ACQ);
+    add_trace(token, EVNT_ACQ);
 }
 
 // check negative, prevent aliasing

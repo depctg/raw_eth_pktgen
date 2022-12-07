@@ -41,8 +41,8 @@ extern "C" {
 #define CQ_NUM_DESC 64
 
 /* size for local buffers, 512M */
-#define SEND_BUF_SIZE ((1ULL << 30) + (4ULL << 20))
-#define RECV_BUF_SIZE (512ULL << 20)
+#define SEND_BUF_SIZE ((2ULL << 30) + (4ULL << 20))
+#define RECV_BUF_SIZE ((1ULL << 30) + (4ULL << 20))
 
 #define MAX_POLL 64
 

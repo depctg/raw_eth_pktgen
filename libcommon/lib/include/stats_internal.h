@@ -6,7 +6,6 @@
 #include "cache.h"
 #include "helper.h"
 
-
 typedef struct trace_ll {
   trace_node *head;
   trace_node *tail;

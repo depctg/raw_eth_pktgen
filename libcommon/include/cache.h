@@ -85,7 +85,7 @@ void cache_init();
 
 // Access Level, token interface
 void cache_acquire(intptr_t vaddr, size_t nitems, size_t size, cache_token_t *tokens);
-void cache_re_acquire(cache_token_t *token);
+void cache_re_acquire(cache_token_t token);
 void cache_release(cache_token_t *tokens, int cnt);
 
 // TODO: consider inline
@@ -99,13 +99,13 @@ uint64_t redirect(uint64_t vaddr, unsigned cid);
 // void cache_await(cache_token_t *token);
 
 // no need to call await beforehand
-void * cache_access(cache_token_t *token);
-void * cache_access_mut(cache_token_t *token);
-void * cache_access_nrtc(cache_token_t *token);
-void * cache_access_nrtc_mut(cache_token_t *token);
+void * cache_access(cache_token_t token);
+void * cache_access_mut(cache_token_t token);
+void * cache_access_nrtc(cache_token_t token);
+void * cache_access_nrtc_mut(cache_token_t token);
 
 // if version missmatch, request new one
-void cache_access_check(cache_token_t *token);
+cache_token_t cache_access_check(cache_token_t token);
 // will invalidate the entry
 void cache_flush(unsigned cache, uint64_t vaddr);
 // void cache_poll(void *arg);

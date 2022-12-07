@@ -36,7 +36,7 @@ void add_edge(struct Graph *g, int s, int t, float w)
     exit(1);
   }
   cache_token_t token = cache_request((uint64_t) &(g->l[s].neighbours[g->l[s].length++]));
-  GraphNode *dat = cache_access_mut(&token);
+  GraphNode *dat = cache_access_mut(token);
   *dat = (GraphNode){ t, w };
 }
 

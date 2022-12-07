@@ -1,0 +1,63 @@
+device 0, mlx5_0 | mlx5_1
+device 1, mlx5_1 | mlx5_1
+connecting to server tcp://localhost:2334...
+received mr, with bytes 32, num 0
+Remote base addr: 7f6133bff200
+Regist cache 2, size 1073741824, line size 1024 bytes
+
+MCF SPEC CPU2006 version 1.10
+Copyright (c) 1998-2000 Zuse Institut Berlin (ZIB)
+Copyright (c) 2000-2002 Andreas Loebel & ZIB
+Copyright (c) 2003-2005 Andreas Loebel
+
+nodes                      : 13225
+active arcs                : 204416
+basis dual infeasible
+simplex iterations         : 117627
+objective value            : 8870158808
+simplex 7732896.651000 us
+new implicit arcs          : 3000000
+price out 56428587.599000 us
+active arcs                : 3204416
+basis dual infeasible
+simplex iterations         : 238162
+objective value            : 6930124240
+simplex 15518258.668000 us
+erased arcs                : 2992893
+suspend 545248.246000 us
+new implicit arcs          : 5330399
+price out 7571440.983000 us
+active arcs                : 5541922
+basis dual infeasible
+simplex iterations         : 333107
+objective value            : 6930121656
+simplex 18107889.528000 us
+erased arcs                : 5327571
+suspend 887742.108000 us
+new implicit arcs          : 27187
+price out 3214668.323000 us
+active arcs                : 241538
+basis dual infeasible
+simplex iterations         : 333437
+objective value            : 6930121650
+simplex 887438.378000 us
+erased arcs                : 27182
+suspend 54214.619000 us
+new implicit arcs          : 272998
+price out 3304073.843000 us
+active arcs                : 487354
+basis dual infeasible
+simplex iterations         : 334353
+objective value            : 6930121646
+simplex 981182.189000 us
+erased arcs                : 272992
+suspend 92026.645000 us
+new implicit arcs          : 308
+price out 3200592.698000 us
+active arcs                : 214670
+basis dual infeasible
+simplex iterations         : 334402
+objective value            : 6930121644
+simplex 288910.962000 us
+checksum                   : 19565010
+done

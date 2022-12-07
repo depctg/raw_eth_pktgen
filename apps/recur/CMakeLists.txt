@@ -1,2 +1,2 @@
 link_libraries(common)
-add_executable(${app}-main recur.c)
+# add_executable(${app}-main recur.c)

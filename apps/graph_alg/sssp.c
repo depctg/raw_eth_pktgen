@@ -35,7 +35,7 @@ void dijkstra(Graph* graph, int src, double *solution)
     for (int i = 0; i < graph->l[t].length; ++ i)
     {
       cache_token_t token = cache_request((uint64_t) &(graph->l[t].neighbours[i]));
-      GraphNode cur = *(GraphNode *) cache_access(&token);
+      GraphNode cur = *(GraphNode *) cache_access(token);
 
       int nid = cur.dest;
       if (heap_contains(heap, nid))

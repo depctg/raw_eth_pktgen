@@ -41,7 +41,7 @@ void setup() {
 void obv_work(arc_t *arc, unsigned n) {
   while (n) {
     cache_token_t token = cache_request((uintptr_t)(arc));
-    arc_t* arc_local = (arc_t*) cache_access_mut(&token);
+    arc_t* arc_local = (arc_t*) cache_access_mut(token);
     dprintf("%ld: %lu %lu %u", arc-dat, arc_local->i, arc_local->j, arc_local->hit);
 
     arc_local->i *= n;
@@ -100,7 +100,6 @@ void check() {
 }
 
 int main(int argc, char **argv) {
-  int it = atoi(argv[1]);
   init_client();
   cache_init();
   channel_init();

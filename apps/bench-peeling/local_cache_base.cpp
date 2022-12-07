@@ -40,7 +40,7 @@ void setup() {
 void seq_work_small(arc_t *arc, unsigned n) {
   for (unsigned i = 0; i < n; ++ i) {
     cache_token_t token = cache_request((uint64_t) (arc+i));
-    arc_t *arc_i = (arc_t*) cache_access_mut(&token);
+    arc_t *arc_i = (arc_t*) cache_access_mut(token);
     dprintf("%d: %d %d %u", i, arc_i->x, 
                                arc_i->y, 
                                arc_i->hit);
@@ -53,7 +53,7 @@ void seq_work_small(arc_t *arc, unsigned n) {
 void seq_work_large(arc_t *arc, unsigned n) {
   for (unsigned i = 0; i < n; ++ i) {
     cache_token_t token = cache_request((uint64_t) (arc+i));
-    arc_t *arc_i = (arc_t*) cache_access_mut(&token);
+    arc_t *arc_i = (arc_t*) cache_access_mut(token);
     dprintf("%d: %lu %lu %u", i,  arc_i->i, 
                                         arc_i->j, 
                                         arc_i->hit);

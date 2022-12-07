@@ -107,9 +107,9 @@ void do_work () {
   visit(indices, v, maxVst, minVst, meanVst);
   uint64_t end = microtime();
 
+  printf("Time = %lu us\n", end-start);
   printf("Max vst = %lu %lu\n", maxVst.index_, maxVst.max_);
   printf("Min vst = %lu %lu\n", minVst.index_, minVst.min_);
   printf("Mean vst = %lu %lu\n", meanVst.get_count(), meanVst.get_result());
-  printf("Time = %lu us\n", end-start);
 }
 

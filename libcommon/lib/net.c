@@ -60,7 +60,7 @@ struct conn_info * client_exchange_info(const char * server_url) {
     return peer_info;
 }
 
-struct conn_info * server_exchange_info(const char * server_url) {
+struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr) {
     nng_socket sock;
 	int rv;
     size_t send_size, bytes;
@@ -71,8 +71,11 @@ struct conn_info * server_exchange_info(const char * server_url) {
         .gid = gids,
         .port = PORT_NUM,
         .qp_number = qp->qp_num,
-        .num_mr = 0
+        .num_mr = 1
     };
+    // include buffer on server
+    local_info.mr[0] = *mr;
+
 	struct conn_info *peer_info = NULL;
 
     // create server

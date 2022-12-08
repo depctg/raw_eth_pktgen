@@ -19,9 +19,9 @@ static inline unsigned rand_next() {
 }
 
 /* Group assoc */
-const int group_bits = 2;
-const uint64_t groups = 1 << group_bits;
-const uint64_t group_mask = ~(groups - 1);
+#define group_bits 2
+#define groups (4ULL)
+#define group_mask (~(3ULL))
 
 // checkers
 static inline void _cache_access_check(cache_token_t token, int mut) {

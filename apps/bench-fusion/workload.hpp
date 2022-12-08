@@ -77,7 +77,7 @@ public:
   
 };
 
-#define ARY_SIZE (1ULL << 27)
+#define ARY_SIZE (4ULL << 27)
 vector<dat_type> v;
 vector<index_type> indices;
 

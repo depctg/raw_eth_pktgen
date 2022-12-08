@@ -16,6 +16,7 @@ struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *smr, *rmr;
 struct ibv_context *context = NULL;
+struct ibv_mr mr;
 
 uint64_t post_id = 0;
 uint64_t poll_id = 0;
@@ -87,12 +88,33 @@ int init(int type, const char * server_url) {
         exit(1);
     }
 
+    /* 9. Register MR */
+    const size_t align = 1024 * 4;
+    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
+    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
+    // sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    // rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+    if (!sbuf || !rbuf) {
+        fprintf(stderr, "Coudln't allocate memory\n");
+        exit(1);
+    }
+
+    smr = ibv_reg_mr(pd, sbuf, SEND_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    rmr = ibv_reg_mr(pd, rbuf, RECV_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
+    if (!smr || !rmr) {
+        fprintf(stderr, "Couldn't register mr\n");
+        exit(1);
+    }
+
     /* exchange QP info */
     struct conn_info * peerinfo;
     if (type == TRANS_TYPE_RC) {
         peerinfo = client_exchange_info(server_url);
+        // copy remote mr
+        mr = peerinfo->mr[0];
     } else if (type == TRANS_TYPE_RC_SERVER) {
-        peerinfo = server_exchange_info(server_url);
+        peerinfo = server_exchange_info(server_url, smr);
     }
 
     /* 7. Initialize the QP (receive ring) and assign a port */
@@ -118,7 +140,7 @@ int init(int type, const char * server_url) {
     qp_flags = IBV_QP_STATE | IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
 
     qp_attr.qp_state = IBV_QPS_RTR;
-    qp_attr.path_mtu = IBV_MTU_4096;
+    qp_attr.path_mtu = IBV_MTU_1024;
     qp_attr.rq_psn = 0;
     qp_attr.max_dest_rd_atomic = 1;
     qp_attr.min_rnr_timer = 0x12;
@@ -156,25 +178,6 @@ int init(int type, const char * server_url) {
     ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
     if (ret != 0) {
         fprintf(stderr, "failed modify qp to send\n");
-        exit(1);
-    }
-
-    /* 9. Register MR */
-    const size_t align = 1024 * 4;
-    sbuf = aligned_alloc(align, SEND_BUF_SIZE);
-    rbuf = aligned_alloc(align, RECV_BUF_SIZE);
-    // sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    // rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-
-    if (!sbuf || !rbuf) {
-        fprintf(stderr, "Coudln't allocate memory\n");
-        exit(1);
-    }
-
-    smr = ibv_reg_mr(pd, sbuf, SEND_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
-    rmr = ibv_reg_mr(pd, rbuf, RECV_BUF_SIZE, IBV_ACCESS_LOCAL_WRITE);
-    if (!smr || !rmr) {
-        fprintf(stderr, "Couldn't register mr\n");
         exit(1);
     }
 

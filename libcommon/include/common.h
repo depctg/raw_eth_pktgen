@@ -34,14 +34,14 @@ extern "C" {
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 2
-#define DEVICE_NAME "mlx5_1"
+#define DEVICE_NAME "mlx5_3"
 #define DEVICE_GID 3
 #define PORT_NUM 1
 
 #define CQ_NUM_DESC 64
 
 /* size for local buffers, 512M */
-#define SEND_BUF_SIZE ((2ULL << 30) + (4ULL << 20))
+#define SEND_BUF_SIZE ((8ULL << 30) + (4ULL << 20))
 #define RECV_BUF_SIZE ((1ULL << 30) + (4ULL << 20))
 
 #define MAX_POLL 64
@@ -63,6 +63,7 @@ extern struct ibv_qp *qp;
 extern struct ibv_cq *cq;
 extern struct ibv_mr *smr, *rmr;
 extern struct ibv_context *context;
+extern struct ibv_mr mr;
 
 extern uint64_t post_id;
 extern uint64_t poll_id;
@@ -101,10 +102,42 @@ struct conn_info {
     uint16_t qp_number;
 
     int num_mr;
-    struct ibv_mr mr[0];
+    struct ibv_mr mr[1];
 };
-struct conn_info * server_exchange_info(const char * server_url);
+struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr);
 struct conn_info * client_exchange_info(const char * server_url);
+
+// static inlines
+static inline void
+rdma(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode opcode) {
+    int ret;
+    struct ibv_wc wc;
+    int bytes;
+
+    // SGE for request, we use only 1
+    struct ibv_sge sge;
+    sge.addr = (uint64_t)buf;
+    sge.length = size;
+    sge.lkey = smr->lkey;
+
+    struct ibv_send_wr wr, *badwr = NULL;
+
+    wr.wr_id = id;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+
+    wr.wr.rdma.remote_addr = (uint64_t)(mr.addr) + raddr;
+    wr.wr.rdma.rkey = mr.rkey;
+    wr.opcode = opcode;
+
+    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.next = NULL;
+
+    ret = ibv_post_send(qp, &wr, &badwr);
+    if (unlikely(ret != 0)) {
+        exit(-1);
+    }
+};
 
 static inline uint64_t getCurNs() {
     struct timespec ts;

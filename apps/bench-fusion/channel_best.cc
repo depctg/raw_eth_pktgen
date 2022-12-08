@@ -7,8 +7,8 @@
 using namespace std;
 
 void post_setup() {
-  remotelize(2, v);
-  remotelize(3, indices);
+  remotelize(2, indices);
+  remotelize(3, v);
 }
 
 template<typename I, typename D, typename V1, typename V2, typename V3>
@@ -20,11 +20,11 @@ void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &vis
 
   unsigned channel1 = channel_create(
     (uint64_t)&(indices_[0]), min_s, sizeof(I),
-    sizeof(I), 128, 128, 0, 0, 0
+    sizeof(I), 1024, 1024, 0, 0, 0
   );
   unsigned channel2 = channel_create(
     (uint64_t)&(vec[0]), min_s, sizeof(D),
-    sizeof(D), 128, 128, 0, 0, 0
+    sizeof(D), 1024, 1024, 0, 0, 0
   );
 
   visitor1.pre();

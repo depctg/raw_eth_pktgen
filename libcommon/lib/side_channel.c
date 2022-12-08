@@ -23,23 +23,23 @@ void channel_init() {
 // n: size to prefetch, guaranteed n <= batch size
 static inline void channel_prefetch(unsigned channel, unsigned start, unsigned n) {
   dprintf("Prefetch channel %u start %u n %u", channel,start,n);
-  // flush whatever is touched
-  for (unsigned i = start; 
-                i < start + n; 
-                i += channel_get_field(channel,N_on_line)) {
-    // invalidate cache entries
-    cache_flush(
-      channel_get_field(channel,cache), 
-      channel_get_field(channel,disagg_vaddr) + i * channel_get_field(channel,ori_unit_size)
-    );
-  }
-  // TODO: check if divisible
-  if (channel_get_field(channel,N_on_line) < n) {
-    cache_flush(
-      channel_get_field(channel,cache), 
-      channel_get_field(channel,disagg_vaddr) + (start+n-1) * channel_get_field(channel,ori_unit_size)
-    );
-  }
+  // // flush whatever is touched
+  // for (unsigned i = start; 
+  //               i < start + n; 
+  //               i += channel_get_field(channel,N_on_line)) {
+  //   // invalidate cache entries
+  //   cache_flush(
+  //     channel_get_field(channel,cache), 
+  //     channel_get_field(channel,disagg_vaddr) + i * channel_get_field(channel,ori_unit_size)
+  //   );
+  // }
+  // // TODO: check if divisible
+  // if (channel_get_field(channel,N_on_line) < n) {
+  //   cache_flush(
+  //     channel_get_field(channel,cache), 
+  //     channel_get_field(channel,disagg_vaddr) + (start+n-1) * channel_get_field(channel,ori_unit_size)
+  //   );
+  // }
 
   // start is batch aligned
   unsigned ele_ring_id = start % channel_get_field(channel,num_slots); 
@@ -120,7 +120,7 @@ unsigned channel_create(
 
 // With bound checking,
 // only prefetch when i % batch == 0
-void * channel_access(unsigned channel, uint64_t i) {
+extern inline void * channel_access(unsigned channel, uint64_t i) {
   // prefetch each batch
   channel_get_field(channel,max_reached) = MAX(channel_get_field(channel,max_reached),i);
   unsigned batch = channel_get_field(channel,batch);

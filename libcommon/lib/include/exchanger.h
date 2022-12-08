@@ -63,6 +63,7 @@ static inline void _cq_poll() {
 
     int n = ibv_poll_cq(cq, MAX_POLL, wc);
     for (int i = 0; i < n; ++ i) {
+        dprintf("CQ POLL, RECV %d\n", wc[i].opcode == IBV_WC_RECV);
         if (wc[i].status != IBV_WC_SUCCESS) {
             printf("WR failed\n");
             exit(1);
@@ -243,7 +244,6 @@ static inline void side_channel_request(
   req_head = (req_head + 1) & (REQ_INFLIGHT - 1);
   req_nout ++;
 
-  dprintf("Channel req: read %lu - %u, write %lu - %u, type %d", read_wr.disagg_r_vaddr, read_wr.num, write_wr.disagg_r_vaddr, write_wr.num, type);
   // printf("Channel req: read %lu - %u, write %lu - %u, type %d\n", read_wr.disagg_r_vaddr, read_wr.num, write_wr.disagg_r_vaddr, write_wr.num, type);
 
   req_buf[cur].op_code = type;
@@ -256,6 +256,7 @@ static inline void side_channel_request(
     req_buf[cur].side_r_header.wsize = write_wr.num * channel_get_field(channel,size_each);
   }
   req_buf[cur].assem_id = channel_get_field(channel,assem_id);
+  dprintf("Channel req: read %lu - %u, write %lu - %u, type %d", read_wr.disagg_r_vaddr, req_buf[cur].side_r_header.rsize, write_wr.disagg_r_vaddr, write_wr.num, type);
   /* Send Packets */
   s_sge[0].addr = (uint64_t)(req_buf + cur);
   s_sge[0].length = sizeof(RPC_rr_t);
@@ -324,6 +325,7 @@ static inline void side_channel_request(
     }
     req_nout ++;
 
+    dprintf("Channel recv: read %x - %u", r_sge.addr, r_sge.length);
     ret = ibv_post_recv(qp, &rwr, &bad_rwr);
 #ifndef NDEBUG
     if (unlikely(ret) != 0) {

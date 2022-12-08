@@ -21,24 +21,6 @@ void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &vis
   // should assert this is a multiple of base element size
 
   
-  rring_init(idx, I, 1024, 256, rbuf, 0);
-  rring_init(di, I, 1024, 256, rbuf, 1024*1024);
-
-  rring_outer_loop(idx, I, min_s) {
-      rring_outer_loop_with(di, min_s);
-
-      rring_prefetch(idx, 16);
-      rring_prefetch(di, 16);
-
-      rring_inner_preloop(idx, I);
-      rring_inner_preloop(di, I);
-
-      rring_inner_loop(idx, j) {
-          visitor1 (_inner_idx[j], _inner_di[j]);
-          visitor2 (_inner_idx[j], _inner_di[j]);
-          visitor3 (_inner_idx[j], _inner_di[j]);
-      }
-  }
 }
 
 int main () {
@@ -47,6 +29,68 @@ int main () {
   cache_init();
   channel_init();
 
-  do_work();
+  size_t sum = 0, sum2 = 0;
+
+  // ring buf size = 1024 * 32
+  // local cache: [rbase, rbase + 1024 *32]
+  // remote: [sbuf + 0, sbuf + 0 + 1024 * 32]
+
+#if 0
+  rring_init(writer, int, 1024, 32, rbuf, 0);
+  rring_init(writer2, int, 1024, 32, rbuf + 1024*32, 1024 * 1024 * sizeof(int));
+
+  // 1024 * 1024 -> number of elements
+  rring_outer_loop(writer, int, 1024UL * 1024) {
+  rring_outer_loop_with(writer2, int);
+      // keep this!
+      rring_inner_preloop(writer, int);
+      rring_inner_preloop(writer2, int);
+
+      rring_inner_loop(writer, j) {
+        size_t acc = _t_writer * _bn_writer + j;
+        // nth = _t_<name> * _bn_<name> + j;
+        // cur_elm = _inner_<name>[j]
+        _inner_writer[j] = acc;
+        _inner_writer2[j] = acc;
+        sum += acc;
+      }
+
+      // write back current line
+      rring_inner_wb(writer);
+  }
+#endif
+  // name, Type, block size, #blocks, local base, remote base
+  rring_init(writer, int, 1024, 32, rbuf, 0);
+
+  // 1024 * 1024 -> number of elements
+  rring_outer_loop(writer, int, 1024UL * 1024) {
+      // keep this!
+      rring_inner_preloop(writer, int);
+      rring_sync_writeonly(writer);
+
+      rring_inner_loop(writer, j) {
+        size_t acc = _t_writer * _bn_writer + j;
+        // nth = _t_<name> * _bn_<name> + j;
+        // cur_elm = _inner_<name>[j]
+        _inner_writer[j] = acc;
+        sum += acc;
+      }
+
+      // write back current line
+      rring_inner_wb(writer);
+  }
+
+  rring_init(idx, int, 1024, 256, rbuf, 0);
+  rring_outer_loop(idx, int, 1024UL * 1024) {
+      rring_prefetch(idx, 16);
+      rring_inner_preloop(idx, int);
+      rring_sync(idx);
+      rring_inner_loop(idx, j) {
+        sum2 += _inner_idx[j];
+      }
+  }
+
+  printf("FINISH %ul %ul\n", sum, sum2);
+
   return 0;
 }

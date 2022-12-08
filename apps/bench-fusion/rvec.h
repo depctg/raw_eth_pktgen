@@ -27,7 +27,7 @@ void remotelize(unsigned cid, std::vector<T> &v) {
     
     unsigned channel = channel_create(
       (uint64_t)raddr, c, sizeof(T),
-      sizeof(T), 1024/sizeof(T), 1024/sizeof(T), 0, 0, 1
+      sizeof(T), 2048/sizeof(T), 2048/sizeof(T), 0, 0, 1
     );
 
     for (size_t i = 0; i < c; ++ i) {

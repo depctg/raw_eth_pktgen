@@ -5,6 +5,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -69,7 +71,7 @@ extern uint64_t post_id;
 extern uint64_t poll_id;
 
 #define ARG_BUF_LIMIT 4096 // Bytes
-#define RPC_RET_LIMIT 512 // Bytes
+#define RPC_RET_LIMIT 4096 // Bytes
 #define SGE_ADDR_LIMIT 512 // num
 
 // local address layout
@@ -111,14 +113,12 @@ struct conn_info * client_exchange_info(const char * server_url);
 static inline void
 rdma(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode opcode) {
     int ret;
-    struct ibv_wc wc;
-    int bytes;
 
     // SGE for request, we use only 1
     struct ibv_sge sge;
     sge.addr = (uint64_t)buf;
     sge.length = size;
-    sge.lkey = smr->lkey;
+    sge.lkey = rmr->lkey;
 
     struct ibv_send_wr wr, *badwr = NULL;
 
@@ -132,9 +132,11 @@ rdma(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode 
 
     wr.send_flags = IBV_SEND_SIGNALED;
     wr.next = NULL;
+    // printf("RDMA RADDR %lx %lx SIZE %lu LOCAL %lx ID %ul\n", mr.addr, raddr, size, buf, id); 
 
     ret = ibv_post_send(qp, &wr, &badwr);
     if (unlikely(ret != 0)) {
+        fprintf(stderr, "RDMA post send error %d\n", ret); 
         exit(-1);
     }
 };

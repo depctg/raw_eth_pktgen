@@ -90,6 +90,7 @@ uint64_t recv(void * buf, size_t size);
 uint64_t recv_async(void * buf, size_t size);
 
 int poll(uint64_t wr_id);
+int poll_opcode(uint64_t wr_id, int code);
 int poll_cq(struct ibv_cq *cq, int n, struct ibv_wc *wc);
 
 // RDMA_info exchange

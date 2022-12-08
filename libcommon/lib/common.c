@@ -459,6 +459,22 @@ int poll(uint64_t wr_id) {
     return 0;
 }
 
+int poll_opcode(uint64_t wr_id, int code) {
+    if (poll_id >= post_id)
+        return 0;
+    static struct ibv_wc wc[MAX_POLL];
+    uint64_t polled_wr_id = 0;
+    do {
+        int n = ibv_poll_cq(cq, MAX_POLL, wc);
+        for (int i = 0; i < n; ++ i) {
+            poll_id ++;
+            if (wc[i].opcode == code && polled_wr_id < wc[i].wr_id) 
+                polled_wr_id = wc[i].wr_id;
+        }
+    } while (poll_id < post_id && polled_wr_id < wr_id);
+    return 0;
+}
+
 int poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc) {
     return ibv_poll_cq(cq, num_entries, wc);
 }

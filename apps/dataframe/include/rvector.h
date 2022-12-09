@@ -86,6 +86,7 @@ void remotelize(std::vector<T> &v) {
       rring_inner_wb(writer);
     }
 
+    rring_cleanup_writeonly(writer);
 
     // __int128_t token = cache_request((uintptr_t) raddr);
     // void * rdata = cache_access_mut(&token);

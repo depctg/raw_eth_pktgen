@@ -95,8 +95,8 @@ V visit (std::vector<T> &vec, V &visitor)  {
 
     rring_outer_loop_with(rvec, min_s);
     rring_outer_loop(rids, size_t, min_s) {
-      rring_prefetch(rids, 8);
-      rring_prefetch(rvec, 8);
+      rring_prefetch(rids, 4);
+      rring_prefetch(rvec, 4);
 
       rring_inner_preloop(rids, size_t);
       rring_inner_preloop(rvec, uint64_t);
@@ -147,8 +147,8 @@ void calculate_trip_duration()
 
     rring_outer_loop_with(rpick, N);
     rring_outer_loop(rdrop, SimpleTime, N) {
-        rring_prefetch(rdrop, 8);
-        rring_prefetch(rpick, 8);
+        rring_prefetch(rdrop, 4);
+        rring_prefetch(rpick, 4);
 
         rring_inner_preloop(rdrop, SimpleTime);
         rring_inner_preloop(rpick, SimpleTime);

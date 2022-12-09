@@ -7,21 +7,6 @@
 
 template<typename T>
 size_t get_col_unique_values(const std::vector<T> & vec) {
-    // auto                    hash_func =
-    //     [](const T& v) -> std::size_t  {
-    //         return(std::hash<T>{}(v));
-    // };
-    // auto                    equal_func =
-    //     [](const T& lhs,
-    //        const T& rhs) -> bool  {
-    //         return(lhs == rhs);
-    // };
-
-    // std::unordered_set<T,
-    //     decltype(hash_func),
-    //     decltype(equal_func)>   table(vec.size(), hash_func, equal_func);
-    // bool                        counted_nan = false;
-
     size_t N = vec.size();
     // TODO: disagg this variable
     std::vector<T>              result;

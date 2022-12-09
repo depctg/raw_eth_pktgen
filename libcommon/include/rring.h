@@ -3,15 +3,17 @@
 
 #include "common.h"
 
-static struct ibv_wc wc[16];
+static struct ibv_wc wc[64];
+#define RRING_WRITE_IF (32)
 
 #define rring_init(rn,T,bsize,nblocks,lbase,rbase) \
   const size_t _bsize_##rn = bsize, _bn_##rn = bsize / sizeof(T); \
   const size_t _nblocks_##rn = nblocks; \
-  size_t _h_##rn = 0, _t_##rn = 0, _r_##rn = 0; \
+  size_t _h_##rn = 0, _t_##rn = 0, _r_##rn = 0, _s_##rn=0; \
   const uint64_t _lbase_##rn = (uint64_t)(lbase), _rbase_##rn = (uint64_t)(rbase)
 
 #define rring_outer_loop(rn,T,lim) \
+  _h_##rn = _t_##rn = _r_##rn = _s_##rn=0; \
   for (size_t _lim_##rn = (lim), _tlim_##rn = ((lim) + _bn_##rn - 1) / _bn_##rn; \
           _t_##rn < _tlim_##rn; _t_##rn ++)
 #define rring_outer_loop_with(rn,lim) \
@@ -25,23 +27,74 @@ static struct ibv_wc wc[16];
   T * _inner_##rn = (T *)(_lbase_##rn + (_t_##rn % _nblocks_##rn) * _bsize_##rn)
 
 #define rring_sync(rn) \
-  rring_poll(&_r_##rn, _t_##rn)
+  rring_poll_readonly(&_r_##rn, _t_##rn)
 
 #define rring_sync_writeonly(rn) \
-  rring_poll_only()
+  rring_poll_writeonly(&_s_##rn, _t_##rn)
 
 #define rring_inner_loop(rn, j) \
   for (size_t j = 0; j < _ilim_##rn ; j++)
 
 #define rring_inner_wb(rn) \
     rdma(_lbase_##rn + (_t_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
-            _rbase_##rn + (_t_##rn * _bsize_##rn), 0, IBV_WR_RDMA_WRITE)
+            _rbase_##rn + (_t_##rn * _bsize_##rn), _t_##rn, IBV_WR_RDMA_WRITE)
 
 #define rring_prefetch(rn,nprefetch) \
     for (;_h_##rn < _t_##rn + nprefetch && _h_##rn < _tlim_##rn; _h_##rn ++) \
         rdma(_lbase_##rn + (_h_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
                 _rbase_##rn + (_h_##rn * _bsize_##rn), _h_##rn, IBV_WR_RDMA_READ);
 
+#define rring_cleanup_writeonly(rn) \
+  rring_clean_writeonly(&_r_##rn, _t_##rn)
+
+static inline void rring_poll_readonly(size_t *r, size_t t) {
+    if (*r >= t)
+        return;
+
+    do {
+        int n = ibv_poll_cq(cq, 16, wc);
+        for (int i = 0; i < n; i++) {
+            // if (wc[i].status != 0) {
+            //     printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+            // }
+            if (wc[i].wr_id > *r)
+                *r = wc[i].wr_id;
+        }
+    } while (*r < t);
+}
+
+static inline void rring_poll_writeonly(size_t *s, size_t t) {
+    if (*s + RRING_WRITE_IF >= t)
+        return;
+
+    do {
+        int n = ibv_poll_cq(cq, 32, wc);
+        for (int i = 0; i < n; i++) {
+            if (wc[i].status != 0) {
+                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+            }
+            if (wc[i].wr_id > *s)
+                *s = wc[i].wr_id;
+        }
+    } while (*s + RRING_WRITE_IF < t);
+}
+
+static inline void rring_clean_writeonly(size_t *s, size_t t) {
+    while (*s + 1 < t) {
+        int n = ibv_poll_cq(cq, 32, wc);
+        for (int i = 0; i < n; i++) {
+#ifdef RRING_DEBUG
+            if (wc[i].status != 0) {
+                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+            }
+#endif
+            if (wc[i].wr_id > *s)
+                *s = wc[i].wr_id;
+	}
+    }
+}
+
+#if 0
 static inline void rring_poll(size_t *r, size_t t) {
     if (*r >= t)
         return;
@@ -49,20 +102,16 @@ static inline void rring_poll(size_t *r, size_t t) {
     do {
         int n = ibv_poll_cq(cq, 16, wc);
         for (int i = 0; i < n; i++) {
-            if (wc[i].status != 0) {
-                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
-            }
-            if (wc[i].wr_id > *r)
+            // if (wc[i].status != 0) {
+            //     printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+            // }
+            if (wc.opcode == IBV_WC_RDMA_READ && wc[i].wr_id > *r)
+                *r = wc[i].wr_id;
+	    else if (wc.opcode == IBV_WC_RDMA_WRITE && wc[i].wr_id > *s)
                 *r = wc[i].wr_id;
         }
     } while (*r < t);
 }
-
-static inline void rring_poll_only() {
-    int ret;
-    do {
-        ret = ibv_poll_cq(cq, 16, wc);
-    } while (ret);
-}
+#endif
 
 #endif

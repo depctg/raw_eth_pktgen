@@ -12,7 +12,7 @@ template<typename T> void sel_load
 
     new_col.reserve(std::min(indices.size(), vec_size));
 
-    size_t s = new_col.size();
+    size_t s = indices.size();
     for (size_t i = 0; i < s; i++)  {
         size_t citer = indices[i];
         const size_type index =
@@ -35,18 +35,17 @@ get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newvec) {
     const std::vector<T>    &vec = get_column<T>(name);
     const size_type         idx_s = indices_.size();
     const size_type         col_s = vec.size();
-    // std::vector<size_type>  col_indices;
+    std::vector<size_type>  col_indices;
 
     // TODO: measure col_indices size
     // make sure this do not trigger realloc
     // and consider remotelize
-    // col_indices.reserve(idx_s);
+    col_indices.reserve(idx_s);
     newvec.reserve(col_s);
 
 
     // for (size_type i = 0; i < col_s; ++i)
     //     if (sel_func (indices_[i], vec[i])) {
-    //         col_indices.push_back(i);
     //     }
     const std::vector<int> &target_col = get_column<int>("passenger_count");
 
@@ -78,9 +77,10 @@ get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newvec) {
             int rget = _inner_r_get_from[j];
             // printf("%lu %d %d\n", index, fby, rget);
             if (sel_func (index, fby)) {
-                // nth = _t_<name> * _bn_<name> + j;
-                // size_t nth = _t_rids * _bn_rids + j;
-                // col_indices.push_back(nth);
+                // dummy
+                size_t nth = _t_rids * _bn_rids + j;
+                col_indices.push_back(nth);
+
                 newvec.push_back(rget);
             }
         }

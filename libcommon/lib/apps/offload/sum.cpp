@@ -14,6 +14,7 @@ static size_t sum(std::vector<size_t> &vec) {
     return sum;
 }
 
+
 extern "C" void __service_sum(void *arg, void *ret) {
     __v *v = (__v *)arg;
     v->p1 = (size_t *)deref_disagg_vaddr((uint64_t)(v->p1));

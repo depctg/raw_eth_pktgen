@@ -10,7 +10,6 @@ using namespace hmdf;
 static StdDataFrame<uint64_t> df;
 
 
-
 void * load_data()
 {   
     StdDataFrame<uint64_t>::set_thread_level(1);

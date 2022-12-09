@@ -28,8 +28,8 @@ template<typename T> void sel_load
     return;
 }
 
-template <typename T, typename F> void
-get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newvec) {
+template <typename K, typename T, typename F>
+void get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newvec) {
     auto &indices_ = get_index();
 
     const std::vector<T>    &vec = get_column<T>(name);
@@ -88,34 +88,7 @@ get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newvec) {
         rring_outer_loop_with_post(r_filter_by);
     }
 
-    // DataFrame       df;
-    // IndexVecType    new_index;
-
-    // new_index.reserve(col_indices.size());
-    // for (const auto citer: col_indices)
-    //     new_index.push_back(indices_[citer]);
-    // df.load_index(std::move(new_index));
-
-    // for (auto col_citer : column_tb_)  {
-    //     sel_load_functor_<size_type, Ts ...>    functor (
-    //         col_citer.first.c_str(),
-    //         col_indices,
-    //         idx_s,
-    //         df);
-
-    //     data_[col_citer.second].change(functor);
-    // }
-
-    // TODO: populate entire dataframe
-    // std::vector<int> uselessVenderId;
-    // sel_load(col_indices, get_column<int>("VendorID"), uselessVenderId);
-
-    // Target column
-    // sel_load(col_indices, get_column<int>("passenger_count"), newvec);
-    // Fo full copy
     return;
-
-    // return (df);
 }
 
 void print_passage_counts_by_vendor_id(int vendor_id)
@@ -127,7 +100,7 @@ void print_passage_counts_by_vendor_id(int vendor_id)
     };
 
     std::vector<int> passage_count_vec;
-    get_data_by_sel("VendorID", sel_vendor_functor, passage_count_vec);
+    get_data_by_sel<int>("VendorID", sel_vendor_functor, passage_count_vec);
 
     size_t s = passage_count_vec.size();
     printf("newvec size %lu\n", s);

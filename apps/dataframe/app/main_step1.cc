@@ -4,6 +4,7 @@
 #include "rvector.h"
 #include "cache.h"
 #include "common.h"
+#include "offload.h"
 
 template<typename T>
 size_t get_col_unique_values(const std::vector<T> & vec) {
@@ -56,6 +57,11 @@ void print_number_vendor_ids_and_unique()
     printf("print_number_vendor_ids_and_unique()\n");
     printf("number of vendor_ids in the train dataset: %ld\n", 
         get_column<int>("VendorID").size());
+
+    // rvector<int> *vids = (rvector<int> *) &get_column<int>("VendorID");
+    // * ((rvector<int> *) offload_arg_buf) = *vids;
+    // size_t unique_count = *(size_t *) call_offloaded_service(1, sizeof(*vids), sizeof(size_t));
+
     printf("Number of unique vendor_ids in the train dataset: %ld\n\n",
         get_col_unique_values(get_column<int>("VendorID")));
 }

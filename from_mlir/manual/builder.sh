@@ -16,3 +16,9 @@ function link_mlir_obj() {
   set +x
   echo "Link Complete"
 }
+
+function link_offloads() {
+  cd /home/wuklab/projects/pl-zijian/raw_eth_pktgen/apps/dataframe/app
+  clang-b++ -std=c++20 -c offloads.cc -I ../include/ -o offloads.o
+  
+}

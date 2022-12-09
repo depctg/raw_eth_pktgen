@@ -105,7 +105,10 @@ void __step2_get_data_by_sel(void* arg, void* ret) {
     int          *vendor_id = (int *) (filter_by + 1);
     __v<int>     *target    = (__v<int> *) (vendor_id + 1);
 
-    trans_vec(v);
-    size_t r = get_col_unique_values(* (std::vector<int> *)v);
-    memcpy(ret, &r, sizeof(size_t)); 
+    trans_vec(indices);
+    trans_vec(filter_by);
+    trans_vec(target);
+
+    // size_t r = get_col_unique_values(* (std::vector<int> *)v);
+    // memcpy(ret, &r, sizeof(size_t)); 
 }

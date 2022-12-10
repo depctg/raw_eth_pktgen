@@ -14,16 +14,6 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
 {
     printf("analyze_trip_durations_of_timestamps() on key = %s\n", key_col_name);
 
-    // auto copy_index        = get_index();
-    // auto copy_key_col      = get_column<T_Key>(key_col_name);
-    // auto copy_key_duration = get_column<uint64_t>("duration");
-
-    // Take this out 
-    // can offload all
-    // step7_do_process(key_col_name);
-    // Take this out
-
-    // data copy
     auto &copy_index        = get_index();
     auto &copy_key_col      = get_column<short>(key_col_name);
     auto &copy_key_duration = get_column<uint64_t>("duration");
@@ -34,6 +24,8 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
     rvector<short> *key_col_rv = (rvector<short> *) &copy_key_col;
     rvector<uint64_t> *duration_rv = (rvector<uint64_t> *) &copy_key_duration;
     int ikey = (strcmp(key_col_name, "pickup_month") == 0);
+
+    printf("%p %p %p\n", indice_rv->head, key_col_rv->head, duration_rv->head);
 
     size_t arg_size = 0;
     rvector<size_t> *gep_idx = (rvector<size_t> *) offload_arg_buf;
@@ -56,24 +48,27 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
 
     rvector<short> *key_after = (rvector<short> *) data;
     rvector<uint64_t> *duration_after = (rvector<uint64_t> *) (key_after + 1);
+    printf("%lu %lu\n", (uint64_t)key_after->head,(uint64_t) duration_after->head);
 
     // for (uint64_t i = 0; i < key_vec.size(); i++) {
     //     std::cout << static_cast<int>(key_vec[i]) << " " << duration_vec[i] << std::endl;
     // }
     size_t s = key_after->end - key_after->head;
-    rring_init(rkey, short, (2 << 20), 32, (size_t) ((char*)rbuf + (8<<20)), remoteAddr(key_after->head));
-    rring_init(rduration, uint64_t, (2 << 20), 32, (size_t) ((char*)rbuf + (72<<20)), remoteAddr(duration_after->head));
+    printf("mapped size %lu\n", s);
+    printf("sbuf offset %x\n", remoteAddr(key_after->head));
+    rring_init(rkey, short, (2 << 20), 4, (size_t) ((char*)rbuf + (8<<20)), remoteAddr(key_after->head));
+    rring_init(rduration, uint64_t, (2 << 20), 4, (size_t) ((char*)rbuf + (72<<20)), remoteAddr(duration_after->head));
 
-    rring_outer_loop_with(rduration, s);
-    rring_outer_loop(rkey, short, s) {
-        rring_prefetch(rduration, 4);
-        rring_prefetch(rkey, 4);
+    rring_outer_loop_with(rkey, s);
+    rring_outer_loop(rduration, uint64_t, s) {
+        rring_prefetch(rkey, 1);
+        rring_prefetch(rduration, 1);
 
-        rring_inner_preloop(rduration, uint64_t);
         rring_inner_preloop(rkey, short);
-        rring_sync(rkey);
+        rring_inner_preloop(rduration, uint64_t);
+        rring_sync(rduration);
 
-        rring_inner_loop(rkey, j) {
+        rring_inner_loop(rduration, j) {
             short k = _inner_rkey[j];
             uint64_t d = _inner_rduration[j];
             printf("%d %lu\n", k, d);

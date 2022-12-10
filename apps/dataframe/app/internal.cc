@@ -167,3 +167,23 @@ void step7_do_process(const char* key_col_name) {
         std::cout << static_cast<int>(key_vec[i]) << " " << duration_vec[i] << std::endl;
     }
 }
+
+void step7_process_after_copy(const char *key_col_name,
+                                     std::vector<size_t> &index,
+                                     std::vector<short> &key_col,
+                                     std::vector<uint64_t> &duration) {
+    StdDataFrame<uint64_t> df_key_duration;
+    df_key_duration.load_data(std::move(index),
+                              std::make_pair(key_col_name, std::move(key_col)),
+                              std::make_pair("duration", std::move(duration)));
+
+    StdDataFrame<uint64_t> groupby_key =
+        df_key_duration.groupby<GroupbyMedian, short, short, uint64_t>(GroupbyMedian(),
+                                                                       key_col_name);
+    auto& key_vec      = groupby_key.get_column<short>(key_col_name);
+    auto& duration_vec = groupby_key.get_column<uint64_t>("duration");   
+
+    for (uint64_t i = 0; i < key_vec.size(); i++) {
+        std::cout << static_cast<int>(key_vec[i]) << " " << duration_vec[i] << std::endl;
+    }
+}

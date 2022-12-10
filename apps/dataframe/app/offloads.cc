@@ -437,10 +437,6 @@ void __step7_group_df(void *arg, void *ret) {
     std::vector<short> copy_key_col(*key_col_vec);
     std::vector<uint64_t> copy_key_duration(*duration_vec);
 
-    for (size_t i = 0; i < 100; ++ i) {
-        printf("%lu\n", copy_key_duration[i]);
-    }
-
     hmdf::StdDataFrame<uint64_t> df_key_duration;
     df_key_duration.load_data(std::move(copy_index),
                               std::make_pair(key_col_name, std::move(copy_key_col)),
@@ -459,7 +455,7 @@ void __step7_group_df(void *arg, void *ret) {
     printf("mapped size %lu %lu\n", key_vec_size, duration_vec_size);
 
     short *key_col_base = (short *) step7_start;
-    uint64_t *duration_base = (uint64_t *) ((char*)step7_start + key_vec_size);
+    uint64_t *duration_base = (uint64_t *) (key_col_base + key_vec_size);
 
     __v<short> key_rv = { key_col_base, key_col_base + key_vec_size, key_col_base + key_vec_size };
     __v<uint64_t> duration_rv = { duration_base, duration_base + duration_vec_size, duration_base + duration_vec_size};
@@ -468,8 +464,12 @@ void __step7_group_df(void *arg, void *ret) {
     __v<uint64_t> *duration_lv = (__v<uint64_t> *) &duration_map_vec;
 
 
-    memcpy(key_rv.p1, key_lv->p2, sizeof(short) * key_vec_size);
+    memcpy(key_rv.p1, key_lv->p1, sizeof(short) * key_vec_size);
     memcpy(duration_rv.p1, duration_lv->p1, sizeof(uint64_t) * duration_vec_size);
+    printf("%p %p\n", key_rv.p1, duration_rv.p1);
+    for (size_t i = 0; i < key_vec_size; ++ i) {
+        printf("%d %lu\n", key_rv.p1[i], duration_rv.p1[i]);
+    }
     detrans_vec(&key_rv);
     detrans_vec(&duration_rv);
 

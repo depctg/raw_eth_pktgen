@@ -1,0 +1,66 @@
+heap profile:      1:     1024 [     8: 2017719952] @ heapprofile
+     1:     1024 [     1:     1024] @ 0x7f8d9a014d04 0x7f8d9a024ed0 0x7f8d9a023f30 0x7f8d9a0226b5 0x7f8d9a0174f8 0x558580259f14 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:      472] @ 0x7f8d9a01592e 0x55858025af50 0x558580259f79 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:  1692864] @ 0x55858025b036 0x558580259f79 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:  2751008] @ 0x55858025b01f 0x558580259f79 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:     4096] @ 0x7f8d9a014d04 0x7f8d9a024ed0 0x7f8d9a023f30 0x7f8d9a0226b5 0x7f8d9a0163c1 0x55858025a604 0x558580259fd5 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1: 2013265920] @ 0x55858025b04f 0x558580259f79 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:      472] @ 0x7f8d9a01592e 0x55858025a568 0x558580259fd5 0x7f8d99fb7083 0x55858025916e
+     0:        0 [     1:     4096] @ 0x7f8d9a014d04 0x7f8d9a024ed0 0x7f8d9a023ca4 0x7f8d9a024f86 0x7f8d9a01686c 0x7f8d9a0156ca 0x55858025af78 0x558580259f79 0x7f8d99fb7083 0x55858025916e
+
+MAPPED_LIBRARIES:
+558580258000-558580259000 r--p 00000000 00:00 10884970    /home/wuklab/spec-eval/429.mcf/src/mcf
+558580259000-55858025c000 r-xp 00001000 00:00 10884970    /home/wuklab/spec-eval/429.mcf/src/mcf
+55858025c000-55858025d000 r--p 00004000 00:00 10884970    /home/wuklab/spec-eval/429.mcf/src/mcf
+55858025d000-55858025e000 r--p 00004000 00:00 10884970    /home/wuklab/spec-eval/429.mcf/src/mcf
+55858025e000-55858025f000 rw-p 00005000 00:00 10884970    /home/wuklab/spec-eval/429.mcf/src/mcf
+55858025f000-558580261000 rw-p 00000000 00:00 0           
+5585810f4000-5585f9e32000 rw-p 00000000 00:00 0           [heap]
+7f8d9994f000-7f8d99c24000 rw-p 00000000 00:00 0           
+7f8d99c24000-7f8d99c27000 r--p 00000000 00:00 7081041     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8d99c27000-7f8d99c39000 r-xp 00003000 00:00 7081041     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8d99c39000-7f8d99c3d000 r--p 00015000 00:00 7081041     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8d99c3d000-7f8d99c3e000 r--p 00018000 00:00 7081041     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8d99c3e000-7f8d99c3f000 rw-p 00019000 00:00 7081041     /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+7f8d99c3f000-7f8d99c4c000 r--p 00000000 00:00 7079633     /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f8d99c4c000-7f8d99cf3000 r-xp 0000d000 00:00 7079633     /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f8d99cf3000-7f8d99d8c000 r--p 000b4000 00:00 7079633     /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f8d99d8c000-7f8d99d8d000 r--p 0014c000 00:00 7079633     /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f8d99d8d000-7f8d99d8e000 rw-p 0014d000 00:00 7079633     /usr/lib/x86_64-linux-gnu/libm-2.31.so
+7f8d99d8e000-7f8d99e24000 r--p 00000000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99e24000-7f8d99f15000 r-xp 00096000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99f15000-7f8d99f5e000 r--p 00187000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99f5e000-7f8d99f5f000 ---p 001d0000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99f5f000-7f8d99f6a000 r--p 001d0000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99f6a000-7f8d99f6d000 rw-p 001db000 00:00 7081137     /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28
+7f8d99f6d000-7f8d99f70000 rw-p 00000000 00:00 0           
+7f8d99f70000-7f8d99f76000 r--p 00000000 00:00 7083425     /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f8d99f76000-7f8d99f87000 r-xp 00006000 00:00 7083425     /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f8d99f87000-7f8d99f8d000 r--p 00017000 00:00 7083425     /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f8d99f8d000-7f8d99f8e000 r--p 0001c000 00:00 7083425     /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f8d99f8e000-7f8d99f8f000 rw-p 0001d000 00:00 7083425     /usr/lib/x86_64-linux-gnu/libpthread-2.31.so
+7f8d99f8f000-7f8d99f93000 rw-p 00000000 00:00 0           
+7f8d99f93000-7f8d99fb5000 r--p 00000000 00:00 7079630     /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f8d99fb5000-7f8d9a12d000 r-xp 00022000 00:00 7079630     /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f8d9a12d000-7f8d9a17b000 r--p 0019a000 00:00 7079630     /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f8d9a17b000-7f8d9a17f000 r--p 001e7000 00:00 7079630     /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f8d9a17f000-7f8d9a181000 rw-p 001eb000 00:00 7079630     /usr/lib/x86_64-linux-gnu/libc-2.31.so
+7f8d9a181000-7f8d9a185000 rw-p 00000000 00:00 0           
+7f8d9a185000-7f8d9a199000 r--p 00000000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a199000-7f8d9a1c6000 r-xp 00014000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a1c6000-7f8d9a1d5000 r--p 00041000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a1d5000-7f8d9a1d6000 ---p 00050000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a1d6000-7f8d9a1d7000 r--p 00050000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a1d7000-7f8d9a1d8000 rw-p 00051000 00:00 7345356     /usr/local/lib/libtcmalloc.so.9.10.5
+7f8d9a1d8000-7f8d9a391000 rw-p 00000000 00:00 0           
+7f8d9a3ab000-7f8d9a3bb000 rw-p 00000000 00:00 0           
+7f8d9a3bb000-7f8d9a3bc000 r--p 00000000 00:00 7079619     /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f8d9a3bc000-7f8d9a3df000 r-xp 00001000 00:00 7079619     /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f8d9a3df000-7f8d9a3e7000 r--p 00024000 00:00 7079619     /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f8d9a3e8000-7f8d9a3e9000 r--p 0002c000 00:00 7079619     /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f8d9a3e9000-7f8d9a3ea000 rw-p 0002d000 00:00 7079619     /usr/lib/x86_64-linux-gnu/ld-2.31.so
+7f8d9a3ea000-7f8d9a3eb000 rw-p 00000000 00:00 0           
+7fff23340000-7fff23361000 rw-p 00000000 00:00 0           [stack]
+7fff233a4000-7fff233a7000 r--p 00000000 00:00 0           [vvar]
+7fff233a7000-7fff233a8000 r-xp 00000000 00:00 0           [vdso]
+ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0           [vsyscall]

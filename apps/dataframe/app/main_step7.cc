@@ -34,7 +34,6 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
     std::vector<uint64_t> local_key_duration;
     local_key_duration.reserve(copy_key_duration.size());
 
-
     uint64_t idx_base = remoteAddr((void *)&copy_index[0]);
     uint64_t col_base = remoteAddr((void *)&copy_key_col[0]);
     uint64_t duration_base = remoteAddr((void *)&copy_key_duration[0]);
@@ -72,6 +71,7 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
     }
 
     printf("data copy done\n");
+    step7_process_after_copy(key_col_name, local_index, local_key_col, local_key_duration);
 
 }
 

@@ -38,4 +38,9 @@ extern void load_trip_timestamp();
 
 extern void step7_do_process(const char* key_col_name);
 
+extern void step7_process_after_copy(const char *key_col_name,
+                                     std::vector<size_t> &index,
+                                     std::vector<short> &key_col,
+                                     std::vector<uint64_t> &duration);
+
 #endif

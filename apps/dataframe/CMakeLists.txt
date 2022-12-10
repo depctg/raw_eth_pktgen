@@ -238,14 +238,26 @@ target_link_libraries(main_step1_ofld common DataFrame Threads::Threads)
 add_executable(main_step2 app/main_step2.cc app/internal.cc)
 target_link_libraries(main_step2 common DataFrame Threads::Threads)
 
+add_executable(main_step2_ofld app/main_step2_ofld.cc app/internal.cc)
+target_link_libraries(main_step2_ofld common DataFrame Threads::Threads)
+
 add_executable(main_step3 app/main_step3.cc app/internal.cc)
 target_link_libraries(main_step3 common DataFrame Threads::Threads)
+
+add_executable(main_step3_ofld app/main_step3_ofld.cc app/internal.cc)
+target_link_libraries(main_step3_ofld common DataFrame Threads::Threads)
 
 add_executable(main_step4 app/main_step4.cc app/internal.cc)
 target_link_libraries(main_step4 common DataFrame Threads::Threads)
 
+add_executable(main_step4_ofld app/main_step4_ofld.cc app/internal.cc)
+target_link_libraries(main_step4_ofld common DataFrame Threads::Threads)
+
 add_executable(main_step5 app/main_step5.cc app/internal.cc)
 target_link_libraries(main_step5 common DataFrame Threads::Threads)
+
+add_executable(main_step5_ofld app/main_step5_ofld.cc app/internal.cc)
+target_link_libraries(main_step5_ofld common DataFrame Threads::Threads)
 
 # add_executable(step6_gen app/step6_generator.cc app/internal.cc)
 # target_link_libraries(step6_gen common DataFrame Threads::Threads)
@@ -256,6 +268,8 @@ target_link_libraries(main_step5 common DataFrame Threads::Threads)
 add_executable(main_step7 app/main_step7.cc app/internal.cc)
 target_link_libraries(main_step7 common DataFrame Threads::Threads)
 
+add_executable(main_step7_ofld app/main_step7_ofld.cc app/internal.cc)
+target_link_libraries(main_step7_ofld common DataFrame Threads::Threads)
 # Make offloads do not relie on common
 # add_executable(dataframe_offloads app/offloads.cc)
 # target_link_libraries(dataframe_offloads DataFrame Threads::Threads)

@@ -133,9 +133,9 @@ bool step4_firstTime(int i) {
 }
 
 void load_trip_timestamp() {
-    StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration.csv", "duration"); 
-    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day.csv", "pickup_day");
-    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month.csv", "pickup_month");
+    StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration_small.csv", "duration"); 
+    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day_small.csv", "pickup_day");
+    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month_small.csv", "pickup_month");
     
     auto duration_vec = duration_csv.get_column<uint64_t>("duration");
     auto pickup_day_vec = day_csv.get_column<short>("pickup_day");

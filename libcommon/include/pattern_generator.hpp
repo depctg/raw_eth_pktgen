@@ -4,65 +4,28 @@
 #include <stdlib.h>             
 #include <math.h>               
 #include <cassert>
+#include <assert.h>             // Needed for assert() macro
+#include <stdio.h>              // Needed for printf()
 
 using namespace std;
 
-vector<size_t> gen_access_pattern_uniform(size_t n_access, size_t array_size,
-                                          size_t tile_size, int seed = 0) {
+void ref_gen_uniform(size_t n_access, vector<size_t> &result, int seed = 2333) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<> d(0, array_size - 1);
-  vector<size_t> pattern;
-  size_t t_i = 0, p_i = 0;
-  while (p_i < n_access) {
-    if (t_i == 0) {
-      pattern.push_back(d(gen));
-      p_i += 1;
-      t_i = 1;
-    } else if (t_i < tile_size) {
-      size_t next = pattern.back() + 1;
-      if (next >= array_size) {
-        t_i = tile_size;
-      } else {
-        pattern.push_back(next);
-        p_i += 1;
-        t_i += 1;
-      }
-    } else if (t_i == tile_size) {
-      t_i = 0;
-    }
+  std::uniform_int_distribution<> d(0, n_access - 1);
+  for (size_t i = 0; i < n_access; ++ i) {
+    result.push_back(d(gen));
   }
-  return pattern;
 }
 
-vector<size_t> gen_access_pattern_normal(size_t n_access, size_t array_size,
-                                         size_t tile_size, double mean, double stddev = 1.0, int seed = 0) {
-  std::mt19937 gen(seed);
-  std::normal_distribution<> d{mean, stddev};
-  vector<size_t> pattern;
-  size_t t_i = 0, p_i = 0;
-  while (p_i < n_access) {
-    if (t_i == 0) {
-      pattern.push_back(static_cast<size_t>(std::abs(d(gen))) % array_size);
-      p_i += 1;
-      t_i = 1;
-    } else if (t_i < tile_size) {
-      size_t next = pattern.back() + 1;
-      if (next >= array_size) {
-        t_i = tile_size;
-      } else {
-        pattern.push_back(next);
-        p_i += 1;
-        t_i += 1;
-      }
-    } else if (t_i == tile_size) {
-      t_i = 0;
-    }
+void ref_gen_seq(size_t n_access, vector<size_t> &result)
+{
+  size_t p = 0;
+  while (p < n_access)
+  {
+    result.push_back(p);
+    p ++;
   }
-  return pattern;
 }
-
-// vector<size_t> gen_access_pattern_stride_tile(size_t n_access, size_t stride, size_t tile_size) {
-// }
 
 
 #define  FALSE          0       // Boolean false
@@ -151,47 +114,4 @@ double rand_val(int seed)
 
   // Return a random value between 0.0 and 1.0
   return((double) x / m);
-}
-
-vector<size_t> gen_access_pattern_seq(size_t n_access, size_t array_size)
-{
-  vector<size_t> pattern;
-  size_t p = 0;
-  while (p < n_access)
-  {
-    pattern.push_back(p % array_size);
-    p ++;
-  }
-  return pattern;
-}
-
-vector<size_t> gen_access_pattern_zipf(size_t n_access, size_t array_size, double alpha, size_t tile_size, int seed)
-{
-  vector<size_t> pattern;
-  rand_val(seed);
-  size_t t_i = 0, p_i = 0;
-  while (p_i < n_access)
-  {
-    if (t_i == 0)
-    {
-      pattern.push_back(zipf(alpha, array_size)-1);
-      p_i ++;
-      t_i ++;
-    } 
-    else if (t_i < tile_size)
-    {
-      size_t next = pattern.back() + 1;
-      if (next >= array_size)
-        t_i = tile_size;
-      else
-      {
-        pattern.push_back(next);
-        p_i ++;
-        t_i ++;
-      }
-    }
-    else if (t_i == tile_size)
-      t_i = 0;
-  }
-  return pattern;
 }

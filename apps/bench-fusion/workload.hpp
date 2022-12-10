@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include "offload.h"
 #include "common.h"
-#include "generator.hpp"
+#include "pattern_generator.hpp"
 
 using namespace std;
 

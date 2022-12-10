@@ -101,7 +101,7 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
 
     // FILE *fd;
     // printf("duration size: %lu\n", duration_vec.size());
-    // fd = fopen("/mnt/data/duration.csv", "w+");
+    // fd = fopen("/mnt/data/duration_small.csv", "w+");
     // fprintf(fd, "duration\n");
     // for (auto d : duration_vec) {
     //     fprintf(fd, "%lu\n", d);
@@ -216,7 +216,7 @@ void analyze_trip_timestamp(StdDataFrame<uint64_t>& df)
     }
 
     // FILE *f1;
-    // f1 = fopen("/mnt/data/pickup_day.csv", "w+");
+    // f1 = fopen("/mnt/data/pickup_day_small.csv", "w+");
     // printf("pickup_day size: %lu\n", pickup_day_vec.size());
     // fprintf(f1, "pickup_day\n");
 
@@ -227,7 +227,7 @@ void analyze_trip_timestamp(StdDataFrame<uint64_t>& df)
 
     // FILE *f2;
     // printf("pickup_month size: %lu\n", pickup_month_vec.size());
-    // f2 = fopen("/mnt/data/pickup_month.csv", "w+");
+    // f2 = fopen("/mnt/data/pickup_month_small.csv", "w+");
     // fprintf(f2, "pickup_month\n");
     // for (auto month : pickup_month_vec) {
     //     fprintf(f2, "%d\n", (int)month);
@@ -277,6 +277,7 @@ void analyze_trip_durations_of_timestamps(StdDataFrame<uint64_t>& df, const char
                                                                        key_col_name);
     auto& key_vec      = groupby_key.get_column<T_Key>(key_col_name);
     auto& duration_vec = groupby_key.get_column<uint64_t>("duration");
+    printf("after map size %lu\n", key_vec.size());
     for (uint64_t i = 0; i < key_vec.size(); i++) {
         std::cout << static_cast<int>(key_vec[i]) << " " << duration_vec[i] << std::endl;
     }

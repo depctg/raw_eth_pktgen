@@ -14,6 +14,7 @@ static unsigned linesize_cfgs[OPT_NUM_CACHE + CACHE_ID_OFFSET];
 static char * rpc_ret_base;
 
 static char * baseva_shared_addrspace;
+void * step7_start;
 uint64_t local_remote_delimiter = 2ULL<<48;
 
 static struct {
@@ -46,6 +47,7 @@ static RPC_rrf_t * req_fulls;
 void manager_init() {
 
     rpc_ret_base = sbuf;
+    step7_start = (char *) sbuf + SEND_BUF_SIZE - 8192;
     baseva_shared_addrspace = (char *) sbuf + RPC_RET_LIMIT;
 
     peeling_rbuf.buf_base = rbuf;
@@ -243,6 +245,7 @@ static inline void process_channel_req(RPC_rrf_t *req_full) {
 static inline void process_call_req(RPC_rrf_t *req) {
     int fid = req->rr.call_r_header.procedure_id;
     dprintf("Calling %d service", fid);
+    printf("Calling %d service\n", fid);
 
     void *arg = req->rr.call_r_header.arg_size ? req->data_seg_base : NULL;
     void *ret = req->rr.call_r_header.ret_size ? rpc_ret_base : NULL;

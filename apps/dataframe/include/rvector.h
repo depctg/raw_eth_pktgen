@@ -51,7 +51,7 @@ static inline uint64_t remoteAddr(void *p) {
 }
 
 template <typename T>
-void remotelize(std::vector<T> &v) {
+void remotelize(std::vector<T> &v, bool write = true) {
     rvector<T> * rv = (rvector<T> *) &v;
     size_t s = v.size();
     size_t c = v.capacity();
@@ -73,20 +73,22 @@ void remotelize(std::vector<T> &v) {
     // channel_destroy(channel);
 
     // All Types are pow2, so it's OK
-    rring_init(writer, T, (2 << 20), 32, (size_t) ((char*)rbuf + (8 << 20)), remoteAddr(raddr));
+    if (write) {
+      rring_init(writer, T, (2 << 20), 32, (size_t) ((char*)rbuf + (8 << 20)), remoteAddr(raddr));
 
-    rring_outer_loop(writer, T, c) {
-      rring_inner_preloop(writer, T);
-      rring_sync_writeonly(writer);
+      rring_outer_loop(writer, T, c) {
+        rring_inner_preloop(writer, T);
+        rring_sync_writeonly(writer);
 
-      rring_inner_loop(writer, j) {
-        size_t nth = _t_writer * _bn_writer + j;
-        _inner_writer[j] = rv->head[nth];
+        rring_inner_loop(writer, j) {
+          size_t nth = _t_writer * _bn_writer + j;
+          _inner_writer[j] = rv->head[nth];
+        }
+        rring_inner_wb(writer);
       }
-      rring_inner_wb(writer);
-    }
 
-    rring_cleanup_writeonly(writer);
+      rring_cleanup_writeonly(writer);
+    }
 
     // __int128_t token = cache_request((uintptr_t) raddr);
     // void * rdata = cache_access_mut(&token);

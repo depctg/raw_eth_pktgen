@@ -29,6 +29,7 @@ extern rpc_service_t *services;
 void init_rpc_services();
 extern assem_lambda_t *assemFns;
 void init_assem_lambdas();
+extern void *step7_start;
 
 #ifdef __cplusplus
 }

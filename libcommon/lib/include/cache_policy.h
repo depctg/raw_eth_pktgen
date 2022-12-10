@@ -39,6 +39,10 @@ static inline int _cache_eviction_check(cache_t cache, unsigned slot) {
 	return error;
 }        
 
+static inline void _cache_access_direct(cache_token_t token, int mut) {
+    _cache_access_check(token, mut);
+}
+
 static inline void _cache_access_groupassoc(cache_token_t token, int mut) {
     // mark line as dirty
     _cache_access_check(token, mut);

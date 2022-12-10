@@ -23,6 +23,7 @@ extern ret_buf_t offload_ret_buf;
 // size 0 -> no arg / ret
 void * call_offloaded_service(int fid, size_t arg_size, size_t ret_size);
 
+
 #ifdef __cplusplus
 }
 #endif

@@ -22,13 +22,20 @@ void setup() {
   }
 }
 
+#define n_blocks 2048
+#define eles 32768
+
 void visit() {
-  for( int i = 0; i < M_arc; i++ )
-  {
-    arc[i].nextout = arc[i].tail->firstout;
-    arc[i].tail->firstout = arc + i;
-    arc[i].nextin = arc[i].head->firstin;
-    arc[i].head->firstin = arc + i;
+  for (int j = 0; j < n_blocks; ++ j) {
+    arc_t *base = arc + j * eles;
+    for( int i = 0; i < eles; i++ )
+    {
+      int idx = j * n_blocks + i;
+      base[i].nextout = base[i].tail->firstout;
+      base[i].tail->firstout = arc + idx;
+      base[i].nextin = base[i].head->firstin;
+      base[i].head->firstin = arc + idx;
+    }
   }
 }
 

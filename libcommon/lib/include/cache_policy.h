@@ -68,7 +68,7 @@ static inline cache_token_t _cache_select_directassoc(cache_t cache, uint64_t ta
 static inline cache_token_t _cache_select_groupassoc_rand(cache_t cache, uint64_t tag) {
     cache_token_t token;
     unsigned linesize = cache_get_field(cache,linesize);
-    unsigned base = (tag/linesize/groups) & (cache_get_field(cache,slots)/groups - 1);
+    unsigned base = (tag/linesize) & (cache_get_field(cache,slots)/groups - 1);
     base <<= group_bits;
 
     // check if in the group already
@@ -98,7 +98,7 @@ static inline cache_token_t _cache_select_groupassoc_lru(cache_t cache, uint64_t
     // try group assoc
     unsigned linesize = cache_get_field(cache,linesize);
     // unsigned base = (tag/linesize/groups) & (cache_get_field(cache,slots)/groups - 1);
-    unsigned base = (tag/linesize) & (cache_get_field(cache,slots)/groups - 1);
+    unsigned base = (tag/linesize/groups) & (cache_get_field(cache,slots)/groups - 1);
     base <<= group_bits;
     int flag = 0;
     cache_token_t token;

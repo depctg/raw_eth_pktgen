@@ -8,14 +8,14 @@
 using namespace hmdf;
 
 static StdDataFrame<uint64_t> df;
-
+// /mnt/data/df_csv/yellow_tripdata_2016-01.csv
 
 void * load_data()
 {   
     StdDataFrame<uint64_t>::set_thread_level(1);
     df = read_csv<-1, int, SimpleTime, SimpleTime, int, double, double, double, int, char, double,
                     double, int, double, double, double, double, double, double, double>(
-        "/mnt/data/df_csv/yellow_tripdata_2016-01.csv", "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
+        "/mnt/data/df_csv/all.csv", "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
         "passenger_count", "trip_distance", "pickup_longitude", "pickup_latitude", "RatecodeID",
         "store_and_fwd_flag", "dropoff_longitude", "dropoff_latitude", "payment_type",
         "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",
@@ -29,46 +29,46 @@ void * load_data()
     //     "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",
     //     "total_amount"};
 
-    remotelize(df.get_index());
-    printf("index remote\n");
-    remotelize(df.get_column<int>("VendorID"));
-    printf("VendorID remote\n");
-    remotelize(df.get_column<SimpleTime>("tpep_pickup_datetime"));
-    printf("pickup remote\n");
-    remotelize(df.get_column<SimpleTime>("tpep_dropoff_datetime"));
-    printf("dropoff remote\n");
-    remotelize(df.get_column<int>("passenger_count"));
-    printf("psg cnt remote\n");
-    remotelize(df.get_column<double>("trip_distance"));
-    printf("trip dist remote\n");
-    remotelize(df.get_column<double>("pickup_longitude"));
-    printf("pickup lon remote\n");
-    remotelize(df.get_column<double>("pickup_latitude"));
-    printf("pickup lat remote\n");
-    remotelize(df.get_column<int>("RatecodeID"));
-    printf("ratecodeID remote\n");
-    remotelize(df.get_column<char>("store_and_fwd_flag"));
-    printf("store and fwd flag remote\n");
-    remotelize(df.get_column<double>("dropoff_longitude"));
-    printf("dropoff lon remote\n");
-    remotelize(df.get_column<double>("dropoff_latitude"));
-    printf("dropoff lat remote\n");
-    remotelize(df.get_column<int>("payment_type"));
-    printf("payment type remote\n");
-    remotelize(df.get_column<double>("fare_amount"));
-    printf("fare amount remote\n");
-    remotelize(df.get_column<double>("extra"));
-    printf("extra remote\n");
-    remotelize(df.get_column<double>("mta_tax"));
-    printf("mta tax\n");
-    remotelize(df.get_column<double>("tip_amount"));
-    printf("tip amount\n");
-    remotelize(df.get_column<double>("tolls_amount"));
-    printf("tolls amount\n");
-    remotelize(df.get_column<double>("improvement_surcharge"));
-    printf("imp surcharge\n");
-    remotelize(df.get_column<double>("total_amount"));
-    printf("total amount\n");
+    // remotelize(df.get_index());
+    // printf("index remote\n");
+    // remotelize(df.get_column<int>("VendorID"));
+    // printf("VendorID remote\n");
+    // remotelize(df.get_column<SimpleTime>("tpep_pickup_datetime"));
+    // printf("pickup remote\n");
+    // remotelize(df.get_column<SimpleTime>("tpep_dropoff_datetime"));
+    // printf("dropoff remote\n");
+    // remotelize(df.get_column<int>("passenger_count"));
+    // printf("psg cnt remote\n");
+    // remotelize(df.get_column<double>("trip_distance"));
+    // printf("trip dist remote\n");
+    // remotelize(df.get_column<double>("pickup_longitude"));
+    // printf("pickup lon remote\n");
+    // remotelize(df.get_column<double>("pickup_latitude"));
+    // printf("pickup lat remote\n");
+    // remotelize(df.get_column<int>("RatecodeID"));
+    // printf("ratecodeID remote\n");
+    // remotelize(df.get_column<char>("store_and_fwd_flag"));
+    // printf("store and fwd flag remote\n");
+    // remotelize(df.get_column<double>("dropoff_longitude"));
+    // printf("dropoff lon remote\n");
+    // remotelize(df.get_column<double>("dropoff_latitude"));
+    // printf("dropoff lat remote\n");
+    // remotelize(df.get_column<int>("payment_type"));
+    // printf("payment type remote\n");
+    // remotelize(df.get_column<double>("fare_amount"));
+    // printf("fare amount remote\n");
+    // remotelize(df.get_column<double>("extra"));
+    // printf("extra remote\n");
+    // remotelize(df.get_column<double>("mta_tax"));
+    // printf("mta tax\n");
+    // remotelize(df.get_column<double>("tip_amount"));
+    // printf("tip amount\n");
+    // remotelize(df.get_column<double>("tolls_amount"));
+    // printf("tolls amount\n");
+    // remotelize(df.get_column<double>("improvement_surcharge"));
+    // printf("imp surcharge\n");
+    // remotelize(df.get_column<double>("total_amount"));
+    // printf("total amount\n");
 
     return static_cast<void *>(&df);
 }
@@ -133,9 +133,25 @@ bool step4_firstTime(int i) {
 }
 
 void load_trip_timestamp() {
-    StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration_small.csv", "duration"); 
-    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day_small.csv", "pickup_day");
-    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month_small.csv", "pickup_month");
+    // StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration.csv", "duration"); 
+    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day.csv", "pickup_day");
+    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month.csv", "pickup_month");
+    
+    // auto duration_vec = duration_csv.get_column<uint64_t>("duration");
+    auto pickup_day_vec = day_csv.get_column<short>("pickup_day");
+    auto pickup_month_vec = month_csv.get_column<short>("pickup_month");
+
+    // printf("sizes %lu %lu %lu\n", duration_vec.size(), pickup_day_vec.size(), pickup_month_vec.size());
+
+    // load_column("duration", std::move(duration_vec));
+    load_column("pickup_day", std::move(pickup_day_vec));
+    load_column("pickup_month", std::move(pickup_month_vec));
+}
+
+void load_duration_trip_timestamp() {
+    StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration.csv", "duration"); 
+    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day.csv", "pickup_day");
+    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month.csv", "pickup_month");
     
     auto duration_vec = duration_csv.get_column<uint64_t>("duration");
     auto pickup_day_vec = day_csv.get_column<short>("pickup_day");

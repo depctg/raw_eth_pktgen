@@ -35,5 +35,8 @@ int main()
     printf("Step 7: %ld us\n", 
         std::chrono::duration_cast<std::chrono::microseconds>(times[1] - times[0])
         .count());
+    printf("Step 8: %ld us\n", 
+        std::chrono::duration_cast<std::chrono::microseconds>(times[2] - times[1])
+        .count());
 }
 

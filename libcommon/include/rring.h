@@ -35,6 +35,9 @@ static struct ibv_wc wc[64];
 #define rring_inner_loop(rn, j) \
   for (size_t j = 0; j < _ilim_##rn ; j++)
 
+#define rring_inner_wb_with(rn) \
+    rdma(_lbase_##rn + (_t_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
+            _rbase_##rn + (_t_##rn * _bsize_##rn), 0, IBV_WR_RDMA_WRITE)
 #define rring_inner_wb(rn) \
     rdma(_lbase_##rn + (_t_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
             _rbase_##rn + (_t_##rn * _bsize_##rn), _t_##rn, IBV_WR_RDMA_WRITE)
@@ -44,7 +47,14 @@ static struct ibv_wc wc[64];
         rdma(_lbase_##rn + (_h_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
                 _rbase_##rn + (_h_##rn * _bsize_##rn), _h_##rn, IBV_WR_RDMA_READ);
 
+#define rring_prefetch_with(mn,rn,nprefetch) \
+    for (;_h_##rn < _t_##rn + nprefetch && _h_##rn < _tlim_##rn; _h_##rn ++) \
+        rdma(_lbase_##rn + (_h_##rn % _nblocks_##rn) * _bsize_##rn, _bsize_##rn, \
+                _rbase_##rn + (_h_##rn * _bsize_##rn), 0, IBV_WR_RDMA_READ);
+
 #define rring_cleanup_writeonly(rn) \
+  rring_clean_writeonly(&_r_##rn, _t_##rn)
+#define rring_cleanup_with(rn) \
   rring_clean_writeonly(&_r_##rn, _t_##rn)
 
 static inline void rring_poll_readonly(size_t *r, size_t t) {

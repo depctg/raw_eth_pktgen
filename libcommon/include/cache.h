@@ -56,10 +56,12 @@ typedef unsigned cache_t;
 #define OPT_NUM_CACHE 16
 
 #ifndef __cache_access_handler 
-    #define __cache_access_handler _cache_access_direct
+    #define __cache_access_handler _cache_access_groupassoc
+    // #define __cache_access_handler _cache_access_direct
 #endif
 #ifndef __cache_select 
-    #define __cache_select _cache_select_directassoc
+    #define __cache_select _cache_select_groupassoc_lru
+    // #define __cache_select _cache_select_directassoc
 #endif
 
 /* Cache Line Spec */
@@ -104,7 +106,8 @@ void * cache_access_mut(cache_token_t token);
 void * cache_access_nrtc(cache_token_t token);
 void * cache_access_nrtc_mut(cache_token_t token);
 
-void * cache_access_no_pcheck(void * p);
+void * cache_access_mod_opt(void * p);
+void * cache_access_mod_opt_mut(void * p);
 
 // if version missmatch, request new one
 cache_token_t cache_access_check(cache_token_t token);

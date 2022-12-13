@@ -88,20 +88,20 @@ V visit (std::vector<T> &vec, V &visitor)  {
     uint64_t idx_base = remoteAddr((void *)&indices_[0]);
     uint64_t vec_base = remoteAddr((void *)&vec[0]);
 
-    rring_init(rids, size_t, (2 << 20), 32, (size_t) ((char*)rbuf + (8<<20)), idx_base);
-    rring_init(rvec, uint64_t, (2 << 20), 32, (size_t) ((char*)rbuf + (72<<20)), vec_base);
+    rring_init(rids, size_t, (2 << 20), 16, (size_t) ((char*)rbuf + (8<<20)), idx_base);
+    rring_init(rvec, uint64_t, (2 << 20), 16, (size_t) ((char*)rbuf + (72<<20)), vec_base);
 
     visitor.pre();
 
     rring_outer_loop_with(rvec, min_s);
     rring_outer_loop(rids, size_t, min_s) {
+      rring_prefetch_with(rids, rvec, 4);
       rring_prefetch(rids, 4);
-      rring_prefetch(rvec, 4);
 
-      rring_inner_preloop(rids, size_t);
       rring_inner_preloop(rvec, uint64_t);
+      rring_inner_preloop(rids, size_t);
 
-      rring_sync(rvec);
+      rring_sync(rids);
       rring_inner_loop(rids, j) {
           size_t index = _inner_rids[j];
           uint64_t e = _inner_rvec[j];
@@ -147,12 +147,12 @@ void calculate_trip_duration()
 
     rring_outer_loop_with(rpick, N);
     rring_outer_loop(rdrop, SimpleTime, N) {
+        rring_prefetch_with(rdrop, rpick, 4);
         rring_prefetch(rdrop, 4);
-        rring_prefetch(rpick, 4);
 
-        rring_inner_preloop(rdrop, SimpleTime);
         rring_inner_preloop(rpick, SimpleTime);
-        rring_sync(rpick);
+        rring_inner_preloop(rdrop, SimpleTime);
+        rring_sync(rdrop);
 
         rring_inner_loop(rdrop, j) {
           uint64_t pickup_time_second  = _inner_rpick[j].to_second();

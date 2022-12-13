@@ -37,18 +37,18 @@ int main() {
     // cache_token_t tk = cache_request((uint64_t) (arcs + (i % M_arc)));
     // arc_t *arci = (arc_t *) cache_access_mut(tk);
 
-    arc_t *arci = (arc_t *) cache_access_no_pcheck(arcs + (i % M_arc));
+    arc_t *arci = (arc_t *) cache_access_mod_opt_mut(arcs + (i % M_arc));
     arci->ident += i;
 
     // cache_token_t tkout = cache_request((uint64_t) (arci->nextout));
     // arc_t *arcout = (arc_t *) cache_access_mut(tkout);
-    arc_t *arcout = (arc_t *) cache_access_no_pcheck(arci->nextout);
+    arc_t *arcout = (arc_t *) cache_access_mod_opt_mut(arci->nextout);
     arcout->ident = zipf(randrand, M_arc - 1);
     
     // cache_token_t tkin = cache_request((uint64_t) (arci->nextin));
     // arc_t *arcin = (arc_t *) cache_access_mut(tkin);
 
-    arc_t *arcin = (arc_t *) cache_access_no_pcheck(arci->nextin);
+    arc_t *arcin = (arc_t *) cache_access_mod_opt_mut(arci->nextin);
     arcin->ident = zipf(randrand, M_arc - 1);
   }
 

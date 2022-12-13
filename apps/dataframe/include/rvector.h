@@ -4,39 +4,35 @@
 #include <vector>
 #include <stdint.h>
 #include "app.h"
-#include "cache.h"
-#include "side_channel.h"
 #include "common.h"
-#include "rring.h"
+#include "rring_cache.h"
 
-extern "C" {
-void init_client();
-void cache_init();
-void channel_init();
+// #define NIDX 107957636
+#define NIDX (1024 * 1024 * 128)
+#define fullsize (30ULL >> 30)
+#define cache_ratio (0.9)
 
-void * _disagg_alloc(unsigned cache, size_t size);
-void * cache_access_mut(cache_token_t token);
-void * cache_access(cache_token_t token);
-cache_token_t cache_request(uint64_t vaddr);
-unsigned channel_create(
-  // app stats
-  uint64_t original_start_vaddr, 
-  uint64_t upper_bound,
-  uint64_t ori_unit_size, // sizeof struct that is originally accessed
-  // channel settingsa
-  unsigned size_each, 
-  unsigned num_slots, 
-  unsigned batch, 
-  unsigned dist,
-  // i for assembler, i+1 for dis
-  uint16_t assem_id,
-  // TODO: add pure store
-  // load / mixed
-  int kind);
-
-void * channel_access(unsigned channel, uint64_t i);
-void channel_destroy(unsigned channel);
-}
+#define rvid_ofst       (1024ULL * 1024 * 2)
+#define rpickdate_ofst  (rvid_ofst + sizeof(int) * NIDX) 
+#define rdropdate_ofst  (rpickdate_ofst + sizeof(SimpleTime) * NIDX)
+#define rpsgcnt_ofst    (rdropdate_ofst + sizeof(SimpleTime) * NIDX) 
+#define rtripdist_ofst  (rpsgcnt_ofst + sizeof(int) * NIDX)   
+#define rplon_ofst      (rtripdist_ofst + sizeof(double) * NIDX)
+#define rplat_ofst      (rplon_ofst + sizeof(double) * NIDX)
+#define rrateid_ofst    (rplat_ofst + sizeof(double) * NIDX)
+#define rflag_ofst      (rrateid_ofst + sizeof(int) * NIDX)
+#define rdlon_ofst      (rflag_ofst + sizeof(char) * NIDX)
+#define rdlat_ofst      (rdlon_ofst + sizeof(double) * NIDX)
+#define rptype_ofst     (rdlat_ofst + sizeof(double) * NIDX)
+#define rfare_ofst      (rptype_ofst + sizeof(int) * NIDX)
+#define rextra_ofst     (rfare_ofst + sizeof(double) * NIDX)
+#define rmta_ofst       (rextra_ofst + sizeof(double) * NIDX)
+#define rtip_ofst       (rmta_ofst + sizeof(double) * NIDX)
+#define rtolls_ofst     (rtip_ofst + sizeof(double) * NIDX)
+#define rimpv_ofst      (rtolls_ofst + sizeof(double) * NIDX)
+#define rtotal_ofst     (rimpv_ofst + sizeof(double) * NIDX)
+#define rids_ofst       (rtotal_ofst + sizeof(double) * NIDX)
+#define rhaversine_ofst (rids_ofst + sizeof(size_t) * NIDX)
 
 template <typename T>
 struct rvector {
@@ -50,8 +46,18 @@ static inline uint64_t remoteAddr(void *p) {
   return vaddr.addr + RPC_RET_LIMIT;
 }
 
+template<typename T>
+rvector<T> createFromBase(uint64_t addr, size_t size, size_t cap) {
+  rvector<T> rv;
+  rv.head = (T *) addr;
+  rv.end = rv.head + size;
+  rv.tail = rv.head + cap;
+  return rv;
+}
+
 template <typename T>
 void remotelize(std::vector<T> &v, bool write = true) {
+#if 0
     rvector<T> * rv = (rvector<T> *) &v;
     size_t s = v.size();
     size_t c = v.capacity();
@@ -62,16 +68,6 @@ void remotelize(std::vector<T> &v, bool write = true) {
     // replace with remotelize code
     void * raddr = _disagg_alloc(2, sizeof(T) * c);
     
-    // unsigned channel = channel_create(
-    //   (uint64_t)raddr, c, sizeof(T),
-    //   sizeof(T), 4096/sizeof(T), 4096/sizeof(T), 0, 0, 1
-    // );
-    // for (size_t i = 0; i < c; ++ i) {
-    //   T* di = (T*) channel_access(channel, i);
-    //   di[0] = rv->head[i];
-    // }
-    // channel_destroy(channel);
-
     // All Types are pow2, so it's OK
     if (write) {
       rring_init(writer, T, (2 << 20), 32, (size_t) ((char*)rbuf + (8 << 20)), remoteAddr(raddr));
@@ -90,17 +86,35 @@ void remotelize(std::vector<T> &v, bool write = true) {
       rring_cleanup_writeonly(writer);
     }
 
-    // __int128_t token = cache_request((uintptr_t) raddr);
-    // void * rdata = cache_access_mut(&token);
-    // memcpy(rdata, rv->head, c * sizeof(T));
-
     v.clear();
     v.shrink_to_fit();
 
     rv->head = (T *) (raddr);
     rv->end = rv->head + s;
     rv->tail = rv->head + c;
+#endif
+
 }
 
+
+template<typename T>
+void dummy_reader(std::vector<T> &local_copy, uint64_t BS, unsigned N_blocks, unsigned prefetch, uint64_t s, uint64_t sbuf_offset) {
+#if 0
+  local_copy.reserve(s);
+
+  rring_init(reader, T, BS, N_blocks, (size_t) ((char*)rbuf + (8<<20)), sbuf_offset);
+  rring_outer_loop(reader, T, s) {
+
+    rring_prefetch(reader, prefetch);
+    rring_inner_preloop(reader, T);
+    rring_sync(reader);
+
+    rring_inner_loop(reader, j) {
+      local_copy.push_back(_inner_reader[j]);
+    }
+  }
+#endif
+
+}
 
 #endif

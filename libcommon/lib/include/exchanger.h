@@ -40,6 +40,7 @@ enum {
 static inline void init_exchanger() {
   offload_arg_buf = sbuf;
   offload_ret_buf.data = rbuf;
+  offload_ret_buf.available = 0;
 
   // sge_buf = (uint64_t *) (sbuf + ARG_BUF_LIMIT);
   // req_buf = (RPC_rr_t *) (sge_buf + SGE_ADDR_LIMIT);
@@ -47,9 +48,9 @@ static inline void init_exchanger() {
 
   // agree on remote base addr
   // so that local side can map the address proactively
-  recv(offload_ret_buf.data, sizeof(uint64_t));
-  remote_vaddr_base = *(uint64_t *) offload_ret_buf.data;
-  printf("Remote base addr: %lx\n", remote_vaddr_base);
+  // recv(offload_ret_buf.data, sizeof(uint64_t));
+  // remote_vaddr_base = *(uint64_t *) offload_ret_buf.data;
+  // printf("Remote base addr: %lx\n", remote_vaddr_base);
 }
 
 extern int req_head;
@@ -65,7 +66,7 @@ static inline void _cq_poll() {
     for (int i = 0; i < n; ++ i) {
         dprintf("CQ POLL, RECV %d\n", wc[i].opcode == IBV_WC_RECV);
         if (wc[i].status != IBV_WC_SUCCESS) {
-            printf("WR failed\n");
+            printf("WR failed status: %d\n", wc[i].status);
             exit(1);
         }
         req_nout --;
@@ -394,7 +395,6 @@ static inline void rpc_call_post(int function_id, size_t arg_size, size_t ret_si
   UNUSED(ret);
 #endif
   if (ret_size) {
-    offload_ret_buf.available = 0;
     r_sge.addr = (uint64_t) offload_ret_buf.data;
     r_sge.length = ret_size;
     r_sge.lkey = rmr->lkey;
@@ -417,6 +417,7 @@ static inline void rpc_call_post(int function_id, size_t arg_size, size_t ret_si
     UNUSED(ret);
 #endif
   }
+  offload_ret_buf.available = 0;
 }
 
 

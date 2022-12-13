@@ -9,7 +9,7 @@ extern "C"
 #include <stdlib.h>
 #include <stdint.h>
 
-#define PAYLOAD_LIMIT (4 << 10)
+#define PAYLOAD_LIMIT (2 << 20)
 
 typedef union {
     uint64_t ser;

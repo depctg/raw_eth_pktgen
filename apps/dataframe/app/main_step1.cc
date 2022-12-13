@@ -55,7 +55,6 @@ int main()
 {
     init_client();
     cache_init();
-    channel_init();
     std::chrono::time_point<std::chrono::steady_clock> times[10];
     void * df  = load_data();
     times[0] = std::chrono::steady_clock::now();

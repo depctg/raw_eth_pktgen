@@ -36,7 +36,7 @@ StdDataFrame<uint64_t> load_data()
 {
     return read_csv<-1, int, SimpleTime, SimpleTime, int, double, double, double, int, char, double,
                     double, int, double, double, double, double, double, double, double>(
-        "/mnt/data/df_csv/yellow_tripdata_2016-01.csv", "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
+        "/mnt/data/df_csv/all.csv", "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime",
         "passenger_count", "trip_distance", "pickup_longitude", "pickup_latitude", "RatecodeID",
         "store_and_fwd_flag", "dropoff_longitude", "dropoff_latitude", "payment_type",
         "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount", "improvement_surcharge",

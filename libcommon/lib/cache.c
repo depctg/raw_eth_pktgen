@@ -99,6 +99,7 @@ void cache_init() {
     }
     fclose(cache_cfg);
     init_cache_stats();
+
 }
 
 
@@ -228,7 +229,59 @@ extern inline cache_token_t cache_access_check(cache_token_t token) {
     return token;
 }
 
-void * cache_access_no_pcheck(void * p) {
+void * cache_access_mod_opt(void * p) {
+
+    virt_addr_t ser = {.ser = (uint64_t) p};
+    uint64_t addr = ser.addr;
+    cache_t cache = ser.cache;
+    dprintf("requesting from %d addr: %lu", cache, addr);
+
+    // log number of reqs
+    uint64_t tag = cache_ofst_mask(cache_get_field(cache,linesize), addr);
+    uint16_t ofst = cache_tag_mask(cache_get_field(cache,linesize), addr);
+
+    // find slot and eviction
+    cache_token_t token = __cache_select(cache, tag);
+    token.cache = cache;
+    token.tag = tag;
+    token.line_ofst = ofst;
+
+    if (token_header_field(token,tag) == tag && token_header_field(token,status) != LINE_IDLE) {
+    } else {
+        // if prefetch flag is still on, count as inaccurate pref
+        // wait prev req ?
+        if (token_header_field(token,status) != LINE_IDLE) cache_await(token);
+
+        if (token_header_field(token,status) != LINE_IDLE &&
+            token_header_field(token,tag) != tag &&
+            token_check_flag(token,LINE_FLAGS_DIRTY)) {
+            // eviction
+            uint64_t tag2 = token_header_field(token,tag);
+            token_header_field(token,tag) = tag;
+            token_header_field(token,status) = LINE_SYNC;
+            token_header_field(token,weight) = 0;
+            token_header_field(token,flags) = 0;
+            // printf("-> EVICT %lu, FETCH %lu\n", tag2, token_header_field(token,tag));
+            cache_post(token, CACHE_REQ_EVICT, tag2);
+        } else {
+            // fetch
+            token_header_field(token,tag) = tag;
+            // printf("-> FETCH: %lu\n", token_header_field(token,tag));
+            token_header_field(token,status) = LINE_SYNC;
+            token_header_field(token,weight) = 0;
+            token_header_field(token,flags) = 0;
+            cache_post(token, CACHE_REQ_READ, -1);
+        }
+    }
+
+    //access
+
+    cache_await(token);
+    __cache_access_handler(token, 0);
+    return token_get_data(token); 
+}
+
+void * cache_access_mod_opt_mut(void * p) {
 
     virt_addr_t ser = {.ser = (uint64_t) p};
     uint64_t addr = ser.addr;

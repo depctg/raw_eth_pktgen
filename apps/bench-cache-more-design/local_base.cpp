@@ -22,15 +22,20 @@ int main () {
 
   // pre-warm
   for (size_t i = 0; i < N_node; ++ i) {
-    nodes[i].depth = i;
+    cache_token_t tk = cache_request((uint64_t) nodes + i);
+    node_t *nodei = (node_t *) cache_access_mut(tk);
+    nodei->depth = i;
   }
 
   for (size_t i = 0; i < M_arc; ++ i) {
+    cache_token_t tk = cache_request((uint64_t) arcs + i);
+    arc_t *arci = (arc_t *) cache_access_mut(tk);
+
     int h = zipf(randrand, N_node) - 1;
-    arcs[i].head = nodes + h;
+    arci->head = nodes + h;
 
     int t = zipf(mrand, N_node) - 1;
-    arcs[i].tail = nodes + t;
+    arci->tail = nodes + t;
   }
   printf("After prewarm\n");
 
@@ -38,9 +43,15 @@ int main () {
   uint64_t start_us = microtime();
 
   for (size_t i = 0; i < N_access; ++i) {
-    arcs[i % M_arc].ident += i;
-    arcs[i % M_arc].head->depth += zipf(randrand, N_node);
-    arcs[i % M_arc].tail->depth += zipf(randrand, N_node);
+    cache_token_t tka = cache_request((uint64_t) arcs + (i % M_arc));
+    arc_t *arci = (arc_t *) cache_access_nrtc_mut(tka);
+    arci->ident += i;
+
+    cache_token_t tkn = cache_request((uint64_t) nodes + i);
+    node_t *nodei = (node_t *) cache_access_mut(tkn);
+    // arcs[i % M_arc].ident += i;
+    // arcs[i % M_arc].head->depth += zipf(randrand, N_node);
+    // arcs[i % M_arc].tail->depth += zipf(randrand, N_node);
   }
 
   uint64_t end_us = microtime();

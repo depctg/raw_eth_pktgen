@@ -98,7 +98,7 @@ void do_work () {
 
   setup();
   post_setup();
-
+  printf("after setup\n");
   MaxVisitor<index_type, dat_type> maxVst;
   MinVisitor<index_type, dat_type> minVst;
   MeanVisitor<index_type, dat_type> meanVst;

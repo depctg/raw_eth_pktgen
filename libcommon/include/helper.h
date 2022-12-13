@@ -12,7 +12,7 @@ extern "C" {
 #define UNUSED(x) (void)(x)
 
 // is power of 2, non-zero
-static inline int is_pow2(unsigned v) {
+static inline int is_pow2(uint64_t v) {
         return v && ((v & (v - 1)) == 0);
 }
 

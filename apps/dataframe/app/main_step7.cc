@@ -47,15 +47,15 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
     rring_outer_loop_with(rcol, N);
     rring_outer_loop_with(rduration, N);
     rring_outer_loop(rids, size_t, N) {
+        rring_prefetch_with(rids, rcol, 8);
+        rring_prefetch_with(rids, rduration, 8);
         rring_prefetch(rids, 8);
-        rring_prefetch(rcol, 8);
-        rring_prefetch(rduration, 8);
 
-        rring_inner_preloop(rids, size_t);
         rring_inner_preloop(rcol, short);
         rring_inner_preloop(rduration, uint64_t);
+        rring_inner_preloop(rids, size_t);
 
-        rring_sync(rduration);
+        rring_sync(rids);
 
         rring_inner_loop(rids, j) {
             size_t index = _inner_rids[j];
@@ -70,9 +70,8 @@ void analyze_trip_durations_of_timestamps(const char* key_col_name)
         rring_outer_loop_with_post(rduration);
     }
 
-    printf("data copy done\n");
+    // printf("data copy done\n");
     step7_process_after_copy(key_col_name, local_index, local_key_col, local_key_duration);
-
 }
 
 int main()
@@ -93,5 +92,9 @@ int main()
     printf("Step 7: %ld us\n", 
         std::chrono::duration_cast<std::chrono::microseconds>(times[1] - times[0])
         .count());
+
+    printf("Step 8: %ld us\n", 
+        std::chrono::duration_cast<std::chrono::microseconds>(times[2] - times[1])
+        .count());    
 }
 

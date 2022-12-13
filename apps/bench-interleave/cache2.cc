@@ -7,6 +7,8 @@
 #include "cache.h"
 #include "side_channel.h"
 
+// batch, prefetch
+
 
 void setup() {
   node = (node_t *) _disagg_alloc(2, sizeof(node_t) * N_node);
@@ -28,23 +30,38 @@ void setup() {
   }
 }
 
+// n_blocks * eles = M_arc
+// CLS 4KB
+// #define n_blocks 1048576
+// #define eles 64
+
+// CLS 2MB
+#define n_blocks 2048
+#define eles 32768
+
 void visit() {
-  for( int i = 0; i < M_arc; i++ )
-  {
-    cache_token_t tk_arc = cache_request((uint64_t) (arc + i)); 
-    arc_t *arci = (arc_t *) cache_access_mut(tk_arc);
+    // token_t prefetch_tokens[];
+    for (int j = 0; j < n_blocks; j++ ) {
+        // cache_request(j + 1);
+        // arc_t * p = (arc_t *) cache_access_mod_opt_mut(arc + j * eles);
+        cache_token_t tk_arc = cache_request((uint64_t) (arc + j * eles)); 
+        arc_t *p = (arc_t *) cache_access_mut(tk_arc); 
+        for( int i = 0; i < eles; i++ ) {
+            arc_t *arci = p + i;
 
-    cache_token_t tk_node_tail = cache_request((uint64_t) (arci->tail));
-    node_t *node_tail = (node_t *) cache_access_mut(tk_node_tail);
+            cache_token_t tk_node_tail = cache_request((uint64_t) (arci->tail));
+            node_t *node_tail = (node_t *) cache_access_mut(tk_node_tail);
+            arci->nextout = node_tail->firstout;
+            node_tail->firstout = arc + j * eles + i;
 
-    cache_token_t tk_node_head = cache_request((uint64_t) (arci->head));
-    node_t *node_head = (node_t *) cache_access_mut(tk_node_head);
-
-    arci->nextout = node_tail->firstout;
-    node_tail->firstout = arc + i;
-    arci->nextin = node_tail->firstin;
-    node_head->firstin = arc + i;
-  }
+            cache_token_t tk_node_head = cache_request((uint64_t) (arci->head));
+            node_t *node_head = (node_t *) cache_access_mut(tk_node_head);
+            // prefetch address
+            //     (arci + 1)->head
+            arci->nextin = node_head->firstin;
+            node_head->firstin = arc + j * eles + i;
+        }
+    }
 }
 
 void check() {

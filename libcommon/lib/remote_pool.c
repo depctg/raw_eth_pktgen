@@ -89,9 +89,6 @@ void manager_init() {
     // register rpc services
     init_rpc_services();
     init_assem_lambdas();
-    *(uint64_t *)sbuf = (intptr_t) sbuf;
-    send(sbuf, sizeof(uint64_t));
-    printf("Remote server: cache base addr = %p\n", sbuf);
 }
 
 void add_pool(int pid, unsigned line_size) {

@@ -236,14 +236,23 @@ target_include_directories(main_step1 PRIVATE "/home/wuklab/projects/pl-zijian/r
 add_executable(main_step2 app/main_step2.cc app/internal.cc)
 target_link_libraries(main_step2 DataFrame Threads::Threads)
 
+add_executable(main_step2_nc app/main_step2_nc.cc app/internal.cc)
+target_link_libraries(main_step2_nc DataFrame Threads::Threads)
+
 add_executable(main_step3 app/main_step3.cc app/internal.cc)
 target_link_libraries(main_step3 DataFrame Threads::Threads)
 
 add_executable(main_step4 app/main_step4.cc app/internal.cc)
 target_link_libraries(main_step4 DataFrame Threads::Threads)
 
+add_executable(main_step4_nc app/main_step4_nc.cc app/internal.cc)
+target_link_libraries(main_step4_nc DataFrame Threads::Threads)
+
 add_executable(main_step5 app/main_step5.cc app/internal.cc)
 target_link_libraries(main_step5 DataFrame Threads::Threads)
+
+add_executable(main_step5_nc app/main_step5_nc.cc app/internal.cc)
+target_link_libraries(main_step5_nc DataFrame Threads::Threads)
 
 # add_executable(main_step6 app/main_step6.cc app/internal.cc)
 # target_link_libraries(main_step6 DataFrame)

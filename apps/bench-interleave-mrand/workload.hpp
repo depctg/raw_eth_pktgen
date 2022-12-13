@@ -48,27 +48,27 @@ int b = sizeof(node_t);
 node_t *node;
 arc_t *arc;
 
-#define N_node (32 << 20)
+#define N_node (8 << 20)
 #define M_arc (64 << 20)
 
 static uint64_t seed = 0x23333;
 static uint64_t checksum = 0xdeadbeaf;
 
-#define randrand 0.4
+#define randrand 0.3
 #define rand 0.8
 #define mrand 1.3
 
 static inline int nextRand(int M) {
 
-  // seed = ((seed * 7621) + 1) % M;
+  seed = ((seed * 7621) + 1) % M;
 
   // static std::mt19937 g(seed);
   // static std::uniform_int_distribution<int> dist(0, M-1);
   // seed = dist(g);
 
   // printf("%d\n", (int)r);
-  // return (int)seed;
-  return zipf(randrand, M) - 1;
+  return (int)seed;
+  // return zipf(randrand, M) - 1;
 }
 
 extern void setup();

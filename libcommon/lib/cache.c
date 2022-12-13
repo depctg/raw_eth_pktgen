@@ -98,7 +98,6 @@ void cache_init() {
         printf("Regist cache %d, size %lu, line size %u bytes\n", cid, cache_size, line_size);
     }
     fclose(cache_cfg);
-    init_cache_stats();
 
 }
 

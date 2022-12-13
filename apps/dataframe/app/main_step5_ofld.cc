@@ -10,7 +10,7 @@
 #include "offload.h"
 
 const size_t s5_nb = 512 * 1024;
-const size_t s5_n_block = 186;
+const size_t s5_n_block = 39;
 
 // total 30 GB -> local X * 30
 rring_init(rvid,       int,        s5_nb * sizeof(int),        s5_n_block, 0, 8192);

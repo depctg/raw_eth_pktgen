@@ -57,7 +57,7 @@ void get_data_by_sel (const char *name, F &sel_func, std::vector<T> &newvec) {
     rring_outer_loop(rids, size_t, col_s) {
         rring_prefetch_with(rids, rflag, 8);
         rring_prefetch_with(rids, rvid, 8);
-        rring_prefetch(rids, 8);
+        rring_prefetch(rids, 16);
 
         rring_inner_preloop(rflag, K);
         rring_inner_preloop(rvid, T);

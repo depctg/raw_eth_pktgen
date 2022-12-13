@@ -26,6 +26,7 @@ void setup() {
     cache_token_t tk_arc = cache_request((uint64_t) (arc + i));
     arc_t *arci = (arc_t *) cache_access_mut(tk_arc);
     arci->tail = node + nextRand(N_node);
+    // printf("%lu\n", arci->tail - node);
     arci->head = node + nextRand(N_node);
   }
 }
@@ -41,6 +42,7 @@ void setup() {
 
 void visit() {
     // token_t prefetch_tokens[];
+    uint64_t k = 0;
     for (int j = 0; j < n_blocks; j++ ) {
         // cache_request(j + 1);
         // arc_t * p = (arc_t *) cache_access_mod_opt_mut(arc + j * eles);
@@ -48,7 +50,7 @@ void visit() {
         arc_t *p = (arc_t *) cache_access_mut(tk_arc); 
         for( int i = 0; i < eles; i++ ) {
             arc_t *arci = p + i;
-
+            k += 1;
             cache_token_t tk_node_tail = cache_request((uint64_t) (arci->tail));
             node_t *node_tail = (node_t *) cache_access_mut(tk_node_tail);
             arci->nextout = node_tail->firstout;
@@ -62,6 +64,7 @@ void visit() {
             node_head->firstin = arc + j * eles + i;
         }
     }
+  printf("%lu\n", k);
 }
 
 void check() {

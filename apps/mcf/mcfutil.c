@@ -19,7 +19,6 @@ Copyright (c) 2003-2005 Andreas Loebel.
 /*  $Id: mcfutil.c,v 1.11 2005/02/17 21:43:12 bzfloebe Exp $  */
 
 
-
 #include "mcfutil.h"
 #include "common.h"
 #include "cache.h"

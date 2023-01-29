@@ -10,6 +10,14 @@ static struct ibv_wc wc[64];
     printf(#rn "T %zu S %zu H %zu R %zu tlim %zu\n", \
 		    _t_##rn, _s_##rn, _h_##rn, _r_##rn, _tlim_##rn)
 
+// h: outer-block prefetch idx
+// t: outer-block access idx
+// r: outer-block read polled idx
+// s: outer-block write polled idx
+
+// rbase (controlled by remote allocator)
+// lbase (can be static) 
+// tags: id 
 #define rring_init(rn,T,bsize,nblocks,lbase,rbase) \
   const size_t _bsize_##rn = bsize, _bn_##rn = bsize / sizeof(T); \
   const size_t _nblocks_##rn = nblocks; \
@@ -18,6 +26,7 @@ static struct ibv_wc wc[64];
   uint64_t _lbase_##rn = (uint64_t)(lbase); \
   size_t _tags_##rn[nblocks] = { 0 }
 
+// loop through outer-blocks
 #define rring_outer_loop(rn,T,lim) \
   _h_##rn = _t_##rn = _r_##rn = _s_##rn=0; \
   for (size_t _lim_##rn = (lim), _tlim_##rn = ((lim) + _bn_##rn - 1) / _bn_##rn; \
@@ -28,17 +37,20 @@ static struct ibv_wc wc[64];
 #define rring_outer_loop_with_post(rn) \
   _t_##rn ++
 
+// calculate innter-block lim
 #define rring_inner_preloop(rn,T) \
   size_t _ilim_##rn = _lim_##rn > (_t_##rn + 1) * _bn_##rn ? \
                       _bn_##rn : _lim_##rn - _t_##rn * _bn_##rn; \
   T * _inner_##rn = (T *)(_lbase_##rn + (_t_##rn % _nblocks_##rn) * _bsize_##rn)
 
+// use rring_sync as cq poll logic entry point
 #define rring_sync(rn) \
   rring_poll_readonly(&_r_##rn, _t_##rn, _tags_##rn, _nblocks_##rn)
 
 #define rring_sync_writeonly(rn) \
   rring_poll_writeonly(&_s_##rn, _t_##rn)
 
+// loop to lim
 #define rring_inner_loop(rn, j) \
   for (size_t j = 0; j < _ilim_##rn ; j++)
 

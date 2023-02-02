@@ -1,5 +1,5 @@
 # Include standard template for this suite
-CC=/mnt/data/PL-mlir/Disagg-mlir/llvm-project/build/bin/clang-16
+CC=gcc-9
 # LIBS = -lprofiler
 cgeist = /mnt/data/PL-mlir/Disagg-mlir/build/bin/cgeist
 poly-opt = /mnt/data/PL-mlir/Disagg-mlir/build/bin/polygeist-opt

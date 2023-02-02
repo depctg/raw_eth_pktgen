@@ -313,10 +313,11 @@ int main()
     times[9] = std::chrono::steady_clock::now();
 
     for (uint32_t i = 1; i < std::size(times); i++) {
-        std::cout << "Step " << i << ": "
-                  << std::chrono::duration_cast<std::chrono::microseconds>(times[i] - times[i - 1])
-                         .count()
-                  << " us" << std::endl;
+        // std::cout << "Step " << i << ": "
+        //          << std::chrono::duration_cast<std::chrono::microseconds>(times[i] - times[i - 1])
+        //                 .count()
+        //          << " us" << std::endl;
+	std::cout << std::chrono::duration_cast<std::chrono::microseconds>(times[i]-times[i-1]).count() << ", ";
     }
     std::cout << "Total: "
               << std::chrono::duration_cast<std::chrono::microseconds>(times[9] - times[0]).count()

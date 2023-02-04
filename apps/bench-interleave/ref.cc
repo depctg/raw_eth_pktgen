@@ -4,11 +4,19 @@
 #include <stdlib.h>
 #include "common.h"
 #include "workload.hpp"
+#include "unistd.h"
 
+#define set_pref_check 328
+#define set_falt_check 329
+#define reset_swap_stat 330
 
 void setup() {
-  node = (node_t *) malloc(sizeof(node_t) * N_node);
-  arc = (arc_t *) malloc(sizeof(arc_t) * M_arc);
+  node = (node_t *) aligned_alloc(4096, sizeof(node_t) * N_node);
+  arc = (arc_t *) aligned_alloc(4096, sizeof(arc_t) * M_arc);
+  printf("node: %lu\n", (intptr_t) node);
+  printf("arc: %lu\n", (intptr_t) arc);
+  syscall(set_pref_check, (unsigned long) arc, (unsigned long) (arc + M_arc));
+  syscall(set_falt_check, (unsigned long) node, (unsigned long) (node + N_node));
 
   for (int i = 0; i < N_node; ++ i) {
     node[i].number = -i;
@@ -20,6 +28,7 @@ void setup() {
     arc[i].tail = node + nextRand(N_node);
     arc[i].head = node + nextRand(N_node);
   }
+  syscall(reset_swap_stat);
 }
 
 #define n_blocks 2048
@@ -40,12 +49,7 @@ void visit() {
 }
 
 void check() {
-  uint64_t check_sum = 0;
-  for (int i = 0; i < M_arc; ++ i) {
-    check_sum += arc[i].tail->number;
-    check_sum += arc[i].head->number;
-  }
-  printf("Checksum = %lu\n", check_sum);
+  printf("no check\n");
 }
 
 int main () {

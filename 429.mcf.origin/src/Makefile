@@ -1,10 +1,9 @@
 # Include standard template for this suite
-CC=clang
-# LIBS = -ltcmalloc 
-cgeist = /users/Zijian/Disagg-mlir/build/bin/cgeist
-clang-b = /users/Zijian/Disagg-mlir/llvm-project/build/bin/clang
-poly-opt = /users/Zijian/Disagg-mlir/build/bin/polygeist-opt
-mlir-translate = /users/Zijian/Disagg-mlir/llvm-project/build/bin/mlir-translate
+CC=gcc-9
+# LIBS = -lprofiler
+cgeist = /mnt/data/PL-mlir/Disagg-mlir/build/bin/cgeist
+poly-opt = /mnt/data/PL-mlir/Disagg-mlir/build/bin/polygeist-opt
+mlir-translate = /mnt/data/PL-mlir/Disagg-mlir/llvm-project/build/bin/mlir-translate
 USE_MLIR ?= 0
 CFLAGS += -O3 -std=c11 
 

@@ -239,7 +239,6 @@ long price_out_impl( net )
         refresh_neighbour_lists( net );
       }
     }
-    printf("here\n");
 #if !defined SPEC_STATIC
     else
     {

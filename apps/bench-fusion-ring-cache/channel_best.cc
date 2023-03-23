@@ -10,6 +10,7 @@ using namespace std;
 rring_init(rids, size_t, (2 << 20), 2047, 0, 8192);
 rring_init(rvec, size_t, (2 << 20), 2047, 0, 8192 + (4ULL << 30));
 
+void post_setup() { return; }
 
 template<typename I, typename D, typename V1, typename V2, typename V3>
 void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &visitor2, V3 &visitor3)  {

@@ -7,15 +7,15 @@ static rpc_service_t __services[1024];
 rpc_service_t *services = &__services[0];
 
 void __service_sum(void *, void*);
-void __step1_get_col_unique_values(void*, void*);
-void __step2_get_data_by_sel(void*, void*);
-void __step3_visit_min(void*, void*);
-void __step3_visit_max(void*, void*);
-void __step3_visit_mean(void*, void*);
-void __step4_get_data_by_sel(void*, void*);
-void __step5_haversine_vec_load(void*, void*);
-void __step5_get_data_by_sel(void *, void *);
-void __step7_group_df(void *, void *);
+// void __step1_get_col_unique_values(void*, void*);
+// void __step2_get_data_by_sel(void*, void*);
+// void __step3_visit_min(void*, void*);
+// void __step3_visit_max(void*, void*);
+// void __step3_visit_mean(void*, void*);
+// void __step4_get_data_by_sel(void*, void*);
+// void __step5_haversine_vec_load(void*, void*);
+// void __step5_get_data_by_sel(void *, void *);
+// void __step7_group_df(void *, void *);
 
 void init_rpc_services() {
     // __services[0] = __service_sum;

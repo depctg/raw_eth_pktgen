@@ -44,7 +44,7 @@ cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
     caches[cache_cnt].linesize = linesize;
     caches[cache_cnt].size = size;
     caches[cache_cnt].slots = size / linesize;
-    caches[cache_cnt].metabase = aligned_alloc(16, cache_get_field(cache_cnt, slots) * sizeof(struct line_header));
+    caches[cache_cnt].metabase = aligned_alloc(4096, cache_get_field(cache_cnt, slots) * sizeof(struct line_header));
 
 	// initialize header
 	for (unsigned i = 0; i < caches[cache_cnt].slots; ++ i) {
@@ -56,6 +56,11 @@ cache_t cache_create(uint64_t size, unsigned linesize, uint64_t r_mem_limit) {
     _start_base += size;
     _addr_space_base[cache_cnt] = _start_addr;
     _start_addr += r_mem_limit;
+
+    // initialize tlb
+    unsigned num_tlb_entries = caches[cache_cnt].slots;
+    caches[cache_cnt].num_tlb_entries = num_tlb_entries;
+    caches[cache_cnt].trans_tlb = aligned_alloc(4096, num_tlb_entries * sizeof(struct tlb_mapping));
     return cache_cnt++;
 }
 
@@ -98,10 +103,8 @@ void cache_init() {
         printf("Regist cache %d, size %lu, line size %u bytes\n", cid, cache_size, line_size);
     }
     fclose(cache_cfg);
-
+    init_cache_stats();
 }
-
-
 
 static inline void cache_await(cache_token_t token) {
     dprintf("Await token slot %u, status %d", token_header_field(token,slot), token_header_field(token,status));
@@ -144,8 +147,21 @@ extern inline cache_token_t cache_request(uint64_t vaddr) {
 
     // log number of reqs
     req_inc(cache);
+
     uint64_t tag = cache_ofst_mask(cache_get_field(cache,linesize), addr);
     uint16_t ofst = cache_tag_mask(cache_get_field(cache,linesize), addr);
+
+    // check tlb
+    unsigned idx = (tag << cache_get_field(cache,linesize)) & (cache_get_field(cache,num_tlb_entries)-1);
+    if (tlb_check(cache, idx, tag)) {
+        cache_token_t token = {
+            .cache = cache, 
+            .slot = tlb_get_slot(cache,idx), 
+            .tag = tag, 
+            .line_ofst = ofst};
+        add_tlb_hit(token);
+        return token;
+    }
 
     // find slot and eviction
     cache_token_t token = __cache_select(cache, tag);
@@ -162,6 +178,7 @@ extern inline cache_token_t cache_request(uint64_t vaddr) {
         dprintf("-> tag match, do nothing");
     } else {
         miss_inc(cache, tag/cache_get_field(cache,linesize));
+        uint64_t old_tag = token_header_field(token,tag);
         // if prefetch flag is still on, count as inaccurate pref
 #ifdef CACHE_LOG_PREF
         if (token_check_flag(token,LINE_FLAGS_PREFED)) {
@@ -176,14 +193,13 @@ extern inline cache_token_t cache_request(uint64_t vaddr) {
             token_header_field(token,tag) != tag &&
             token_check_flag(token,LINE_FLAGS_DIRTY)) {
             // eviction
-            uint64_t tag2 = token_header_field(token,tag);
             token_header_field(token,tag) = tag;
             token_header_field(token,status) = LINE_SYNC;
             token_header_field(token,weight) = 0;
             token_header_field(token,flags) = 0;
-            dprintf("-> EVICT %lu, FETCH %lu", tag2, token_header_field(token,tag));
+            dprintf("-> EVICT %lu, FETCH %lu", old_tag, tag);
             // printf("-> EVICT %lu, FETCH %lu\n", tag2, token_header_field(token,tag));
-            cache_post(token, CACHE_REQ_EVICT, tag2);
+            cache_post(token, CACHE_REQ_EVICT, old_tag);
         } else {
             // fetch
             token_header_field(token,tag) = tag;
@@ -191,10 +207,16 @@ extern inline cache_token_t cache_request(uint64_t vaddr) {
             token_header_field(token,status) = LINE_SYNC;
             token_header_field(token,weight) = 0;
             token_header_field(token,flags) = 0;
-            dprintf("-> FETCH: %lu", token_header_field(token,tag));
+            dprintf("-> FETCH: %lu", tag);
             cache_post(token, CACHE_REQ_READ, -1);
         }
+        // update tlb
+        unsigned old_idx = (old_tag << cache_get_field(cache,linesize)) & (cache_get_field(cache,num_tlb_entries)-1);
+        if (tlb_check(cache, old_idx, old_tag)) {
+            tlb_invalidate(cache, old_idx);
+        }
     }
+    tlb_update(cache, idx, tag, token.slot);
     return token;
 }
 
@@ -515,21 +537,27 @@ void init_cache_stats() {
 #ifdef CACHE_LOG_TRACE
     printf("Record address trace\n");
 #endif
-    for (int i = 0; i < OPT_NUM_CACHE; ++ i) {
+#ifdef CACHE_TLB_HIT
+    printf("Log TLB hit rate\n");
+#endif
+    for (int i = CACHE_ID_OFFSET; i < cache_cnt; ++ i) {
 #ifdef CACHE_LOG_TRACE
         // initialize trace
         csts[i].tll.head = new_trace(0, -1);
         csts[i].tll.tail = csts[i].tll.head;
-    #endif
-    #ifdef CACHE_LOG_MISS
+#endif
+#ifdef CACHE_LOG_MISS
         csts[i].visited = (uint8_t *) malloc(sizeof(uint8_t) * (1 << 25));
+#endif
+#ifdef CACHE_TLB_HIT
+        csts[i].num_tlb_hit = 0;
 #endif
     }
 }
 
 void get_cache_logs() {
     printf("----- Cache stats -----\n");
-  for (int i = 0; i < cache_cnt; ++ i) {
+  for (int i = CACHE_ID_OFFSET; i < cache_cnt; ++ i) {
     printf("  --- Cache %d ---:\n", i);
 #ifdef CACHE_LOG_REQ
     printf("total reqs: %lu\n", csts[i].num_reqs);
@@ -562,6 +590,9 @@ void get_cache_logs() {
       cur = cur->next;
     }
     fclose(trace_i);
+#endif
+#ifdef CACHE_TLB_HIT
+    printf("TLB hit rate: %.6f%\n", (float) csts[i].num_tlb_hit / csts[i].num_reqs * 100);
 #endif
   }
 }

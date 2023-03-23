@@ -24,6 +24,7 @@ static struct cache_stats {
   uint64_t num_access;
   uint64_t num_pref;
   uint64_t num_miss;
+  uint64_t num_tlb_hit;
 
   uint8_t *visited;
   uint64_t miss_compulsory;
@@ -100,5 +101,13 @@ static inline void add_trace(cache_token_t token, int c) {
 #else
   UNUSED(token);
   UNUSED(c);
+#endif
+}
+
+static inline void add_tlb_hit(cache_token_t token) {
+#ifdef CACHE_TLB_HIT
+  csts[token.cache].num_tlb_hit ++;
+#else
+  UNUSED(token);
 #endif
 }

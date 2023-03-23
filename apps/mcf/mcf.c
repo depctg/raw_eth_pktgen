@@ -172,17 +172,17 @@ int main( argc, argv )
 #endif
 
     uint64_t end_us = microtime();
-    printf("Exec time wo read_min and write out %lu us\n", end_us - start_us);
+    printf("Exec time wo read_min and write out %.6f s\n", (float)(end_us - start_us)/1e6);
     
 
+    get_cache_logs();
     if( write_circulations( "mcf.out", &net ) )
     {
-        getfree( &net );
+        // getfree( &net );
         return -1;    
     }
 
 
-
-    getfree( &net );
+    // getfree( &net );
     return 0;
 }

@@ -15,7 +15,7 @@ extern "C"
 // #define CACHE_LOG_ACCESS
 
 /* Option: Log Misses */
-#define CACHE_LOG_MISS
+// #define CACHE_LOG_MISS
 // #define CACHE_CLASS_MISS
 
 /* Option: Log Late Data Fetch*/
@@ -27,12 +27,16 @@ extern "C"
 /* Option: Log access addr */
 // #define CACHE_LOG_TRACE
 
+/* Option: Log tlb hit */
+// #define CACHE_TLB_HIT
+
 enum {
   EVNT_REQ = 0,
   EVNT_ACC,
   EVNT_ACC_MUT,
   EVNT_ACQ,
   EVNT_RLS,
+  EVNT_TLB,
 };
 
 typedef struct trace_node {

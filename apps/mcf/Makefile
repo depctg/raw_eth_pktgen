@@ -1,15 +1,24 @@
 # Include standard template for this suite
 CC=clang
-# LIBS = -ltcmalloc 
+LIBS = -lprofiler -libverbs -lnng -lm -lpthread
 cgeist = /users/Zijian/Disagg-mlir/build/bin/cgeist
 clang-b = /users/Zijian/Disagg-mlir/llvm-project/build/bin/clang
 poly-opt = /users/Zijian/Disagg-mlir/build/bin/polygeist-opt
 mlir-translate = /users/Zijian/Disagg-mlir/llvm-project/build/bin/mlir-translate
 USE_MLIR ?= 0
-CFLAGS += -O3 -std=c11 
+CFLAGS += -O3 -flto -g
 
 obj_dir = obj
-_obj = implicit.o mcf.o mcfutil.o output.o pbeampp.o pbla.o pflowup.o psimplex.o pstart.o readmin.o treeup.o 
+
+rt_obj = cache.c.o common_util.c.o common.c.o net.c.o offload.c.o offloads.c.o packet.c.o remote_pool.c.o side_channel.c.o 
+_obj = implicit.c.o mcf.c.o mcfutil.c.o output.c.o pbeampp.c.o pbla.c.o pflowup.c.o psimplex.c.o pstart.c.o readmin.c.o treeup.c.o $(rt_obj)
+
+moveMCF: $(obj_dir)
+	cp -r /mnt/data/raw_eth_pktgen/build/apps/mcf/CMakeFiles/mcf-main.dir/*.o $(obj_dir)
+
+moveRT: $(obj_dir)
+	cp -r /mnt/data/raw_eth_pktgen/build/libcommon/lib/CMakeFiles/common.dir/*.o $(obj_dir)
+
 OBJ = $(addprefix $(obj_dir)/, $(_obj))
 
 $(obj_dir):
@@ -28,7 +37,7 @@ $(obj_dir)/%.o : %.c *.h
 	fi
 
 .PHONY: all
-all: $(obj_dir) mcf
+all: $(obj_dir) moveMCF moveRT mcf
 
 mcf: $(OBJ) 
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)

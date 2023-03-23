@@ -5,7 +5,11 @@
 #include "app.h"
 #include <stdlib.h>
 
-#define CACHE_ID_OFFSET 2
+struct tlb_mapping {
+    uint64_t tag;
+    unsigned slot;
+    int valid;
+};
 
 struct cache_internal {
     // pointers
@@ -16,6 +20,10 @@ struct cache_internal {
     uint64_t size;
     unsigned linesize;
     unsigned slots;
+
+    // translation table
+    struct tlb_mapping *trans_tlb;
+    unsigned num_tlb_entries;
 };
 
 extern struct cache_internal caches[];
@@ -68,5 +76,16 @@ static inline uint64_t cache_ofst_mask(uint64_t linesize, intptr_t addr) {
     (cache_clear_flag((tk).cache,(tk).slot,flag))
 #define token_check_flag(tk,flag) \
     (cache_check_flag((tk).cache,(tk).slot,flag))
+
+#define tlb_check(cache,idx,t) \
+    (cache_get_field(cache,trans_tlb)[idx].tag == (t) && cache_get_field(cache,trans_tlb)[idx].valid)
+#define tlb_get_slot(cache,idx) \
+    (cache_get_field(cache,trans_tlb)[idx].slot)
+#define tlb_invalidate(cache,idx) \
+    (cache_get_field(cache,trans_tlb)[idx].valid = 0)
+#define tlb_update(cache,idx,t,s) \
+    cache_get_field(cache,trans_tlb)[idx].tag = t; \
+    cache_get_field(cache,trans_tlb)[idx].slot = s; \
+    cache_get_field(cache,trans_tlb)[idx].valid = 1
 
 #endif

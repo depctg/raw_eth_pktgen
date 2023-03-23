@@ -42,7 +42,7 @@ extern "C" {
 
 #define CQ_NUM_DESC 128
 
-/* size for local buffers, 512M */
+/* size for local buffers */
 #define SEND_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
 #define RECV_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
 

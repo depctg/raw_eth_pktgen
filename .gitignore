@@ -7,3 +7,4 @@ cache_opts/remote_test
 **/spec2006-bzip2/enwik9*
 **/data/*
 **/*.dat
+!429.mcf.origin/data/*

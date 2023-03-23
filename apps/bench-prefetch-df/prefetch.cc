@@ -33,7 +33,7 @@ static inline bool filter (uint64_t index, char flag) {
   return false;
 }
 
-const size_t eles = 512 * 1024;
+const size_t eles = 1024 * 1024;
 
 
 int main () {
@@ -92,8 +92,8 @@ rring_init(rids_reader,
     rring_outer_loop_with(rvid_reader, N);
     rring_outer_loop_with(rflag_reader, N);
     rring_outer_loop(rids_reader, size_t, N) {
-        rring_prefetch_with(rids_reader, rflag_reader, 4);
-        rring_prefetch_with(rids_reader, rvid_reader, 8);
+        rring_prefetch_with(rids_reader, rflag_reader, 16);
+        rring_prefetch_with(rids_reader, rvid_reader, 16);
         rring_prefetch(rids_reader, 16);
 
         rring_inner_preloop(rflag_reader, char);

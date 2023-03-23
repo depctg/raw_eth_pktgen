@@ -17,10 +17,10 @@ add_compile_definitions(
     _GNU_SOURCE
     )
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g -Wextra -DDEBUG")
-set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -DNDEBUG")
-set(CMAKE_C_FLAGS_DEBUG "-g -Wextra -DDEBUG")
-set(CMAKE_C_FLAGS_RELEASE "-g -O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Wextra -DDEBUG -mavx")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -DNDEBUG -mavx")
+set(CMAKE_C_FLAGS_DEBUG "-g -Wextra -DDEBUG -mavx")
+set(CMAKE_C_FLAGS_RELEASE "-g -O3 -DNDEBUG -mavx")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)

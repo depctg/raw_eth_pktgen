@@ -36,15 +36,15 @@ extern "C" {
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 4
-#define DEVICE_NAME "mlx5_3"
+#define DEVICE_NAME "mlx5_1"
 #define DEVICE_GID 3
 #define PORT_NUM 1
 
 #define CQ_NUM_DESC 128
 
 /* size for local buffers, 512M */
-#define SEND_BUF_SIZE ((2ULL << 30) + (4ULL << 20))
-#define RECV_BUF_SIZE ((28ULL << 30) + (4ULL << 20))
+#define SEND_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
+#define RECV_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
 
 #define MAX_POLL 64
 

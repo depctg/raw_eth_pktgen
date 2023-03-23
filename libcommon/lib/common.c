@@ -145,7 +145,6 @@ int init(int type, const char * server_url) {
     qp_attr.max_dest_rd_atomic = 1;
     qp_attr.min_rnr_timer = 0x12;
 
-    qp_attr.ah_attr.is_global = 1;
     qp_attr.ah_attr.sl = 0;
     qp_attr.ah_attr.src_path_bits = 0;
     qp_attr.ah_attr.port_num = peerinfo->port;
@@ -153,10 +152,15 @@ int init(int type, const char * server_url) {
     qp_attr.dest_qp_num = peerinfo->qp_number;
     qp_attr.ah_attr.dlid = peerinfo->local_id;
 
-    qp_attr.ah_attr.grh.sgid_index = DEVICE_GID;
-    qp_attr.ah_attr.grh.dgid = peerinfo->gid;
-    qp_attr.ah_attr.grh.hop_limit = 0xFF;
-    qp_attr.ah_attr.grh.traffic_class = 0;
+    if (DEVICE_GID == 0) { // infiniband
+        qp_attr.ah_attr.is_global = 0;
+    } else {
+        qp_attr.ah_attr.is_global = 1;
+        qp_attr.ah_attr.grh.sgid_index = DEVICE_GID;
+        qp_attr.ah_attr.grh.dgid = peerinfo->gid;
+        qp_attr.ah_attr.grh.hop_limit = 0xFF;
+        qp_attr.ah_attr.grh.traffic_class = 0;
+    }
 
     ret = ibv_modify_qp(qp, &qp_attr, qp_flags);
     if (ret != 0) {

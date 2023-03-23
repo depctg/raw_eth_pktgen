@@ -35,9 +35,9 @@ extern "C" {
 #define SEND_INLINE 1
 
 /* run show_gids to get the info */
-#define NUM_DEVICES 4
-#define DEVICE_NAME "mlx5_1"
-#define DEVICE_GID 3
+#define NUM_DEVICES 1
+#define DEVICE_NAME "mlx4_0"
+#define DEVICE_GID 0
 #define PORT_NUM 1
 
 #define CQ_NUM_DESC 128

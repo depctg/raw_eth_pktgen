@@ -1,11 +1,10 @@
-#include "common.h"
 #include "tensor.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <immintrin.h>
-#include "rring_cache.h"
+#include "common.h"
 
 #define M 64512
 #define K 512
@@ -69,17 +68,17 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
 
 int main () {
   int64_t shapeA[] = {M, K};
-  float *bufA = read_tensor_float("/home/wuklab/projects/pl-zijian/raw_eth_pktgen/apps/bench-gemm/A.dat", shapeA, 2);
+  float *bufA = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/A.dat", shapeA, 2);
 
   int64_t shapeB[] = {K, N};
-  float *bufB = read_tensor_float("/home/wuklab/projects/pl-zijian/raw_eth_pktgen/apps/bench-gemm/B.dat", shapeB, 2);
+  float *bufB = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/B.dat", shapeB, 2);
 
   Tensor_float_2 A = make_tensor_float_2(bufA, shapeA);
   Tensor_float_2 B = make_tensor_float_2(bufB, shapeB);
 
   Tensor_float_2 C;
   int64_t shapeC[] = {M, N};
-  float *C_truth = read_tensor_float("/home/wuklab/projects/pl-zijian/raw_eth_pktgen/apps/bench-gemm/C.dat", shapeC, 2);
+  float *C_truth = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/C.dat", shapeC, 2);
 
   uint64_t start = microtime();
   _mlir_ciface_main_graph(&C, &A, &B);

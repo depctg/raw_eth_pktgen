@@ -21,18 +21,26 @@ static void fatal(const char *func)
 struct conn_info * client_exchange_info(const char * server_url) {
     nng_socket sock;
     int rv;
-	size_t send_size, bytes;
+    size_t send_size, bytes;
 
-    union ibv_gid gids;
-    ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
     struct conn_info local_info = {
-        .gid = gids,
         .port = PORT_NUM,
         .qp_number = qp->qp_num,
         .num_mr = 0,
         .local_id = 0
     };
-	struct conn_info *peer_info = NULL;
+
+    if (DEVICE_GID == 0) { // infiniband
+        struct ibv_port_attr port_attr;
+        ibv_query_port(context, PORT_NUM, &port_attr);
+        local_info.local_id = port_attr.lid;
+    } else {
+        union ibv_gid gids;
+        ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
+        local_info.gid = gids;
+    }
+
+    struct conn_info *peer_info = NULL;
 
     printf("connecting to server %s...\n", server_url);
     if ((rv = nng_req0_open(&sock)) < 0) {
@@ -62,29 +70,38 @@ struct conn_info * client_exchange_info(const char * server_url) {
 
 struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr) {
     nng_socket sock;
-	int rv;
+    int rv;
     size_t send_size, bytes;
 
-    union ibv_gid gids;
-    ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
     struct conn_info local_info = {
-        .gid = gids,
         .port = PORT_NUM,
         .qp_number = qp->qp_num,
-        .num_mr = 1
+        .num_mr = 1,
+        .local_id = 0
     };
+
+    if (DEVICE_GID == 0) { // infiniband
+        struct ibv_port_attr port_attr;
+        ibv_query_port(context, PORT_NUM, &port_attr);
+        local_info.local_id = port_attr.lid;
+    } else {
+        union ibv_gid gids;
+        ibv_query_gid(context, PORT_NUM, DEVICE_GID, &gids); 
+        local_info.gid = gids;
+    }
+
     // include buffer on server
     local_info.mr[0] = *mr;
 
-	struct conn_info *peer_info = NULL;
+    struct conn_info *peer_info = NULL;
 
     // create server
-	if ((rv = nng_rep0_open(&sock)) < 0) {
-		fatal("nn_socket");
-	}
-	if ((rv = nng_listen(sock, server_url, NULL, 0)) < 0) {
-		fatal("nn_bind");
-	}
+    if ((rv = nng_rep0_open(&sock)) < 0) {
+        fatal("nn_socket");
+    }
+    if ((rv = nng_listen(sock, server_url, NULL, 0)) < 0) {
+        fatal("nn_bind");
+    }
 
     printf("Listening on %s\n", server_url);
     if ((rv = nng_recv(sock, &peer_info, &bytes, NNG_FLAG_ALLOC)) < 0) {

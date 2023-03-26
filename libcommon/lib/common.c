@@ -486,3 +486,32 @@ int poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc) {
     return ibv_poll_cq(cq, num_entries, wc);
 }
 
+void rdma_req(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode opcode) {
+    int ret;
+
+    // SGE for request, we use only 1
+    struct ibv_sge sge;
+    sge.addr = (uint64_t)buf;
+    sge.length = size;
+    sge.lkey = rmr->lkey;
+
+    struct ibv_send_wr wr, *badwr = NULL;
+
+    wr.wr_id = id;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+
+    wr.wr.rdma.remote_addr = (uint64_t)(mr.addr) + raddr;
+    wr.wr.rdma.rkey = mr.rkey;
+    wr.opcode = opcode;
+
+    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.next = NULL;
+    // printf("RDMA RADDR %lx %lx SIZE %lu LOCAL %lx ID %ul\n", mr.addr, raddr, size, buf, id); 
+
+    ret = ibv_post_send(qp, &wr, &badwr);
+    if (unlikely(ret != 0)) {
+        fprintf(stderr, "RDMA post send error %d\n", ret); 
+        exit(-1);
+    }
+}

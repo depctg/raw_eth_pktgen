@@ -141,6 +141,8 @@ rdma(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode 
     }
 };
 
+void rdma_req(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode opcode);
+
 static inline uint64_t getCurNs() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);

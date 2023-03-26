@@ -496,7 +496,7 @@ void cache_flush(unsigned cache, uint64_t vaddr) {
 void * _disagg_alloc(cache_t cache, size_t size) {
     intptr_t addr = _addr_space_base[cache];
     _addr_space_base[cache] += size;
-    virt_addr_t vaddr = { .cache = cache, .addr = addr };
+    virt_addr_t vaddr = { .cache = 0, .addr = addr };
     return (void *) vaddr.ser;
 }
 

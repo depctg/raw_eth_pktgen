@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <assert.h>
+
 #include "common.h"
 #include "cache.h"
-#include "side_channel.h"
 
 typedef struct A {
   int x;

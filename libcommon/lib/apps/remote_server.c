@@ -1,18 +1,17 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <pthread.h>
-#include <unistd.h>
 #include "common.h"
-#include "remote_pool.h"
-#include "cache.h"
-#include "helper.h"
 
+// as a pure 1-side RDMA server, only need to init memory
 int main(int argc, char *argv[]) {
-  init_server();
-	// init remote server mem
-	manager_init();
+  char* url = getenv("SERVER_URL");
+  if (!url) {
+      printf("Set SERVER_URL env before running\n");
+      exit(1);
+  }
+  init(TRANS_TYPE_RC_SERVER, url);
 
-  start_server_service();
-	return 0;
+  // the infinity loop
+  for (;;) ;
 }

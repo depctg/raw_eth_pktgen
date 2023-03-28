@@ -9,7 +9,7 @@
 #include "common.h"
 
 /* global data */
-char *_rbuf;
+void *_rbuf;
 struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *mr;
@@ -74,7 +74,7 @@ int init(int type, const char * server_url) {
         },
 
         .qp_type = type == TRANS_TYPE_UDP ? IBV_QPT_RAW_PACKET : IBV_QPT_RC,
-        .sq_sig_all = 1
+        .sq_sig_all = 0
     };
 
 
@@ -90,13 +90,13 @@ int init(int type, const char * server_url) {
     _rbuf = aligned_alloc(align, RBUF_SIZE);
     // _rbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
-    if (_rbuf == NULL) {
+    if (_rbuf) {
         fprintf(stderr, "Coudln't allocate memory\n");
         exit(1);
     }
 
     mr = ibv_reg_mr(pd, _rbuf, RBUF_SIZE, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
-    if (mr == NULL) {
+    if (mr) {
         fprintf(stderr, "Couldn't register mr\n");
         exit(1);
     }

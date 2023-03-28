@@ -1,6 +1,8 @@
 #include <random>
 #include <cstdio>
+
 #include "common.h"
+#include "util.hpp"
 
 typedef long flow_t;
 typedef long cost_t;
@@ -65,18 +67,7 @@ static inline int nextRand(int M) {
   return (int)seed;
 }
 
-extern void setup();
-extern void visit();
-extern void check();
+void setup();
+void visit();
+void check();
 
-
-void do_work() {
-  setup();
-
-  uint64_t start = microtime();
-  visit();
-  uint64_t end = microtime();
-
-  printf("Exec time %lu us\n", end - start);
-  check();
-}

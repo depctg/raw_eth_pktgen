@@ -20,15 +20,16 @@ extern "C" {
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 1
-#define DEVICE_NAME "mlx5_1"
-#define DEVICE_GID 3
+#define DEVICE_NAME "mlx4_0"
+#define DEVICE_GID 0
 #define PORT_NUM 1
 
 /* size for local buffers */
-#define CQ_NUM_DESC 256
+#define CQ_NUM_DESC 128
 
-#define RBUF_SIZE (4ULL << 30)
+#define RBUF_SIZE ((4ULL << 30) + (4ULL << 20))
 #define MAX_POLL 64
+#define NUM_QUEUES 65536
 
 enum {
     TRANS_TYPE_UDP = 0,
@@ -39,6 +40,20 @@ enum {
     TRANS_TYPE_SHM_EXECUTOR,
 };
 
+struct  __attribute__((__packed__)) _wr_id {
+    uint8_t options;
+    uint8_t __padding;
+    uint16_t qid;
+    uint32_t seq;
+};
+enum {
+    REQWR_OPT_QUEUE_UPDATE = 0x1
+};
+
+#define get_id(wr,i) = ((struct _wr_id)(wr[i].wr_id))
+
+// descriptors
+uint32_t desc[NUM_QUEUES][2];
 
 /* Debug and useful macros */
 #ifdef NDEBUG
@@ -62,19 +77,35 @@ enum {
 
 /* symbols */
 
-extern char * _rbuf;
-extern struct ibv_qp *qp;
-extern struct ibv_cq *cq;
-extern struct ibv_mr *mr;
-extern struct ibv_context *context;
-extern struct ibv_mr peermr;
+void *_rbuf;
+struct ibv_qp *qp;
+struct ibv_cq *cq;
+struct ibv_mr *mr;
+struct ibv_context *context = NULL;
+struct ibv_mr peermr;
+
+#define ARG_BUF_LIMIT 4096 // Bytes
+#define RPC_RET_LIMIT 4096 // Bytes
+#define SGE_ADDR_LIMIT 512 // num
 
 // requests
-int init(int type, const char * server_url);
-void init_server();
-void init_client();
 
-void poll(uint8_t qid, uint16_t id);
+int init(int type, const char * server_url);
+
+// oblivious init
+void init_client();
+void init_server();
+
+/*
+uint64_t send(void * buf, size_t size);
+uint64_t send_async(void * buf, size_t size);
+uint64_t send_async_sge(struct ibv_sge *sge, int num_sge);
+
+uint64_t recv(void * buf, size_t size);
+uint64_t recv_async(void * buf, size_t size);
+*/
+
+void poll(uint64_t wr_id);
 
 // RDMA_info exchange
 struct conn_info {
@@ -89,7 +120,38 @@ struct conn_info {
 struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr);
 struct conn_info * client_exchange_info(const char * server_url);
 
-/*
+// static inlines
+static inline void
+rdma(uint64_t buf, size_t size, uint64_t raddr, uint64_t id, enum ibv_wr_opcode opcode) {
+    int ret;
+
+    // SGE for request, we use only 1
+    struct ibv_sge sge;
+    sge.addr = (uint64_t)buf;
+    sge.length = size;
+    sge.lkey = mr->lkey;
+
+    struct ibv_send_wr wr, *badwr = NULL;
+
+    wr.wr_id = id;
+    wr.sg_list = &sge;
+    wr.num_sge = 1;
+
+    wr.wr.rdma.remote_addr = (uint64_t)(peermr.addr) + raddr;
+    wr.wr.rdma.rkey = peermr.rkey;
+    wr.opcode = opcode;
+
+    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.next = NULL;
+    dprintf("RDMA RADDR %lx %lx SIZE %lu LOCAL %lx ID %ul\n", peermr.addr, raddr, size, buf, id); 
+
+    ret = ibv_post_send(qp, &wr, &badwr);
+    if (unlikely(ret != 0)) {
+        fprintf(stderr, "RDMA post send error %d\n", ret); 
+        exit(-1);
+    }
+};
+
 static inline uint64_t getCurNs() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -103,7 +165,6 @@ static inline uint64_t microtime() {
     uint64_t t = ts.tv_sec*1000*1000 + ts.tv_nsec/1000;
     return t;
 }
-*/
 
 #ifdef __cplusplus
 }

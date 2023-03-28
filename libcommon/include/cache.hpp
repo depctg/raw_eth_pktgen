@@ -12,7 +12,8 @@
 #include "queue.h"
 
 // Common cache operations
-template <int offset, uint64_t rbuf, uint64_t buf, uint64_t linesize, int qid>
+template <int offset, uint64_t rbuf, uint64_t buf, uint64_t linesize, int qid,
+          uint16_t reqwr_opts = REQWR_OPT_QUEUE_UPDATE>
 struct CacheOp {
     static constexpr uint64_t tagmask = ~(linesize - 1);
     static inline uint64_t tag(uint64_t vaddr) {
@@ -20,6 +21,7 @@ struct CacheOp {
     }
 
     // meta data
+    // static Token _tokens[slots];
     static inline Token &token(int off) { return tokens[off+offset]; }
 
     // translate
@@ -34,16 +36,24 @@ struct CacheOp {
 
     // rdma
     // TODO: wrid
-    static inline void rdma(int i, int off, int tag, ibv_wr_opcode opcode) {
-        build_rdma_wr(i, 0, buf + off * linesize, rbuf + tag, 
-                linesize, opcode, NULL);
+    static inline void rdma(int i, int off, int tag, ibv_wr_opcode opcode,
+            ibv_send_wr * next, bool with_seq) {
+        // COULD be an option. do this later
+        uint64_t wrid = 0;
+        if (with_seq) {
+            wrid = reqwr_opts | qid;
+            uint32_t sid = ++qi[qid].sid;
+            tokens[off+offset].seq = sid;
+            wrid |= (sid << 16);
+        }
+        build_rdma_wr(i, wrid, buf + off * linesize, rbuf + tag, 
+                linesize, opcode, next);
     };
 };
 
 // This set of caches are built for single threaded. 
 template <uint64_t _buf_offset, int _slots, int _linesize, int _qid>
 struct CacheValues {
-    static constexpr uint64_t paddr_mask = 0;
     static constexpr int linesize = _linesize;
     static constexpr int qid = _qid;
     static constexpr uint64_t bytes = _linesize * (uint64_t)_slots;
@@ -53,7 +63,6 @@ template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int 
 struct DirectCache {
     using Op = CacheOp<offset, rbuf, buf, linesize, qid>;
     using Value = CacheValues<buf,slots,linesize,qid>;
-    static constexpr uint64_t paddr_mask = 0;
 
     static inline int select(uint64_t vaddr) {
         int res = (vaddr / linesize) % slots;
@@ -68,15 +77,18 @@ struct SetAssocativeCache {
     using Value = CacheValues<buf,slots,linesize,qid>;
 
     static constexpr int waysize = linesize * num_ways;
+    static PQueue<uint8_t, num_ways> queues[slots] = {0}; 
 
     static inline int select(uint64_t vaddr) {
         int wayslot = (vaddr / waysize) % (slots / num_ways) * num_ways;
-        PQueue<uint8_t, num_ways> pqueue{};
+        auto pqueue = queues[wayslot];
         int i, target = num_ways;
         for (i = 0; i < num_ways; i++) {
             auto &token = Op::token(wayslot + i);
-            if (token.valid()) break;
-            if (token.invalid) target = i;
+            if (token.valid()) {
+                if (token.tag == Op::tag(vaddr)) break;
+            } else
+                target = i;
         }
         if (i != num_ways) { // find a number
             pqueue.repush(i);
@@ -91,12 +103,14 @@ struct SetAssocativeCache {
 
 // TODO: bool?
 // bool ignore
-template <typename C, typename Tlb = NoTlb, bool opt_writeback = true>
+template <typename C, typename Tlb = NoTlb,
+         bool opt_writeback = true, bool opt_sync = false>
 struct CacheReq {
 
 static inline int cache_request_impl(int wr_offset, uint64_t vaddr,
         ibv_send_wr *req, bool send) {
     uint64_t tag = C::Op::tag(vaddr);
+    // dprintf("Cache %lx -> %lx", vaddr, tag);
 
     // check tlb
     // TODO: this is not thread safe
@@ -109,22 +123,25 @@ static inline int cache_request_impl(int wr_offset, uint64_t vaddr,
 
     // select will set the flags
     // valid() means we find a match
-    if (token.valid()) { // if valid return
+    // TODO: on set-assoc, this will cause double compare
+    if (token.valid() && token.tag == tag) { // if valid return
         token.seq = qi[C::Value::qid].rid;
         // if valid and hot add to tlb
         Tlb::update(token,tag);
-    } if (token.sync()) {
+    } else if (opt_sync && token.sync()) {
         // DO nothing, basically we do not need to change seq
+        // TODO: sync we need
     } else { // else fetch, build req (read)
         struct ibv_send_wr *badwr = NULL;
         req = _pwr + wr_offset;
-        C::Op::rdma(wr_offset, offset, token.tag, IBV_WR_RDMA_READ);
+        C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_READ, NULL, send);
 
         if constexpr (opt_writeback) {
             // only enable if we want write back
             if (token.dirty()) { // build req 0 (write)
+                C::Op::rdma(wr_offset + 1, offset, token.tag,
+                        IBV_WR_RDMA_WRITE, req, false);
                 req = _pwr + wr_offset + 1;
-                C::Op::rdma(wr_offset + 1, offset, token.tag, IBV_WR_RDMA_WRITE);
 
                 // update b
                 Tlb::invalid(tag);
@@ -133,11 +150,19 @@ static inline int cache_request_impl(int wr_offset, uint64_t vaddr,
 
         // the associated id is send id
         if (send) {
-            token.seq = qi[C::Value::qid].sid ++;
-            ibv_post_send(qp, req, &badwr);
+            // should already updated in RDMA function
+            int ret = ibv_post_send(qp, req, &badwr);
+            // dprintf("RDMA post send ret %d", ret); 
         }
 
-        C::Op::token(offset).clear();
+        // update tag
+        token.tag = tag;
+        // Update flags, we have 2 mode, sync or not 
+        if constexpr (!opt_sync)
+            C::Op::token(offset).set(Token::Valid);
+        else {
+            C::Op::token(offset).set(Token::Sync);
+        }
     }
 
     return offset;
@@ -154,8 +179,19 @@ static int request(uint64_t vaddr, bool send) {
 template<typename T>
 static inline T * get(void * vaddr) {
     int off = request((uint64_t)vaddr);
-    // TODO: reconsider token
-    poll(C::Value::qid, C::Op::token(off).seq);
+    // dprintf("Sync cache[%d] <%d|r:%d,s:%d>", C::Value::qid,
+    //         C::Op::token(off).seq, C::Op::rid(), C::Op::sid());
+    poll_qid(C::Value::qid, C::Op::token(off).seq);
+    return C::Op::template paddr<T>(off, (uint64_t)vaddr);
+}
+
+template<typename T>
+static inline T * get_mut(void * vaddr) {
+    int off = request((uint64_t)vaddr);
+    // dprintf("Sync cache[%d] <%d|r:%d,s:%d>", C::Value::qid,
+    //         C::Op::token(off).seq, C::Op::rid(), C::Op::sid());
+    poll_qid(C::Value::qid, C::Op::token(off).seq);
+    C::Op::token(off).add(Token::Dirty);
     return C::Op::template paddr<T>(off, (uint64_t)vaddr);
 }
 
@@ -175,6 +211,7 @@ void cache_request_batch(const uint64_t *arr, int *offsets) {
     }
 }
 #endif
+
 };
 
 // lifetime and lightning values: non-persistent

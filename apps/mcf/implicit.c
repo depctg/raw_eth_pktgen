@@ -21,7 +21,7 @@ Copyright (c) 2003-2005 Andreas Loebel.
 
 
 #include "implicit.h"
-#include "cache.h"
+#include "cache.hpp"
 #include "common.h"
 #include <stdint.h>
 
@@ -105,43 +105,6 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
     
     pos = newpos+1;
 
-    // fix two cache lines
-    if (pos < 1024) {
-        uint64_t local_arc = (uint64_t)cache_access_mod_opt_mut(new);
-        uint64_t lend = ((local_arc >> 10) + 1) << 10;
-        uint64_t gap = ((lend - local_arc) >> 6);
-        uint64_t next_line = 0;
-        if (local_arc + ((pos-1) << 6) >= lend) {
-            next_line = (uint64_t)cache_access_mod_opt_mut(new + gap);
-        }
-        arc_t *arcl1 = (arc_t *) local_arc;
-        arc_t *arcl2 = next_line ? (arc_t *) next_line : NULL;
-
-        while( pos-1 )
-        {
-            arc_t *new_pos21 = (pos/2 - 1) < gap ? (&arcl1[pos/2 - 1]) : (&arcl2[pos/2-1-gap]);
-            if (red_cost <= (cost_t)new_pos21->flow)
-                return;
-
-            // arc_t *new_pos1 = (arc_t *) cache_access_mod_opt_mut(new + pos - 1);
-            arc_t *new_pos1 = (pos - 1) < gap ? (&arcl1[pos - 1]) : (&arcl2[pos - 1 - gap]);
-    
-            new_pos1->tail     = new_pos21->tail;
-            new_pos1->head     = new_pos21->head;
-            new_pos1->cost     = new_pos21->cost;
-            new_pos1->org_cost = new_pos21->cost;
-            new_pos1->flow     = new_pos21->flow;
-            
-            pos = pos/2;
-    
-            new_pos21->tail     = tail;
-            new_pos21->head     = head;
-            new_pos21->cost     = cost;
-            new_pos21->org_cost = cost;
-            new_pos21->flow     = (flow_t)red_cost; 
-        }
-        return;
-    }
     arc_t *new_pos21 = (arc_t *) cache_access_mod_opt_mut(new + pos/2 - 1);
 
     while( pos-1 && red_cost > (cost_t)new_pos21->flow )

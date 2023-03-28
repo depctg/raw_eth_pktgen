@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include "common.h"
-
+#include "queue.h"
 
 #define NUM_RDMA_BATCH_WR (32)
 #define NUM_RDMA_BATCH_SGE (32 * 4)
@@ -30,11 +30,47 @@ static inline void build_rdma_wr(int i, uint64_t wr_id,
     wr.wr.rdma.remote_addr = (uint64_t)(peermr.addr) + raddr;
     wr.wr.rdma.rkey = peermr.rkey;
     wr.opcode = opcode;
+
     wr.next = next;
 
-    dprintf("RDMA Request: [%lx] %lx %s %lx: %d", wr.wr_id, sge.addr,
-            opcode == IBV_WR_RDMA_READ ? "<-" : "->",
-            wr.wr.rdma.remote_addr, sge.length);
+    // dprintf("RDMA Request: [%lx] %lx %s %lx: %d", wr.wr_id, sge.addr,
+    //         opcode == IBV_WR_RDMA_READ ? "<-" : "->",
+    //         wr.wr.rdma.remote_addr, sge.length);
+}
+
+#define get_id(wr,i) ((struct _wr_id *)&(wr[i].wr_id))
+
+// need to include all metadata types
+// register checking method for different types of cache!
+static void inline meta_udpate(uint8_t qid, uint8_t cls, uint16_t seq, uint32_t tag) {
+    switch (cls) {
+    }
+}
+
+// Put check out of loop
+// TODO: consider template
+// seq: target sequence number
+static inline void poll_qid(uint8_t qid, uint16_t seq) {
+    struct ibv_wc wc[MAX_POLL];
+    // TODO: inflight?
+    // test this!
+    while ((uint16_t)(qi[qid].rid - seq) > MAX_QUEUE_INFLIGHT) {
+        int n = ibv_poll_cq(cq, MAX_POLL, wc);
+        for (int i = 0; i < n; i++) {
+            /* if requires an queue update */
+            if ((wc[i].wr_id & REQWR_OPT_QUEUE_UPDATE) &&
+                uint16_t(get_id(wc,i)->seq - qi[get_id(wc,i)->qid].rid)
+                            < MAX_QUEUE_INFLIGHT) {
+                qi[get_id(wc,i)->qid].rid = get_id(wc,i)->seq;
+            }
+#if 0
+            /* if requires an meta update */
+            if (wc[i].wr_id & REQWR_OPT_META_UPDATE) {
+                // we won't do any meta update for now
+            }
+#endif
+        }
+    }
 }
 
 #endif

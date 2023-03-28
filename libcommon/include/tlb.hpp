@@ -14,4 +14,17 @@ struct NoTlb {
     static inline int offset() { return 0; }
 };
 
+template <int entries>
+struct LinearTlb {
+    static inline int ad(int x) { return (x + 1) % entries;}
+    static uint64_t _tags[entries] = {0};
+
+    // scan and swap
+    static inline bool lookup(uint64_t tag) { return false; }
+    // swap and evict
+    static inline void invalid(uint64_t tag) { }
+    static inline void update(Token &token, uint64_t tag) { }
+    static inline int offset() { return 0; }
+};
+
 #endif

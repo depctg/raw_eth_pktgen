@@ -74,8 +74,6 @@ int init(int type, const char * server_url);
 void init_server();
 void init_client();
 
-void poll(uint8_t qid, uint16_t id);
-
 // RDMA_info exchange
 struct conn_info {
     union ibv_gid gid;

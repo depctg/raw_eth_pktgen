@@ -9,7 +9,7 @@ extern "C" {
 
 #define NUM_QUEUES 256
 /* inflight, should be less than MAX(uint16_t) / 2 */
-#define MAX_QUEUE_INFLIGHT 1024
+#define MAX_QUEUE_INFLIGHT ((uint16_t)1024)
 #define MAX_CACHE_SIZE (1 << 20)
 
 struct queue_info {
@@ -34,7 +34,7 @@ struct  __attribute__((__packed__)) _wr_id {
     uint32_t meta;
 };
 enum {
-    REQWR_OPT_QUEUE_IGNORE = 0x1000, // by default, we update
+    REQWR_OPT_QUEUE_UPDATE = 0x1000, // by default, we update
     REQWR_OPT_META_UPDATE = 0x2000,
 };
 

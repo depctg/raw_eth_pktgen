@@ -23,7 +23,6 @@ Copyright (c) 2003-2005 Andreas Loebel.
 #include "treeup.h"
 #include "cache_init.hpp"
 
-#ifdef _PROTO_
 void update_tree( 
                  long cycle_ori,
                  long new_orientation,
@@ -36,22 +35,10 @@ void update_tree(
                  node_t *w,
                  arc_t *bea,
                  cost_t sigma,
-                 flow_t feas_tol
+                 flow_t feas_tol,
+
+                 arc_t *r_bea
                 )
-#else
-void update_tree( cycle_ori, new_orientation, delta, new_flow, 
-                 iplus, jplus, iminus, jminus, w, bea, sigma, feas_tol )
-     long cycle_ori;
-     long new_orientation;
-     flow_t delta; 
-     flow_t new_flow;
-     node_t *iplus, *jplus;
-     node_t *iminus, *jminus;
-     node_t *w;
-     arc_t *bea;
-     cost_t sigma; 
-     flow_t feas_tol;
-#endif
 {
     arc_t    *basic_arc_temp; 
     arc_t    *new_basic_arc;  
@@ -64,7 +51,6 @@ void update_tree( cycle_ori, new_orientation, delta, new_flow,
     long     new_depth;       
     flow_t   flow_temp;       
 
-    arc_t *r_bea = C1R::get<arc_t>(bea);
     /**/
     if( (r_bea->tail == jplus && sigma < 0) ||
         (r_bea->tail == iplus && sigma > 0) )

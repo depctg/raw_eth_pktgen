@@ -74,10 +74,6 @@ long resize_prob( net )
     return 0;
 }
 
-
-
-
-
 #ifdef _PROTO_
 void insert_new_arc( arc_t *rnew, long newpos, node_t *tail, node_t *head,
                      cost_t cost, cost_t red_cost )
@@ -348,6 +344,7 @@ long price_out_impl( net )
         stop = net->stop_arcs;
         if( resized )
         {
+#if 1
             constexpr int epi = C1::Value::linesize / sizeof(arc_t);
             int soff = (uint64_t)arcnew % C1::Value::linesize;
             int eoff = (uint64_t)(stop - 1) % C1::Value::linesize;
@@ -378,7 +375,16 @@ long price_out_impl( net )
                 l[j].flow = (flow_t)0;
                 l[j].ident = AT_LOWER;
             }
-
+#endif
+#if 0
+            arc_t *r_arcnew = C1R::get_mut<arc_t>(arcnew);
+            arc_t *r_stop = C1R::get_mut<arc_t>(stop);
+            for( ; r_arcnew != r_stop; r_arcnew++ )
+            {
+                r_arcnew->flow = (flow_t)0;
+                r_arcnew->ident = AT_LOWER;
+            }
+#endif
 #if 0
             for( ; arcnew != stop; arcnew++ )
             {
@@ -390,6 +396,49 @@ long price_out_impl( net )
         }
         else
         {
+            constexpr int epi = C1::Value::linesize / sizeof(arc_t);
+            int soff = (uint64_t)arcnew % C1::Value::linesize;
+            int eoff = (uint64_t)(stop - 1) % C1::Value::linesize;
+            
+            int s = soff / sizeof(arc_t);
+            int e = eoff / sizeof(arc_t);
+
+            int iters = (uint64_t)stop / C1::Value::linesize
+                      - (uint64_t)arcnew / C1::Value::linesize;
+
+            arc_t * base = arcnew - s;
+
+            // TODO: if iters
+            arc_t *l = C1R::get_mut<arc_t>(base);
+            for (int j = s; j < epi; j++) {
+                l[j].flow = (flow_t)0;
+                l[j].ident = AT_LOWER;
+                l[j].nextout = l[j].tail->firstout;
+                l[j].tail->firstout = arcnew;
+                l[j].nextin = l[j].head->firstin;
+                l[j].head->firstin = arcnew;
+            }
+            for (int i = 0; i < iters; i++) {
+                arc_t *l = C1R::get_mut<arc_t>(base + i * epi);
+                for (int j = 0; j < epi; j++) {
+                    l[j].flow = (flow_t)0;
+                    l[j].ident = AT_LOWER;
+                    l[j].nextout = l[j].tail->firstout;
+                    l[j].tail->firstout = arcnew;
+                    l[j].nextin = l[j].head->firstin;
+                    l[j].head->firstin = arcnew;
+                }
+            }
+            l = C1R::get_mut<arc_t>(base + iters * epi);
+            for (int j = 0; j < e + 1; j++) {
+                l[j].flow = (flow_t)0;
+                l[j].ident = AT_LOWER;
+                l[j].nextout = l[j].tail->firstout;
+                l[j].tail->firstout = arcnew;
+                l[j].nextin = l[j].head->firstin;
+                l[j].head->firstin = arcnew;
+            }
+#if 0
             for( ; arcnew != stop; arcnew++ )
             {
                 arc_t *r_arcnew = C1R::get_mut<arc_t>(arcnew);
@@ -400,6 +449,7 @@ long price_out_impl( net )
                 r_arcnew->nextin = r_arcnew->head->firstin;
                 r_arcnew->head->firstin = arcnew;
             }
+#endif
         }
         
         net->m += new_arcs;

@@ -62,7 +62,7 @@ long primal_net_simplex(  net )
         {
             (*iterations)++;
 
-            arc_t *r_bea = C1R::get<arc_t>(bea);
+            arc_t *r_bea = C1R::get_mut<arc_t>(bea);
 #ifdef DEBUG
             printf( "id %ld:it %ld: bea = (%ld,%ld), red_cost = %ld\n", 
 	            bea - net->arcs,
@@ -82,11 +82,12 @@ long primal_net_simplex(  net )
             }
 
             delta = (flow_t)1;
+            // no remote
             iminus = primal_iminus( &delta, &xchange, iplus, 
                     jplus, &w );
             if( !iminus )
             {
-                arc_t *r_bea = C1R::get_mut<arc_t>(bea);
+                // TODO: acquire and release
                 (*bound_exchanges)++;
                 
                 if( r_bea->ident == AT_UPPER)
@@ -95,7 +96,7 @@ long primal_net_simplex(  net )
                     r_bea->ident = AT_UPPER;
 
                 if( delta )
-                    primal_update_flow( iplus, jplus, w );
+                    primal_update_flow( iplus, jplus, w ); /* no remote */
             }
             else 
             {
@@ -119,17 +120,19 @@ long primal_net_simplex(  net )
                 else
                     new_flow = delta;
 
-                arc_t *r_bea = C1R::get<arc_t>(bea);
                 if( r_bea->tail == iplus )
                     new_orientation = UP;
                 else
                     new_orientation = DOWN;
+                // only access is bea
                 update_tree( !xchange, new_orientation,
                             delta, new_flow, iplus, jplus, iminus, 
                             jminus, w, bea, red_cost_of_bea,
-                            (flow_t)net->feas_tol);
-                r_bea = C1R::get_mut<arc_t>(bea); 
+                            (flow_t)net->feas_tol,
+                            r_bea);
                 r_bea->ident = BASIC; 
+
+                // TODO: get or wb
                 arc_t *r_bla = C1R::get_mut<arc_t>(bla); 
                 r_bla->ident = new_set;
                
@@ -152,7 +155,9 @@ long primal_net_simplex(  net )
 
 
     *checksum += refresh_potential( net );
+    // no remote
     primal_feasible( net );
+    // can be commented out?
     dual_feasible( net );
     
     return 0;

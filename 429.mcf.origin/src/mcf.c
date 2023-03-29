@@ -48,6 +48,12 @@ long global_opt( )
 #ifdef REPORT
         printf( "active arcs                : %ld\n", net.m );
 #endif
+#if 0
+	for (arc_t *a = net.arcs; a != net.stop_arcs; a++) {
+            printf( "id %ld: a = (%ld,%ld)\n", 
+		    a - net.arcs, a->tail->number, a->head->number);
+	}
+#endif
 
         primal_net_simplex( &net );
 

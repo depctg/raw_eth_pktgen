@@ -7,7 +7,7 @@
 #include "common.h"
 #include "cache.hpp"
 
-const int linesize = 32 * 1024;
+const int linesize = 16 * 1024;
 const int total_size = 512 * 1024 * 1024;
 const int slots = total_size / linesize;
 const uint64_t c1_raddr = 0;

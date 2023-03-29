@@ -33,7 +33,7 @@ static inline void build_rdma_wr(int i, uint64_t wr_id,
 
     wr.next = next;
 
-    // dprintf("RDMA Request: [%lx] %lx %s %lx: %d", wr.wr_id, sge.addr,
+    // printf("RDMA Request: [%lx] %lx %s %lx: %d\n", wr.wr_id, sge.addr,
     //         opcode == IBV_WR_RDMA_READ ? "<-" : "->",
     //         wr.wr.rdma.remote_addr, sge.length);
 }

@@ -262,6 +262,7 @@ long price_out_impl( net )
 
     arcout = net->arcs;
     for( i = 0; i < trips && arcout[1].ident == FIXED; i++, arcout += 3 );
+
     first_of_sparse_list = (arc_t *)NULL;
     for( ; i < trips; i++, arcout += 3 )
     {
@@ -299,6 +300,9 @@ long price_out_impl( net )
                 {
                     insert_new_arc( arcnew, new_arcs, tail, head, 
                                     arc_cost, red_cost );
+		arc_t *a = arcnew + new_arcs;
+		printf("id: %ld: (%ld, %ld)\n",
+				a - net->arcs, a->tail->number, a->head->number );
                     new_arcs++;                 
                 }
                 else if( (cost_t)arcnew[0].flow > red_cost )

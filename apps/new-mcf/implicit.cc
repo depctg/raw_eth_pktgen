@@ -123,7 +123,7 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
         new_pos21->org_cost = cost;
         new_pos21->flow     = (flow_t)red_cost; 
 
-	new_pos1 = new_pos21;
+        new_pos1 = new_pos21;
         new_pos21 = C1R::get_mut<arc_t>(rnew + pos/2 - 1);
     }
 
@@ -132,23 +132,14 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
 
 
 
-#ifdef _PROTO_
 void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head,
-                         cost_t cost, cost_t red_cost )
-#else
-void replace_weaker_arc( net, new, tail, head, cost, red_cost )
-     network *net;
-     arc_t *new;
-     node_t *tail;
-     node_t *head;
-     cost_t cost;
-     cost_t red_cost;
-#endif
+                         cost_t cost, cost_t red_cost,
+                         arc_t* r_arcnew, arc_t* r_arcnew_p1, arc_t* r_arcnew_p2)
 {
     long pos;
     long cmp;
 
-    arc_t *new_0 = C1R::get_mut<arc_t>(rnew); 
+    arc_t *new_0 = r_arcnew;
 
     new_0->tail     = tail;
     new_0->head     = head;
@@ -159,8 +150,8 @@ void replace_weaker_arc( net, new, tail, head, cost, red_cost )
     pos = 1;
     arc_t *new_pos1 = new_0;
 
-    arc_t *new_1 = C1R::get<arc_t>(rnew + 1);
-    arc_t *new_2 = C1R::get<arc_t>(rnew + 2);
+    arc_t *new_1 = r_arcnew_p1;
+    arc_t *new_2 = r_arcnew_p2;
     cmp = (new_1->flow > new_2->flow) ? 2 : 3;
 
     // arc_t *new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
@@ -182,7 +173,7 @@ void replace_weaker_arc( net, new, tail, head, cost, red_cost )
         new_cmp1->flow = (flow_t)red_cost; 
 
         pos = cmp;
-	new_pos1 = new_cmp1;
+        new_pos1 = new_cmp1;
 
         cmp *= 2;
         new_cmp1 = C1R::get<arc_t>(rnew + cmp - 1);
@@ -190,8 +181,8 @@ void replace_weaker_arc( net, new, tail, head, cost, red_cost )
             arc_t *new_cmp = C1R::get<arc_t>(rnew + cmp);
             if( new_cmp1->flow < new_cmp->flow ) {
                 cmp++;
-		new_cmp1 = new_cmp;
-	    }
+                new_cmp1 = new_cmp;
+            }
         } 
 
     }
@@ -284,13 +275,21 @@ long price_out_impl( net )
     arcnew = net->stop_arcs;
     trips = net->n_trips;
 
+    // TODO: acquire and release!
+    arc_t *r_arcnew = C1R::get<arc_t>(arcnew);
+    arc_t *r_arcnew_p1 = C1R::get<arc_t>(arcnew + 1);
+    arc_t *r_arcnew_p2 = C1R::get<arc_t>(arcnew + 2);
+
     arcout = net->arcs;
 
+    // TODO: tile this loop
     // for( i = 0; i < trips && arcout[1].ident == FIXED; i++, arcout += 3 );
     for (i = 0; i < trips &&
 		C1R::get<arc_t>(arcout + 1)->ident == FIXED; i++, arcout += 3);
+
     first_of_sparse_list = (arc_t *)NULL;
 
+    // 13225
     for( ; i < trips; i++, arcout += 3)
     {
         arc_t *r_arcout = C1R::get_mut<arc_t>(arcout); 
@@ -312,6 +311,7 @@ long price_out_impl( net )
         
         arc_t *r_first = C1R::get<arc_t>(first_of_sparse_list);
         arcin = r_first->tail->arc_tmp;
+        // 1 - 13189
         while( arcin )
         {   
             arc_t *r_arcin = C1R::get<arc_t>(arcin);
@@ -336,10 +336,11 @@ long price_out_impl( net )
                     new_arcs++;                 
                 }
                 else {
-                    arc_t *r_arcnew = C1R::get<arc_t>(arcnew);
                     if( (cost_t)r_arcnew->flow > red_cost ) {
                         replace_weaker_arc( net, arcnew, tail, head, 
-                                            arc_cost, red_cost );
+                                            arc_cost, red_cost,
+                                            r_arcnew, r_arcnew_p1, r_arcnew_p2
+                                            );
                     }
                 } 
             }
@@ -499,5 +500,10 @@ long suspend_impl( net, threshold, all )
     return susp;
 }
 
+// required optimizations
+// Value intfer
+// loop constant + acquire/release
+// loop inveriant
+// line lifetime (how many)
 
 

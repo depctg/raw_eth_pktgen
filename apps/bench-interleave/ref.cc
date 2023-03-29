@@ -52,6 +52,17 @@ void check() {
   printf("no check\n");
 }
 
+void do_work() {
+  setup();
+
+  uint64_t start = microtime();
+  visit();
+  uint64_t end = microtime();
+
+  printf("Exec time %lu us\n", end - start);
+  // check();
+}
+
 int main () {
 
   do_work();

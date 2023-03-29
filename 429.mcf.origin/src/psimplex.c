@@ -61,7 +61,8 @@ long primal_net_simplex(  net )
             (*iterations)++;
 
 #ifdef DEBUG
-            printf( "it %ld: bea = (%ld,%ld), red_cost = %ld\n", 
+            printf( "id %ld:it %ld: bea = (%ld,%ld), red_cost = %ld\n", 
+		    bea - net->arcs,
                     *iterations, bea->tail->number, bea->head->number,
                     red_cost_of_bea );
 #endif

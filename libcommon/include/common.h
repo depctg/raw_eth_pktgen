@@ -20,8 +20,8 @@ extern "C" {
 
 /* run show_gids to get the info */
 #define NUM_DEVICES 1
-#define DEVICE_NAME "mlx5_1"
-#define DEVICE_GID 3
+#define DEVICE_NAME "mlx4_0"
+#define DEVICE_GID 0
 #define PORT_NUM 1
 
 /* size for local buffers */

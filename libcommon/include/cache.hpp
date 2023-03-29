@@ -107,92 +107,97 @@ template <typename C, typename Tlb = NoTlb,
          bool opt_writeback = true, bool opt_sync = false>
 struct CacheReq {
 
-static inline int cache_request_impl(int wr_offset, uint64_t vaddr,
+static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
         ibv_send_wr *req, bool send) {
-    uint64_t tag = C::Op::tag(vaddr);
-    // dprintf("Cache %lx -> %lx", vaddr, tag);
-
-    // check tlb
-    // TODO: this is not thread safe
-    if (Tlb::lookup(tag))
-        return Tlb::offset();
-
-    // find slot and eviction
-    int offset = C::select(tag);
     auto &token = C::Op::token(offset);
 
-    // select will set the flags
-    // valid() means we find a match
-    // TODO: on set-assoc, this will cause double compare
-    if (token.valid() && token.tag == tag) { // if valid return
-        token.seq = qi[C::Value::qid].rid;
-        // if valid and hot add to tlb
-        Tlb::update(token,tag);
-    } else if (opt_sync && token.sync()) {
-        // DO nothing, basically we do not need to change seq
-        // TODO: sync we need
-    } else { // else fetch, build req (read)
-        struct ibv_send_wr *badwr = NULL;
-        req = _pwr + wr_offset;
-        C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_READ, NULL, send);
+    struct ibv_send_wr *badwr = NULL;
+    req = _pwr + wr_offset;
+    C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_READ, NULL, send);
 
-        if constexpr (opt_writeback) {
-            // only enable if we want write back
-            if (token.dirty()) { // build req 0 (write)
-                C::Op::rdma(wr_offset + 1, offset, token.tag,
-                        IBV_WR_RDMA_WRITE, req, false);
-                req = _pwr + wr_offset + 1;
+    if constexpr (opt_writeback) {
+        // only enable if we want write back
+        if (token.dirty()) { // build req 0 (write)
+            C::Op::rdma(wr_offset + 1, offset, token.tag,
+                    IBV_WR_RDMA_WRITE, req, false);
+            req = _pwr + wr_offset + 1;
 
-                // update b
-                Tlb::invalid(tag);
-            }
+            // update b
+            Tlb::invalid(tag);
         }
+    }
 
-        // the associated id is send id
-        if (send) {
-            // should already updated in RDMA function
-            int ret = ibv_post_send(qp, req, &badwr);
-            // dprintf("RDMA post send ret %d", ret); 
-        }
+    // the associated id is send id
+    if (send) {
+        // should already updated in RDMA function
+        int ret = ibv_post_send(qp, req, &badwr);
+        // dprintf("RDMA post send ret %d", ret); 
+    }
 
-        // update tag
-        token.tag = tag;
-        // Update flags, we have 2 mode, sync or not 
-        if constexpr (!opt_sync)
-            C::Op::token(offset).set(Token::Valid);
-        else {
-            C::Op::token(offset).set(Token::Sync);
-        }
+    // update tag
+    token.tag = tag;
+    // Update flags, we have 2 mode, sync or not 
+    if constexpr (!opt_sync)
+        C::Op::token(offset).set(Token::Valid);
+    else {
+        C::Op::token(offset).set(Token::Sync);
     }
 
     return offset;
 }
 
-static int request(uint64_t vaddr) {
-    return cache_request_impl(0, vaddr, NULL, true);
+static int request(int offset, uint64_t tag) {
+    return cache_request_impl(0, tag, offset, NULL, true);
 }
 
-static int request(uint64_t vaddr, bool send) {
-    return cache_request_impl(0, vaddr, NULL, send);
+static int request(int offset, uint64_t tag, bool send) {
+    return cache_request_impl(0, tag, offset, NULL, send);
 }
 
+// only work in mode
 template<typename T>
 static inline T * get(void * vaddr) {
-    int off = request((uint64_t)vaddr);
-    // dprintf("Sync cache[%d] <%d|r:%d,s:%d>", C::Value::qid,
+    uint64_t tag = C::Op::tag((uint64_t)vaddr);
+    // TODO: this is not thread safe
+    // if (Tlb::lookup(tag))
+        // return Tlb::offset();
+    int off = C::select(tag);
+
+    auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
+    if (C::Op::token(off).valid() && C::Op::token(off).tag == tag) {
+        // Tlb::update(token,tag);
+        return ret;
+    }
+    // TODO: flag for sync mode
+
+    request(off, tag);
+
+    // printf("Sync cache[%d] <%d|r:%d,s:%d>\n", C::Value::qid,
     //         C::Op::token(off).seq, C::Op::rid(), C::Op::sid());
     poll_qid(C::Value::qid, C::Op::token(off).seq);
-    return C::Op::template paddr<T>(off, (uint64_t)vaddr);
+    return ret;
 }
 
 template<typename T>
 static inline T * get_mut(void * vaddr) {
-    int off = request((uint64_t)vaddr);
-    // dprintf("Sync cache[%d] <%d|r:%d,s:%d>", C::Value::qid,
-    //         C::Op::token(off).seq, C::Op::rid(), C::Op::sid());
+    uint64_t tag = C::Op::tag((uint64_t)vaddr);
+    int off = C::select(tag);
+
+    auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
+
+    if (C::Op::token(off).valid() && C::Op::token(off).tag == tag) {
+        C::Op::token(off).add(Token::Dirty);
+        return ret;
+    }
+    // TODO: flag for sync mode
+    // } else if (opt_sync && token.sync()) {
+    // }
+
+    request(off, tag);
     poll_qid(C::Value::qid, C::Op::token(off).seq);
+
     C::Op::token(off).add(Token::Dirty);
-    return C::Op::template paddr<T>(off, (uint64_t)vaddr);
+    return ret;
 }
 
 static inline void * alloc(size_t size) {

@@ -133,13 +133,12 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
 
 
 void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head,
-                         cost_t cost, cost_t red_cost,
-                         arc_t* r_arcnew, arc_t* r_arcnew_p1, arc_t* r_arcnew_p2)
+                         cost_t cost, cost_t red_cost)
 {
     long pos;
     long cmp;
 
-    arc_t *new_0 = r_arcnew;
+    arc_t *new_0 = C1R::get_mut<arc_t>(rnew);
 
     new_0->tail     = tail;
     new_0->head     = head;
@@ -150,8 +149,8 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
     pos = 1;
     arc_t *new_pos1 = new_0;
 
-    arc_t *new_1 = r_arcnew_p1;
-    arc_t *new_2 = r_arcnew_p2;
+    arc_t *new_1 = C1R::get_mut<arc_t>(rnew + 1);
+    arc_t *new_2 = C1R::get_mut<arc_t>(rnew + 2);
     cmp = (new_1->flow > new_2->flow) ? 2 : 3;
 
     // arc_t *new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
@@ -176,9 +175,9 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
         new_pos1 = new_cmp1;
 
         cmp *= 2;
-        new_cmp1 = C1R::get<arc_t>(rnew + cmp - 1);
+        new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
         if( cmp + 1 <= net->max_residual_new_m ) {
-            arc_t *new_cmp = C1R::get<arc_t>(rnew + cmp);
+            arc_t *new_cmp = C1R::get_mut<arc_t>(rnew + cmp);
             if( new_cmp1->flow < new_cmp->flow ) {
                 cmp++;
                 new_cmp1 = new_cmp;
@@ -275,11 +274,6 @@ long price_out_impl( net )
     arcnew = net->stop_arcs;
     trips = net->n_trips;
 
-    // TODO: acquire and release!
-    arc_t *r_arcnew = C1R::get<arc_t>(arcnew);
-    arc_t *r_arcnew_p1 = C1R::get<arc_t>(arcnew + 1);
-    arc_t *r_arcnew_p2 = C1R::get<arc_t>(arcnew + 2);
-
     arcout = net->arcs;
 
     // TODO: tile this loop
@@ -336,11 +330,9 @@ long price_out_impl( net )
                     new_arcs++;                 
                 }
                 else {
-                    if( (cost_t)r_arcnew->flow > red_cost ) {
+                    if( C1R::get<arc_t>(arcnew)->flow > red_cost ) {
                         replace_weaker_arc( net, arcnew, tail, head, 
-                                            arc_cost, red_cost,
-                                            r_arcnew, r_arcnew_p1, r_arcnew_p2
-                                            );
+                                            arc_cost, red_cost);
                     }
                 } 
             }
@@ -425,17 +417,7 @@ long price_out_impl( net )
     return new_arcs;
 }   
 
-
-
-
-#ifdef _PROTO_
 long suspend_impl( network_t *net, cost_t threshold, long all )
-#else
-long suspend_impl( net, threshold, all )
-     network_t *net;
-     cost_t threshold;
-     long all;
-#endif
 {
     long susp;
     

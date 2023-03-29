@@ -146,6 +146,11 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
     return offset;
 }
 
+static void request_poll(int offset, uint64_t tag) {
+    cache_request_impl(0, tag, offset, NULL, true);
+    poll_qid(C::Value::qid, C::Op::token(offset).seq);
+}
+
 static int request(int offset, uint64_t tag) {
     return cache_request_impl(0, tag, offset, NULL, true);
 }
@@ -161,20 +166,22 @@ static inline T * get(void * vaddr) {
     // TODO: this is not thread safe
     // if (Tlb::lookup(tag))
         // return Tlb::offset();
+
     int off = C::select(tag);
+    auto &token = C::Op::token(off);
 
     auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
-    if (C::Op::token(off).valid() && C::Op::token(off).tag == tag) {
+    if (token.valid() && token.tag == tag) {
         // Tlb::update(token,tag);
         return ret;
     }
     // TODO: flag for sync mode
 
-    request(off, tag);
+    request_poll(off, tag);
 
     // printf("Sync cache[%d] <%d|r:%d,s:%d>\n", C::Value::qid,
     //         C::Op::token(off).seq, C::Op::rid(), C::Op::sid());
-    poll_qid(C::Value::qid, C::Op::token(off).seq);
+    // poll_qid(C::Value::qid, C::Op::token(off).seq);
     return ret;
 }
 
@@ -182,21 +189,22 @@ template<typename T>
 static inline T * get_mut(void * vaddr) {
     uint64_t tag = C::Op::tag((uint64_t)vaddr);
     int off = C::select(tag);
+    auto &token = C::Op::token(off);
 
     auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
 
-    if (C::Op::token(off).valid() && C::Op::token(off).tag == tag) {
-        C::Op::token(off).add(Token::Dirty);
+    if (token.valid() && token.tag == tag) {
+        token.add(Token::Dirty);
         return ret;
     }
     // TODO: flag for sync mode
     // } else if (opt_sync && token.sync()) {
     // }
 
-    request(off, tag);
-    poll_qid(C::Value::qid, C::Op::token(off).seq);
+    request_poll(off, tag);
+    // poll_qid(C::Value::qid, token.seq);
 
-    C::Op::token(off).add(Token::Dirty);
+    token.add(Token::Dirty);
     return ret;
 }
 

@@ -1,0 +1,533 @@
+./mcf.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./mcf.cc:Scientific Computing - Optimization
+./mcf.cc:Takustr. 7, 14195 Berlin-Dahlem
+./mcf.cc:Copyright (c) 1998-2000 ZIB.           
+./mcf.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./mcf.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./mcf.cc:    new_arcs = -1;
+./mcf.cc:        printf( "simplex %f us\n", (simplex_end - opt_start)/1e3 );
+./mcf.cc:          new_arcs = suspend_impl( &net, (cost_t)-1, 0 );
+./mcf.cc:            printf( "suspend %f us\n", (if_suspend_end - simplex_end)/1e3 );
+./mcf.cc:            printf( "price out %f us\n", (price_out_end - suspend_check_point)/1e3 );
+./mcf.cc:            printf( "not enough memory, exit(-1)\n" );
+./mcf.cc:            exit(-1);
+./mcf.cc:        printf("opt iter %d us\n", (opt_end - opt_start)/1e3);
+./mcf.cc:        residual_nb_it--;
+./mcf.cc:        return -1;
+./mcf.cc:    printf( "Copyright (c) 1998-2000 Zuse Institut Berlin (ZIB)\n" );
+./mcf.cc:    printf( "Copyright (c) 2000-2002 Andreas Loebel & ZIB\n" );
+./mcf.cc:    printf( "Copyright (c) 2003-2005 Andreas Loebel\n" );
+./mcf.cc:        return -1;
+./mcf.cc:    printf("Exec time wo read_min and write out %.6f s\n", (float)(end_us - start_us)/1e6);
+./mcf.cc:        return -1;    
+./readmin.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./readmin.cc:Scientific Computing - Optimization
+./readmin.cc:Takustr. 7, 14195 Berlin-Dahlem
+./readmin.cc:Copyright (c) 1998-2000 ZIB.           
+./readmin.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./readmin.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./readmin.cc:    if(( in = fopen( net->inputfile, "r")) == NULL )
+./readmin.cc:        return -1;
+./readmin.cc:    // if ( !init_file(net->inputfile) )
+./readmin.cc:    //     return -1;
+./readmin.cc:        return -1;
+./readmin.cc:    //     return -1;
+./readmin.cc:    net->n_trips = t;
+./readmin.cc:    net->m_org = h;
+./readmin.cc:    net->n = (t+t+1); 
+./readmin.cc:    net->m = (t+t+t+h);
+./readmin.cc:    if( net->n_trips <= MAX_NB_TRIPS_FOR_SMALL_NET )
+./readmin.cc:        net->max_m = net->m;
+./readmin.cc:        net->max_new_m = MAX_NEW_ARCS_SMALL_NET;
+./readmin.cc:      //net->max_m = 0x1c00000l;
+./readmin.cc:      net->max_m = 0x1a10000l;
+./readmin.cc:      net->max_m = MAX( net->m + MAX_NEW_ARCS, STRECHT(STRECHT(net->m)) );
+./readmin.cc:      net->max_new_m = MAX_NEW_ARCS_LARGE_NET;
+./readmin.cc:    net->max_residual_new_m = net->max_m - net->m;
+./readmin.cc:    assert( net->max_new_m >= 3 );
+./readmin.cc:    net->nodes      = (node_t *) calloc( net->n + 1, sizeof(node_t) );
+./readmin.cc:    // net->dummy_arcs = (arc_t *)  calloc( net->n,   sizeof(arc_t) );
+./readmin.cc:    // net->arcs       = (arc_t *)  calloc( net->max_m,   sizeof(arc_t) );
+./readmin.cc:    // net->arcs       = (arc_t *)  calloc( 32 << 20,   sizeof(arc_t) );
+./readmin.cc:    net->dummy_arcs = (arc_t *) C1R::alloc(sizeof(arc_t) * net->n);
+./readmin.cc:    net->arcs = (arc_t *) C1R::alloc(sizeof(arc_t) * (32ULL << 20));
+./readmin.cc:    // if( !( net->nodes && net->arcs && net->dummy_arcs ) )
+./readmin.cc:    if( !( net->nodes ))
+./readmin.cc:      return -1;
+./readmin.cc:            (long)((net->n + 1)*sizeof(node_t) / 0x100000) );
+./readmin.cc:            (long)((net->n)*sizeof(arc_t) / 0x100000) );
+./readmin.cc:            (long)((net->max_m)*sizeof(arc_t) / 0x100000) );
+./readmin.cc:    printf( "------------------------------\n" );
+./readmin.cc:            (long)((net->n +1)*sizeof(node_t) / 0x100000)
+./readmin.cc:            +(long)((net->n)*sizeof(arc_t) / 0x100000)
+./readmin.cc:            +(long)((net->max_m)*sizeof(arc_t) / 0x100000)
+./readmin.cc:    net->stop_nodes = net->nodes + net->n + 1; 
+./readmin.cc:    net->stop_arcs  = net->arcs + net->m; 
+./readmin.cc:    net->stop_dummy = net->dummy_arcs + net->n;
+./readmin.cc:    node = net->nodes; // 81
+./readmin.cc:    arc = net->arcs; // 82
+./readmin.cc:      for( i = 1; i <= net->n_trips; i++ )
+./readmin.cc:            return -1;
+./readmin.cc:        //     return -1;
+./readmin.cc:        node[i].number = -i;
+./readmin.cc:        node[i].flow = (flow_t)-1;
+./readmin.cc:        node[i+net->n_trips].number = i;
+./readmin.cc:        node[i+net->n_trips].flow = (flow_t)1;
+./readmin.cc:        node[i+net->n_trips].time = h;
+./readmin.cc:        r_arc->tail = &(node[net->n]);
+./readmin.cc:        r_arc->head = &(node[i]);
+./readmin.cc:        r_arc->org_cost = r_arc->cost = (cost_t)(net->bigM+15);
+./readmin.cc:        r_arc->nextout = r_arc->tail->firstout;
+./readmin.cc:        r_arc->tail->firstout = arc;
+./readmin.cc:        r_arc->nextin = r_arc->head->firstin;
+./readmin.cc:        r_arc->head->firstin = arc; 
+./readmin.cc:        r_arc->tail = &(node[i+net->n_trips]);
+./readmin.cc:        r_arc->head = &(node[net->n]);
+./readmin.cc:        r_arc->org_cost = r_arc->cost = (cost_t)15;
+./readmin.cc:        r_arc->nextout = r_arc->tail->firstout;
+./readmin.cc:        r_arc->tail->firstout = arc;
+./readmin.cc:        r_arc->nextin = r_arc->head->firstin;
+./readmin.cc:        r_arc->head->firstin = arc; 
+./readmin.cc:        r_arc->tail = &(node[i]);
+./readmin.cc:        r_arc->head = &(node[i+net->n_trips]);
+./readmin.cc:        r_arc->org_cost = r_arc->cost = (cost_t)(2*MAX(net->bigM,(long)BIGM));
+./readmin.cc:        r_arc->nextout = r_arc->tail->firstout;
+./readmin.cc:        r_arc->tail->firstout = arc;
+./readmin.cc:        r_arc->nextin = r_arc->head->firstin;
+./readmin.cc:        r_arc->head->firstin = arc; 
+./readmin.cc:    if( i != net->n_trips + 1 )
+./readmin.cc:        return -1;
+./readmin.cc:    for( i = 0; i < net->m_org; i++, arc++ )
+./readmin.cc:                return -1;
+./readmin.cc:        //     return -1;
+./readmin.cc:        r_arc->tail = &(node[t+net->n_trips]);
+./readmin.cc:        r_arc->head = &(node[h]);
+./readmin.cc:        r_arc->org_cost = (cost_t)c;
+./readmin.cc:        r_arc->cost = (cost_t)c;
+./readmin.cc:        r_arc->nextout = r_arc->tail->firstout;
+./readmin.cc:        r_arc->tail->firstout = arc;
+./readmin.cc:        r_arc->nextin = r_arc->head->firstin;
+./readmin.cc:        r_arc->head->firstin = arc; 
+./readmin.cc:    if( net->stop_arcs != arc )
+./readmin.cc:        net->stop_arcs = arc;
+./readmin.cc:        arc = net->arcs;
+./readmin.cc:        for( net->m = 0; arc < net->stop_arcs; arc++ )
+./readmin.cc:            (net->m)++;
+./readmin.cc:        net->m_org = net->m;
+./readmin.cc:    net->clustfile[0] = (char)0;
+./readmin.cc:    for( i = 1; i <= net->n_trips; i++ )
+./readmin.cc:        arc_t *r_arc3i1 = C1R::get_mut<arc_t>(&net->arcs[3*i-1]);
+./readmin.cc:        r_arc3i1->cost = 
+./readmin.cc:            (cost_t)((-2)*MAX(net->bigM,(long) BIGM));
+./readmin.cc:        r_arc3i1->org_cost = 
+./readmin.cc:            (cost_t)((-2)*(MAX(net->bigM,(long) BIGM)));
+./mcfutil.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./mcfutil.cc:Scientific Computing - Optimization
+./mcfutil.cc:Takustr. 7, 14195 Berlin-Dahlem
+./mcfutil.cc:Copyright (c) 1998-2000 ZIB.           
+./mcfutil.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./mcfutil.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./mcfutil.cc:    node = net->nodes;
+./mcfutil.cc:    for( stop = (void *)net->stop_nodes; node < (node_t *)stop; node++ )
+./mcfutil.cc:        node->firstin = (arc_t *)NULL;
+./mcfutil.cc:        node->firstout = (arc_t *)NULL;
+./mcfutil.cc:    arc = net->arcs;
+./mcfutil.cc:    // printf("refresh %lu\n", net->stop_arcs - arc);
+./mcfutil.cc:    for( stop = (void *)net->stop_arcs; arc < (arc_t *)stop; arc++ )
+./mcfutil.cc:        r_arc->nextout = r_arc->tail->firstout;
+./mcfutil.cc:        r_arc->tail->firstout = arc;
+./mcfutil.cc:        r_arc->nextin = r_arc->head->firstin;
+./mcfutil.cc:        r_arc->head->firstin = arc;
+./mcfutil.cc:    node_t *root = net->nodes;
+./mcfutil.cc:    root->potential = (cost_t) -MAX_ART_COST;
+./mcfutil.cc:    tmp = node = root->child;
+./mcfutil.cc:            arc_t *r_basic_arc = C1R::get<arc_t>(node->basic_arc);
+./mcfutil.cc:            if( node->orientation == UP ) {
+./mcfutil.cc:                node->potential = r_basic_arc->cost + node->pred->potential;
+./mcfutil.cc:                node->potential = node->pred->potential - r_basic_arc->cost;
+./mcfutil.cc:            node = node->child;
+./mcfutil.cc:        while( node->pred )
+./mcfutil.cc:            tmp = node->sibling;
+./mcfutil.cc:                node = node->pred;
+./mcfutil.cc:    stop = (void *)net->stop_arcs;
+./mcfutil.cc:    for( arc = net->arcs; arc != (arc_t *)stop; arc++ )
+./mcfutil.cc:        if( r_arc->ident == AT_UPPER )
+./mcfutil.cc:            r_arc->flow = (flow_t)1;
+./mcfutil.cc:            r_arc->flow = (flow_t)0;
+./mcfutil.cc:    stop = (void *)net->stop_nodes;
+./mcfutil.cc:    for( node = net->nodes, node++; node != (node_t *)stop; node++ ) {
+./mcfutil.cc:        arc_t *r_basic_arc = C1R::get_mut<arc_t>(node->basic_arc);
+./mcfutil.cc:        r_basic_arc->flow = node->flow;
+./mcfutil.cc:    stop = (void *)net->stop_arcs;
+./mcfutil.cc:    for( arc = net->arcs; arc != (arc_t *)stop; arc++ )
+./mcfutil.cc:        if( r_arc->flow )
+./mcfutil.cc:            if( !(r_arc->tail->number < 0 && r_arc->head->number > 0) )
+./mcfutil.cc:                if( !r_arc->tail->number )
+./mcfutil.cc:                    operational_cost += (r_arc->cost - net->bigM);
+./mcfutil.cc:                    operational_cost += r_arc->cost;
+./mcfutil.cc:    return (double)fleet * (double)net->bigM + (double)operational_cost;
+./mcfutil.cc:    stop = (void *)net->stop_arcs;
+./mcfutil.cc:    for( arc = net->arcs; arc != (arc_t *)stop; arc++ )
+./mcfutil.cc:        if( arc->ident == AT_UPPER )
+./mcfutil.cc:            arc->flow = (flow_t)1;
+./mcfutil.cc:            arc->flow = (flow_t)0;
+./mcfutil.cc:    stop = (void *)net->stop_nodes;
+./mcfutil.cc:    for( node = net->nodes, node++; node != (node_t *)stop; node++ )
+./mcfutil.cc:        node->basic_arc->flow = node->flow;
+./mcfutil.cc:    stop = (void *)net->stop_arcs;
+./mcfutil.cc:    for( arc = net->arcs; arc != (arc_t *)stop; arc++ )
+./mcfutil.cc:        if( arc->flow )
+./mcfutil.cc:            if( !(arc->tail->number < 0 && arc->head->number > 0) )
+./mcfutil.cc:                if( !arc->tail->number )
+./mcfutil.cc:                    operational_cost += (arc->org_cost - net->bigM);
+./mcfutil.cc:                    operational_cost += arc->org_cost;
+./mcfutil.cc:    return (double)fleet * (double)net->bigM + (double)operational_cost;
+./mcfutil.cc:    arc_t *dummy = net->dummy_arcs;
+./mcfutil.cc:    arc_t *stop_dummy = net->stop_dummy;
+./mcfutil.cc:    node = net->nodes;
+./mcfutil.cc:    stop = (void *)net->stop_nodes;
+./mcfutil.cc:        arc = node->basic_arc;
+./mcfutil.cc:        flow = node->flow;
+./mcfutil.cc:            if( ABS(flow) > (flow_t)net->feas_tol )
+./mcfutil.cc:                        node->number, flow );
+./mcfutil.cc:            if( flow < (flow_t)(-net->feas_tol)
+./mcfutil.cc:               || flow - (flow_t)1 > (flow_t)net->feas_tol )
+./mcfutil.cc:                net->feasible = 0;
+./mcfutil.cc:    net->feasible = 1;
+./mcfutil.cc:    arc_t         *stop     = net->stop_arcs;
+./mcfutil.cc:    for( arc = net->arcs; arc < stop; arc++ )
+./mcfutil.cc:        red_cost = r_arc->cost - r_arc->tail->potential 
+./mcfutil.cc:            + r_arc->head->potential;
+./mcfutil.cc:        switch( r_arc->ident )
+./mcfutil.cc:            if( ABS(red_cost) > (cost_t)net->feas_tol )
+./mcfutil.cc:                printf("%d %d %d %ld\n", arc->tail->number, arc->head->number,
+./mcfutil.cc:                       arc->ident, red_cost );
+./mcfutil.cc:            if( red_cost < (cost_t)-net->feas_tol )
+./mcfutil.cc:                printf("%d %d %d %ld\n", arc->tail->number, arc->head->number,
+./mcfutil.cc:                       arc->ident, red_cost );
+./mcfutil.cc:            if( red_cost > (cost_t)net->feas_tol )
+./mcfutil.cc:                printf("%d %d %d %ld\n", arc->tail->number, arc->head->number,
+./mcfutil.cc:                       arc->ident, red_cost );
+./mcfutil.cc:    FREE( net->nodes );
+./mcfutil.cc:    // FREE( net->arcs );
+./mcfutil.cc:    // FREE( net->dummy_arcs );
+./mcfutil.cc:    net->nodes = net->stop_nodes = NULL;
+./mcfutil.cc:    net->arcs = net->stop_arcs = NULL;
+./mcfutil.cc:    net->dummy_arcs = net->stop_dummy = NULL;
+./pbeampp.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./pbeampp.cc:Scientific Computing - Optimization
+./pbeampp.cc:Takustr. 7, 14195 Berlin-Dahlem
+./pbeampp.cc:Copyright (c) 1998-2000 ZIB.           
+./pbeampp.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./pbeampp.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./pbeampp.cc:    return(    (red_cost < 0 && arc->ident == AT_LOWER)
+./pbeampp.cc:            || (red_cost > 0 && arc->ident == AT_UPPER) );
+./pbeampp.cc:    cut = perm[ (long)( (l+r) / 2 ) ]->abs_cost;
+./pbeampp.cc:        while( perm[l]->abs_cost > cut )
+./pbeampp.cc:        while( cut > perm[r]->abs_cost )
+./pbeampp.cc:            r--;
+./pbeampp.cc:            l++; r--;
+./pbeampp.cc:        nr_group = ( (m-1) / K ) + 1;
+./pbeampp.cc:            arc = perm[i]->a;
+./pbeampp.cc:            red_cost = r_arc->cost - r_arc->tail->potential + r_arc->head->potential;
+./pbeampp.cc:            if( (red_cost < 0 && r_arc->ident == AT_LOWER)
+./pbeampp.cc:                || (red_cost > 0 && r_arc->ident == AT_UPPER) )
+./pbeampp.cc:                perm[next]->a = arc;
+./pbeampp.cc:                perm[next]->cost = red_cost;
+./pbeampp.cc:                perm[next]->abs_cost = ABS(red_cost);
+./pbeampp.cc:            if( r_arc->ident > BASIC )
+./pbeampp.cc:                red_cost = r_arc->cost - r_arc->tail->potential + r_arc->head->potential;
+./pbeampp.cc:                    perm[basket_size]->a = arc;
+./pbeampp.cc:                    perm[basket_size]->cost = red_cost;
+./pbeampp.cc:                    perm[basket_size]->abs_cost = ABS(red_cost);
+./pbeampp.cc:    *red_cost_of_bea = perm[1]->cost;
+./pbeampp.cc:    return( perm[1]->a );
+./pbla.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./pbla.cc:Scientific Computing - Optimization
+./pbla.cc:Takustr. 7, 14195 Berlin-Dahlem
+./pbla.cc:Copyright (c) 1998-2000 ZIB.           
+./pbla.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./pbla.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./pbla.cc:        if( iplus->depth < jplus->depth )
+./pbla.cc:            if( iplus->orientation )
+./pbla.cc:                TEST_MIN( iplus, 0, iplus->flow, > )
+./pbla.cc:            else if( iplus->pred->pred )
+./pbla.cc:                TEST_MIN( iplus, 0, (flow_t)1 - iplus->flow, > )
+./pbla.cc:            iplus = iplus->pred;
+./pbla.cc:            if( !jplus->orientation )
+./pbla.cc:                TEST_MIN( jplus, 1, jplus->flow, >= )
+./pbla.cc:            else if( jplus->pred->pred )
+./pbla.cc:                TEST_MIN( jplus, 1, (flow_t)1 - jplus->flow, >= )
+./pbla.cc:            jplus = jplus->pred;
+./psimplex.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./psimplex.cc:Scientific Computing - Optimization
+./psimplex.cc:Takustr. 7, 14195 Berlin-Dahlem
+./psimplex.cc:Copyright (c) 1998-2000 ZIB.           
+./psimplex.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./psimplex.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./psimplex.cc:    arc_t         *arcs          = net->arcs;
+./psimplex.cc:    arc_t         *stop_arcs     = net->stop_arcs;
+./psimplex.cc:    long          m = net->m;
+./psimplex.cc:    long          *iterations = &(net->iterations);
+./psimplex.cc:    long          *bound_exchanges = &(net->bound_exchanges);
+./psimplex.cc:    long          *checksum = &(net->checksum);
+./psimplex.cc:                    *iterations, bea->tail->number, bea->head->number,
+./psimplex.cc:                iplus = r_bea->head;
+./psimplex.cc:                jplus = r_bea->tail;
+./psimplex.cc:                iplus = r_bea->tail;
+./psimplex.cc:                jplus = r_bea->head;
+./psimplex.cc:                if( r_bea->ident == AT_UPPER)
+./psimplex.cc:                    r_bea->ident = AT_LOWER;
+./psimplex.cc:                    r_bea->ident = AT_UPPER;
+./psimplex.cc:                jminus = iminus->pred;
+./psimplex.cc:                bla = iminus->basic_arc;
+./psimplex.cc:                if( xchange != iminus->orientation )
+./psimplex.cc:                    new_flow = (flow_t)1 - delta;
+./psimplex.cc:                if( r_bea->tail == iplus )
+./psimplex.cc:                            (flow_t)net->feas_tol);
+./psimplex.cc:                r_bea->ident = BASIC; 
+./psimplex.cc:                r_bla->ident = new_set;
+./psimplex.cc:                if( !((*iterations-1) % 200) )
+./pstart.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./pstart.cc:Scientific Computing - Optimization
+./pstart.cc:Takustr. 7, 14195 Berlin-Dahlem
+./pstart.cc:Copyright (c) 1998-2000 ZIB.           
+./pstart.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./pstart.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./pstart.cc:    root = node = net->nodes; node++;
+./pstart.cc:    root->basic_arc = NULL;
+./pstart.cc:    root->pred = NULL;
+./pstart.cc:    root->child = node;
+./pstart.cc:    root->sibling = NULL;
+./pstart.cc:    root->sibling_prev = NULL;
+./pstart.cc:    root->depth = (net->n) + 1;
+./pstart.cc:    root->orientation = 0;
+./pstart.cc:    root->potential = (cost_t) -MAX_ART_COST;
+./pstart.cc:    root->flow = ZERO;
+./pstart.cc:    stop = (void *)net->stop_arcs;
+./pstart.cc:    for( arc = net->arcs; arc != (arc_t *)stop; arc++ ) {
+./pstart.cc:        if( r_arc->ident != FIXED )
+./pstart.cc:            r_arc->ident = AT_LOWER;
+./pstart.cc:    arc = net->dummy_arcs;
+./pstart.cc:    for( stop = (void *)net->stop_nodes; node != (node_t *)stop; arc++, node++ )
+./pstart.cc:        node->basic_arc = arc;
+./pstart.cc:        node->pred = root;
+./pstart.cc:        node->child = NULL;
+./pstart.cc:        node->sibling = node + 1; 
+./pstart.cc:        node->sibling_prev = node - 1;
+./pstart.cc:        node->depth = 1;
+./pstart.cc:        r_arc->cost = (cost_t) MAX_ART_COST;
+./pstart.cc:        r_arc->ident = BASIC;
+./pstart.cc:        node->orientation = UP; 
+./pstart.cc:        node->potential = ZERO;
+./pstart.cc:        r_arc->tail = node;
+./pstart.cc:        r_arc->head = root;                
+./pstart.cc:        node->flow = (flow_t)0;
+./pstart.cc:    node--; root++;
+./pstart.cc:    node->sibling = NULL;
+./pstart.cc:    root->sibling_prev = NULL;
+./implicit.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./implicit.cc:Scientific Computing - Optimization
+./implicit.cc:Takustr. 7, 14195 Berlin-Dahlem
+./implicit.cc:Copyright (c) 1998-2000 ZIB.           
+./implicit.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./implicit.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./implicit.cc:    assert( net->max_new_m >= 3 );
+./implicit.cc:    net->max_m += net->max_new_m;
+./implicit.cc:    net->max_residual_new_m += net->max_new_m;
+./implicit.cc:            net->max_m * sizeof(arc_t) / 0x100000,
+./implicit.cc:            net->max_m,
+./implicit.cc:    arc = net->arcs;
+./implicit.cc:    // arc = (arc_t *) realloc( net->arcs, net->max_m * sizeof(arc_t) );
+./implicit.cc:        printf( "network %s: not enough memory\n", net->inputfile );
+./implicit.cc:        return -1;
+./implicit.cc:    off = (size_t)arc - (size_t)net->arcs;
+./implicit.cc:    net->arcs = arc;
+./implicit.cc:    net->stop_arcs = arc + net->m;
+./implicit.cc:    root = node = net->nodes;
+./implicit.cc:    for( node++, stop = net->stop_nodes; node < stop; node++ )
+./implicit.cc:        if( node->pred != root )
+./implicit.cc:            node->basic_arc = (arc_t *)((size_t)node->basic_arc + off);
+./implicit.cc:// input new -> rnew_arc
+./implicit.cc:    arc_t *lnew_pos21 = C1R::get_mut<arc_t>(rnew_arc + pos/2 - 1);
+./implicit.cc:    while( pos-1 && red_cost > (cost_t)lnew_pos21->flow ) // label: while 1
+./implicit.cc:        arc_t *lnew_pos1 = C1R::get_mut<arc_t>(rnew_arc + pos - 1);
+./implicit.cc:        lnew_pos1->tail     = lnew_pos21->tail;
+./implicit.cc:        lnew_pos1->head     = lnew_pos21->head;
+./implicit.cc:        lnew_pos1->cost     = lnew_pos21->cost;
+./implicit.cc:        lnew_pos1->org_cost = lnew_pos21->cost;
+./implicit.cc:        lnew_pos1->flow     = lnew_pos21->flow;
+./implicit.cc:        lnew_pos21->tail     = tail;
+./implicit.cc:        lnew_pos21->head     = head;
+./implicit.cc:        lnew_pos21->cost     = cost;
+./implicit.cc:        lnew_pos21->org_cost = cost;
+./implicit.cc:        lnew_pos21->flow     = (flow_t)red_cost; 
+./implicit.cc:        lnew_pos21 = C1R::get_mut<arc_t>(rnew_arc + pos/2 - 1);
+./implicit.cc:// input new -> rnew_arc
+./implicit.cc:    lnew_arc->tail     = tail;
+./implicit.cc:    lnew_arc->head     = head;
+./implicit.cc:    lnew_arc->org_cost = cost;
+./implicit.cc:    lnew_arc->cost     = cost;
+./implicit.cc:    lnew_arc->flow     = (flow_t)red_cost; 
+./implicit.cc:    cmp = (lnew_1->flow > lnew_2->flow) ? 2 : 3; // label: cmp1
+./implicit.cc:    arc_t *lnew_cmp1 = C1R::get<arc_t>(rnew_arc + cmp - 1);
+./implicit.cc:    while( cmp <= net->max_residual_new_m && red_cost < lnew_cmp1->flow ) // label: while 1
+./implicit.cc:        arc_t *lnew_pos1 = C1R::get<arc_t>(rnew_arc + pos - 1);
+./implicit.cc:        lnew_pos1->tail =     lnew_cmp1->tail;
+./implicit.cc:        lnew_pos1->head =     lnew_cmp1->head;
+./implicit.cc:        lnew_pos1->cost =     lnew_cmp1->cost;
+./implicit.cc:        lnew_pos1->org_cost = lnew_cmp1->cost;
+./implicit.cc:        lnew_pos1->flow =     lnew_cmp1->flow;
+./implicit.cc:        lnew_cmp1->tail = tail;
+./implicit.cc:        lnew_cmp1->head = head;
+./implicit.cc:        lnew_cmp1->cost = cost;
+./implicit.cc:        lnew_cmp1->org_cost = cost;
+./implicit.cc:        lnew_cmp1->flow = (flow_t)red_cost; 
+./implicit.cc:        if( cmp + 1 <= net->max_residual_new_m ) {
+./implicit.cc:            lnew_cmp1 = C1R::get<arc_t>(rnew_arc + cmp - 1);
+./implicit.cc:            if( lnew_cmp1->flow < lnew_cmp->flow )
+./implicit.cc:        lnew_cmp1 = C1R::get<arc_t>(rnew_arc + cmp - 1);
+./implicit.cc://   ref: {While 1}, while -> remote
+./implicit.cc:    cost_t bigM = net->bigM;
+./implicit.cc:    wall_time -= Get_Time();
+./implicit.cc:    bigM_minus_min_impl_duration = (cost_t)bigM - min_impl_duration;
+./implicit.cc:    if( net->n_trips <= MAX_NB_TRIPS_FOR_SMALL_NET )
+./implicit.cc:      if( net->m + net->max_new_m > net->max_m 
+./implicit.cc:          (net->n_trips*net->n_trips)/2 + net->m > net->max_m
+./implicit.cc:          return -1;
+./implicit.cc:      if( net->m + net->max_new_m > net->max_m 
+./implicit.cc:          (net->n_trips*net->n_trips)/2 + net->m > net->max_m
+./implicit.cc:          return -1;
+./implicit.cc:    arcnew = net->stop_arcs;
+./implicit.cc:    trips = net->n_trips;
+./implicit.cc:    arcout = net->arcs;
+./implicit.cc:        if (larcout_1->ident != FIXED)
+./implicit.cc:        if( larcout_1->ident != FIXED )
+./implicit.cc:            arc_t *r_fistout = C1R::get_mut<arc_t>(r_arcout->head->firstout);
+./implicit.cc:            r_fistout->head->arc_tmp = first_of_sparse_list;
+./implicit.cc:        if( r_arcout->ident == FIXED )
+./implicit.cc:        head = r_arcout->head;
+./implicit.cc:        latest = head->time - r_arcout->org_cost 
+./implicit.cc:        head_potential = head->potential;
+./implicit.cc:        arcin = r_first->tail->arc_tmp;
+./implicit.cc:            tail = r_arcin->tail;
+./implicit.cc:            if( tail->time + r_arcin->org_cost > latest )
+./implicit.cc:                arcin = tail->arc_tmp;
+./implicit.cc:            red_cost = arc_cost - tail->potential + head->potential;
+./implicit.cc:                if( new_arcs < net->max_residual_new_m )
+./implicit.cc:                    if( (cost_t)r_arcnew->flow > red_cost ) {
+./implicit.cc:            arcin = tail->arc_tmp;
+./implicit.cc:        arcnew = net->stop_arcs;
+./implicit.cc:        net->stop_arcs += new_arcs;
+./implicit.cc:        stop = net->stop_arcs;
+./implicit.cc:                r_arcnew->flow = (flow_t)0;
+./implicit.cc:                r_arcnew->ident = AT_LOWER;
+./implicit.cc:                r_arcnew->flow = (flow_t)0;
+./implicit.cc:                r_arcnew->ident = AT_LOWER;
+./implicit.cc:                r_arcnew->nextout = r_arcnew->tail->firstout;
+./implicit.cc:                r_arcnew->tail->firstout = arcnew;
+./implicit.cc:                r_arcnew->nextin = r_arcnew->head->firstin;
+./implicit.cc:                r_arcnew->head->firstin = arcnew;
+./implicit.cc:        net->m += new_arcs;
+./implicit.cc:        net->m_impl += new_arcs;
+./implicit.cc:        net->max_residual_new_m -= new_arcs;
+./implicit.cc:        susp = net->m_impl;
+./implicit.cc:        stop = (void *)net->stop_arcs;
+./implicit.cc:        new_arc = &(net->arcs[net->m - net->m_impl]);
+./implicit.cc:            if( r_arc->ident == AT_LOWER )
+./implicit.cc:                red_cost = r_arc->cost - r_arc->tail->potential 
+./implicit.cc:                        + r_arc->head->potential;
+./implicit.cc:                red_cost = (cost_t)-2;
+./implicit.cc:                if( r_arc->ident == BASIC )
+./implicit.cc:                    if( r_arc->tail->basic_arc == arc )
+./implicit.cc:                        r_arc->tail->basic_arc = new_arc;
+./implicit.cc:                        r_arc->head->basic_arc = new_arc;
+./implicit.cc:        net->m -= susp;
+./implicit.cc:        net->m_impl -= susp;
+./implicit.cc:        net->stop_arcs -= susp;
+./implicit.cc:        net->max_residual_new_m += susp;
+./pflowup.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./pflowup.cc:Scientific Computing - Optimization
+./pflowup.cc:Takustr. 7, 14195 Berlin-Dahlem
+./pflowup.cc:Copyright (c) 1998-2000 ZIB.           
+./pflowup.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./pflowup.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./pflowup.cc:    for( ; iplus != w; iplus = iplus->pred )
+./pflowup.cc:        if( iplus->orientation )
+./pflowup.cc:            iplus->flow = (flow_t)0;
+./pflowup.cc:            iplus->flow = (flow_t)1;
+./pflowup.cc:    for( ; jplus != w; jplus = jplus->pred )
+./pflowup.cc:        if( jplus->orientation )
+./pflowup.cc:            jplus->flow = (flow_t)1;
+./pflowup.cc:            jplus->flow = (flow_t)0;
+./treeup.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./treeup.cc:Scientific Computing - Optimization
+./treeup.cc:Takustr. 7, 14195 Berlin-Dahlem
+./treeup.cc:Copyright (c) 1998-2000 ZIB.           
+./treeup.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./treeup.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./treeup.cc:    if( (r_bea->tail == jplus && sigma < 0) ||
+./treeup.cc:        (r_bea->tail == iplus && sigma > 0) )
+./treeup.cc:        sigma = -(ABS(sigma));
+./treeup.cc:    father->potential += sigma;
+./treeup.cc:        temp = father->child;
+./treeup.cc:            temp->potential += sigma;
+./treeup.cc:        temp = father->sibling;
+./treeup.cc:            father = father->pred;
+./treeup.cc:        temp->potential += sigma;
+./treeup.cc:            temp = father->child;
+./treeup.cc:                temp->potential += sigma;
+./treeup.cc:    father = temp->pred;
+./treeup.cc:    new_depth = depth_iminus = iminus->depth;
+./treeup.cc:        if( temp->sibling )
+./treeup.cc:            temp->sibling->sibling_prev = temp->sibling_prev;
+./treeup.cc:        if( temp->sibling_prev )
+./treeup.cc:            temp->sibling_prev->sibling = temp->sibling;
+./treeup.cc:        else father->child = temp->sibling;
+./treeup.cc:        temp->pred = new_pred;
+./treeup.cc:        temp->sibling = new_pred->child;
+./treeup.cc:        if( temp->sibling )
+./treeup.cc:            temp->sibling->sibling_prev = temp;
+./treeup.cc:        new_pred->child = temp;
+./treeup.cc:        temp->sibling_prev = 0;
+./treeup.cc:        orientation_temp = !(temp->orientation); 
+./treeup.cc:            flow_temp = temp->flow + delta;
+./treeup.cc:            flow_temp = temp->flow - delta;
+./treeup.cc:        basic_arc_temp = temp->basic_arc;
+./treeup.cc:        depth_temp = temp->depth;
+./treeup.cc:        temp->orientation = new_orientation;
+./treeup.cc:        temp->flow = new_flow;
+./treeup.cc:        temp->basic_arc = new_basic_arc;
+./treeup.cc:        temp->depth = new_depth;
+./treeup.cc:        new_depth = depth_iminus - depth_temp;      
+./treeup.cc:        father = temp->pred;
+./treeup.cc:        for( temp = jminus; temp != w; temp = temp->pred )
+./treeup.cc:            temp->depth -= depth_iminus;
+./treeup.cc:            if( temp->orientation != cycle_ori )
+./treeup.cc:                temp->flow += delta;
+./treeup.cc:                temp->flow -= delta;
+./treeup.cc:        for( temp = jplus; temp != w; temp = temp->pred )
+./treeup.cc:            temp->depth += depth_iminus;
+./treeup.cc:            if( temp->orientation == cycle_ori )
+./treeup.cc:                temp->flow += delta;
+./treeup.cc:                temp->flow -= delta;
+./treeup.cc:        for( temp = jminus; temp != w; temp = temp->pred )
+./treeup.cc:            temp->depth -= depth_iminus;
+./treeup.cc:        for( temp = jplus; temp != w; temp = temp->pred )
+./treeup.cc:            temp->depth += depth_iminus;
+./output.cc:Konrad-Zuse-Zentrum fuer Informationstechnik Berlin (ZIB)
+./output.cc:Scientific Computing - Optimization
+./output.cc:Takustr. 7, 14195 Berlin-Dahlem
+./output.cc:Copyright (c) 1998-2000 ZIB.           
+./output.cc:Copyright (c) 2000-2002 ZIB & Loebel.  
+./output.cc:Copyright (c) 2003-2005 Andreas Loebel.
+./output.cc:    arc_t *first_impl = net->stop_arcs - net->m_impl;
+./output.cc:        return -1;
+./output.cc:    for( block = net->nodes[net->n].firstout; block; block = block->nextout )
+./output.cc:        if( r_block->flow )
+./output.cc:                fprintf( out, "%d\n", - r_arc->head->number );
+./output.cc:                arc2 = r_arc->head[net->n_trips].firstout; 
+./output.cc:                    if( r_arc2->flow )
+./output.cc:                    arc2 = r_arc2->nextout;
+./output.cc:                    return -1;
+./output.cc:                if( r_arc2->head->number )

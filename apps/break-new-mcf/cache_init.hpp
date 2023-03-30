@@ -1,22 +1,26 @@
+#define _POSIX_C_SOURCE (199309L)
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <time.h>
+
 #include "common.h"
 #include "cache.hpp"
 
+// #define PRICE_BREAK
+// #define SIMP_BREAK
+// #define REPLACE_BREAK
+
 const int linesize = 4 * 1024;
-const int total_size = 512 * 1024 * 1024;
+const int total_size = 256 * 1024 * 1024;
 const int slots = total_size / linesize;
 const uint64_t c1_raddr = 0;
 
-// using C1 = DirectCache<0,c1_raddr,0,slots,linesize,0>;
-
-const int num_ways = 2;
-using C1 = SmallSetAssocCache<0,c1_raddr,0,slots,linesize,0,num_ways>;
-
+using C1 = DirectCache<0,c1_raddr,0,slots,linesize,0>;
 using C1R = CacheReq<C1>;
 
 static inline void cache_init() {
@@ -28,3 +32,4 @@ static inline void cache_init() {
 	}
 	printf("\n");
 }
+

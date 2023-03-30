@@ -102,7 +102,6 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
     arc_t *new_pos1 = new_l;
     arc_t *new_pos21 = C1R::get_mut<arc_t>(rnew + pos/2 - 1);
 
-    // new pos-1, newpos/2-1, newpos/4 - 1, newpos/8 -1, ...
     while( pos-1 && red_cost > (cost_t)new_pos21->flow )
     {
 
@@ -130,12 +129,17 @@ void insert_new_arc( new, newpos, tail, head, cost, red_cost )
 
 
 void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head,
-                         cost_t cost, cost_t red_cost)
+                         cost_t cost, cost_t red_cost, uint64_t *t0, uint64_t *t1, uint64_t *t2, uint64_t *t3)
 {
     long pos;
     long cmp;
-
+#ifdef REPLACE_BREAK
+    uint64_t start_0 = getCurNs();
+#endif
     arc_t *new_0 = C1R::get_mut<arc_t>(rnew);
+#ifdef REPLACE_BREAK
+    *t0 += getCurNs() - start_0;
+#endif
 
     new_0->tail     = tail;
     new_0->head     = head;
@@ -145,20 +149,23 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
                     
     pos = 1;
     arc_t *new_pos1 = new_0;
-
+#ifdef REPLACE_BREAK
+    uint64_t start_1 = getCurNs();
+#endif
     arc_t *new_1 = C1R::get_mut<arc_t>(rnew + 1);
     arc_t *new_2 = C1R::get_mut<arc_t>(rnew + 2);
+#ifdef REPLACE_BREAK
+    *t1 += getCurNs() - start_1;
+#endif
     cmp = (new_1->flow > new_2->flow) ? 2 : 3;
 
     // arc_t *new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
     arc_t *new_cmp1 = cmp == 2 ? new_1 : new_2;
-
-    // const -> new cmp1 -> new pos1
-    // new pos1 <- new comp1
-    // value <- value0, value1/
+    size_t witers = 0;
     while( cmp <= net->max_residual_new_m && red_cost < new_cmp1->flow )
     {
-
+        printf("%ld\n", cmp);
+        witers ++;
         new_pos1->tail =     new_cmp1->tail;
         new_pos1->head =     new_cmp1->head;
         new_pos1->cost =     new_cmp1->cost;
@@ -175,17 +182,29 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
         new_pos1 = new_cmp1;
 
         cmp *= 2;
+#ifdef REPLACE_BREAK
+        uint64_t start_2 = getCurNs();
+#endif
         new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
+#ifdef REPLACE_BREAK
+        *t2 += getCurNs() - start_2;
+#endif
         if( cmp + 1 <= net->max_residual_new_m ) {
+#ifdef REPLACE_BREAK
+        uint64_t start_3 = getCurNs();
+#endif
             arc_t *new_cmp = C1R::get_mut<arc_t>(rnew + cmp);
+#ifdef REPLACE_BREAK
+        *t3 += getCurNs() - start_3;
+#endif
+        
             if( new_cmp1->flow < new_cmp->flow ) {
                 cmp++;
                 new_cmp1 = new_cmp;
             }
         } 
-
     }
-    
+    printf("%ld, %ld\n", witers, cmp);
     return;
 }   
 
@@ -214,6 +233,8 @@ long price_out_impl( net )
      network_t *net;
 #endif
 {
+    uint64_t price_start = getCurNs();
+
     long i;
     long trips;
     long new_arcs = 0;
@@ -276,6 +297,7 @@ long price_out_impl( net )
 
     arcout = net->arcs;
 
+    uint64_t beforeLoop1 = getCurNs();
     // TODO: tile this loop
     // for( i = 0; i < trips && arcout[1].ident == FIXED; i++, arcout += 3 );
     for (i = 0; i < trips &&
@@ -283,9 +305,25 @@ long price_out_impl( net )
 
     first_of_sparse_list = (arc_t *)NULL;
 
+    uint64_t afterLoop1 = getCurNs();
+
+
     // 13225
+#ifdef PRICE_BREAK
+        uint64_t first_2or3 = 0;
+        uint64_t insert_time = 0;
+        uint64_t replace_time = 0;
+        uint64_t arcin_get = 0;
+#endif
+        uint64_t t0 = 0;
+        uint64_t t1 = 0;
+        uint64_t t2 = 0;
+        uint64_t t3 = 0;
     for( ; i < trips; i++, arcout += 3)
     {
+#ifdef PRICE_BREAK
+        uint64_t first_2or3_start = getCurNs();
+#endif
         arc_t *r_arcout = C1R::get_mut<arc_t>(arcout); 
         if( C1R::get<arc_t>(arcout + 1)->ident != FIXED )
         {
@@ -294,6 +332,9 @@ long price_out_impl( net )
             r_fistout->head->arc_tmp = first_of_sparse_list;
             first_of_sparse_list = arcout + 1;
         }
+#ifdef PRICE_BREAK
+        first_2or3 += getCurNs() - first_2or3_start;
+#endif
         if( r_arcout->ident == FIXED )
             continue;
         
@@ -308,8 +349,21 @@ long price_out_impl( net )
         // 1 - 13189
         while( arcin )
         {   
+#ifdef PRICE_BREAK
+            uint64_t arcin_start = getCurNs();
+#endif
             arc_t *r_arcin = C1R::get<arc_t>(arcin);
+#ifdef PRICE_BREAK
+            arcin_get += getCurNs() - arcin_start;
+#endif
             tail = r_arcin->tail;
+
+            // prefetch arcin one step ahead
+            // if (tail->arc_tmp) {
+            //     uint64_t tag = C1::Op::tag((uint64_t)tail->arc_tmp);
+            //     int off = C1::select(tag);
+            //     C1R::request(off, tag);
+            // }
 
             if( tail->time + r_arcin->org_cost > latest )
             {
@@ -325,14 +379,26 @@ long price_out_impl( net )
                 // printf("insert or replace\n");
                 if( new_arcs < net->max_residual_new_m )
                 {
+#ifdef PRICE_BREAK
+                    uint64_t insert_start = getCurNs();
+#endif
                     insert_new_arc( arcnew, new_arcs, tail, head, 
                                     arc_cost, red_cost );
+#ifdef PRICE_BREAK
+                    insert_time += getCurNs() - insert_start;
+#endif
                     new_arcs++;                 
                 }
                 else {
                     if( C1R::get<arc_t>(arcnew)->flow > red_cost ) {
+#ifdef PRICE_BREAK
+                    uint64_t replace_start = getCurNs();
+#endif
                         replace_weaker_arc( net, arcnew, tail, head, 
-                                            arc_cost, red_cost);
+                                            arc_cost, red_cost, &t0, &t1, &t2, &t3);
+#ifdef PRICE_BREAK
+                    replace_time += getCurNs() - replace_start;
+#endif
                     }
                 } 
             }
@@ -340,6 +406,7 @@ long price_out_impl( net )
             arcin = tail->arc_tmp;
         }
     }
+    uint64_t afterLoopInsertNew = getCurNs();
 
     if( new_arcs )
     {
@@ -460,13 +527,29 @@ long price_out_impl( net )
         net->m_impl += new_arcs;
         net->max_residual_new_m -= new_arcs;
     }
-    
+    uint64_t afterManyLoops = getCurNs();
+
+#ifdef PRICE_BREAK
+    printf("Before 283: %0.0f us\n", (beforeLoop1 - price_start) / 1e3);
+    printf("Loop 1: %0.0f us\n", (afterLoop1 - beforeLoop1) / 1e3);
+    printf("Loop/while: %0.0f us\n", (afterLoopInsertNew - afterLoop1) / 1e3);
+    printf("fist 2 or 3 only: %0.0f us\n", first_2or3 / 1e3);
+    printf("insert only: %0.0f us\n", insert_time / 1e3);
+    printf("arcin get: %0.0f us\n", arcin_get / 1e3);
+    printf("replace only: %0.0f us\n", replace_time / 1e3);
+    printf("Loops: %0.0f us\n", (afterManyLoops - afterLoopInsertNew) / 1e3);
+#endif
+#ifdef REPLACE_BREAK
+    printf("T0: %0.0f us\n", t0/1e3);
+    printf("T1: %0.0f us\n", t1/1e3);
+    printf("T2: %0.0f us\n", t2/1e3);
+    printf("T3: %0.0f us\n", t3/1e3);
+#endif
 
 #if defined AT_HOME
     wall_time += Get_Time();
     printf( "total time price_out_impl(): %0.0f\n", wall_time );
 #endif
-
 
     return new_arcs;
 }   

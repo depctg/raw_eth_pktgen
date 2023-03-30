@@ -87,7 +87,6 @@ struct conn_info {
 struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr);
 struct conn_info * client_exchange_info(const char * server_url);
 
-/*
 static inline uint64_t getCurNs() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -101,7 +100,6 @@ static inline uint64_t microtime() {
     uint64_t t = ts.tv_sec*1000*1000 + ts.tv_nsec/1000;
     return t;
 }
-*/
 
 #ifdef __cplusplus
 }

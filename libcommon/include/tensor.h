@@ -7,7 +7,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 
-#define abs(X) ((X) < 0 ? -1 * (X) : (X))
+#define _abs(X) ((X) < 0 ? -1 * (X) : (X))
 
 #define DECL_TENSOR(T, r) \
   typedef struct { \
@@ -69,8 +69,8 @@ extern "C" {
       num_ele *= shape[i]; \
     printf("Verify output ---- \n"); \
     for (int64_t e = 0; e < num_ele; ++ e) { \
-      float diff = (float) abs(pred[e] - truth[e]); \
-      if (diff >= 3e-3) \
+      float diff = (float) _abs(pred[e] - truth[e]); \
+      if (diff >= 1e-5) \
         printf("pred: %f, truth: %f, diff: %f\n", pred[e], truth[e], diff); \
     } \
     printf(" ---- Complete\n"); \

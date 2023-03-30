@@ -1,5 +1,5 @@
 /**************************************************************************
-IMPLICIT.H of ZIB optimizer MCF, SPEC version
+PSIMPLEX.H of ZIB optimizer MCF, SPEC version
 
 This software was developed at ZIB Berlin. Maintenance and revisions 
 solely on responsibility of Andreas Loebel
@@ -15,21 +15,24 @@ Copyright (c) 1998-2000 ZIB.
 Copyright (c) 2000-2002 ZIB & Loebel.  
 Copyright (c) 2003-2005 Andreas Loebel.
 **************************************************************************/
-/*  LAST EDIT: Sun Nov 21 16:21:18 2004 by Andreas Loebel (boss.local.de)  */
-/*  $Id: implicit.h,v 1.11 2005/02/17 19:42:21 bzfloebe Exp $  */
+/*  LAST EDIT: Sun Nov 21 16:22:48 2004 by Andreas Loebel (boss.local.de)  */
+/*  $Id: psimplex.h,v 1.10 2005/02/17 19:42:21 bzfloebe Exp $  */
 
 
-#ifndef _IMPLICIT_H
-#define _IMPLICIT_H
 
-#include "utils.h"
+#ifndef _PSIMPLEX_H
+#define _PSIMPLEX_H
+
+
+#include "defines.h"
+#include "pbeampp.h"
+#include "pbla.h"
+#include "pflowup.h"
+#include "treeup.h"
 #include "mcfutil.h"
-#include "mcflimit.h"
 
 
-extern long price_out_impl _PROTO_(( network_t * ));
-extern long suspend_impl _PROTO_(( network_t *, cost_t, long ));
+extern long primal_net_simplex _PROTO_(( network_t * ));
 
-#define PRICE_BREAK
 
 #endif

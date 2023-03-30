@@ -20,45 +20,22 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
   return buf + a * strides2[0] + b;
 }
 
-void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_2 *B) {
+float *refA;
+float *refB;
 
-  uint64_t _rC = (uint64_t) _disagg_alloc(2, (256ULL << 20));
-  uint64_t _lC = (uint64_t) rbuf + (8192ULL) + (256ULL << 20) + (1ULL << 20);
-  rring_init(wrC, float, 2048 * 4, 8064, _lC, _rC);
+void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_2 *B) {
 
   int64_t oshape[] = {M, N};
   int64_t num_ele = 1;
   for (int i = 0; i < 2; ++ i)
     num_ele *= oshape[i];
 
-  rring_outer_loop(wrC, float, M * N) {
-    rring_inner_preloop(wrC, float);
-    rring_sync_writeonly(wrC);
-    rring_inner_loop(wrC, i) {
-      _inner_wrC[i] = 0;
-    }
-    rring_inner_wb(wrC);
-  }
-  rring_cleanup_writeonly(wrC);
-
-
   float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
-
-  __m256 alloca[4];
-  __m256 ap;
-  __m256 bv;
-  __m256 mul;
-  __m256i ones = _mm256_set1_epi32(1);
-
-  uint64_t _rA = (uint64_t) A->_aligned_ptr;
-  uint64_t _lA = (uint64_t) rbuf + (8192ULL);
-  rring_init(rA, float, 2048 * 4, 8064, _lA, _rA);
+  memset(oC, 0, num_ele);
 
   uint64_t _rB = (uint64_t) B->_aligned_ptr;
-  uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (256ULL << 20);
+  uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (512ULL << 20);
   rring_init(rB, float, 512 * 512 * 4, 1, _lB, _rB);
-
-  rring_init(rC, float, 2048 * 4, 8064, _lC, _rC);
 
   float *fixB;
   rring_outer_loop(rB, float, N * K) {
@@ -67,16 +44,23 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
     rring_sync(rB);
     rring_inner_loop(rB, dead) {
       fixB = _inner_rB;
+      break;
     }
   }
-  rring_outer_loop_with(rC, M * N);
+  int64_t BShape[2] = {K, N};
+
+  uint64_t _rA = (uint64_t) A->_aligned_ptr;
+  uint64_t _lA = (uint64_t) rbuf + (8192ULL) + (1ULL<< 30);
+  rring_init(rA, float, 4 * 512 * 4, 64, _lA, _rA);
+
+  __m256 alloca[4];
+  __m256 ap;
+  __m256 bv;
+  __m256 mul;
+
   rring_outer_loop(rA, float, M * K) {
-    rring_prefetch_with(rA, rC, 4);
     rring_prefetch(rA, 4);
-
     rring_inner_preloop(rA, float);
-    rring_inner_preloop(rC, float);
-
     rring_sync(rA);
 
     rring_inner_loop(rA, dead) {
@@ -85,8 +69,7 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
         for (int64_t k = 0; k < K; k += 8) {
           // load C [4x8]
           for (int i = 0; i < 4; ++ i) {
-            alloca[i] = _mm256_loadu_ps(pin2(_inner_rC, i, n));
-            // alloca[i] = _mm256_loadu_ps(pin2(oC, m + i, n));
+            alloca[i] = _mm256_loadu_ps(pin2(oC, m + i, n));
           }
 
           // C[4x8] += A[4x8] @ B[8x8]
@@ -100,20 +83,20 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
               }
             }
           }
-        }
 
-        // Store C [4x8]
-        for (int i = 0; i < 4; ++ i) {
-          _mm256_maskstore_ps(pin2(oC, m + i, n), ones, alloca[i]);
+          // Store C [4x8]
+          for (int i = 0; i < 4; ++ i) {
+            _mm256_storeu_ps(pin2(oC, m + i, n), alloca[i]);
+          }
         }
       }
       break;
     }
-    rring_outer_loop_with_post(rC);
   }
 
   Tensor_float_2 output = make_tensor_float_2(oC, oshape);
   *C = output;
+
 }
 
 int main () {
@@ -122,14 +105,16 @@ int main () {
 
   int64_t shapeA[] = {M, K};
   float *bufA = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/A.dat", shapeA, 2);
+  refA = bufA;
 
   int64_t shapeB[] = {K, N};
   float *bufB = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/B.dat", shapeB, 2);
+  refB = bufB;
 
   // remotalize a and b
   uint64_t _rA = (uint64_t) _disagg_alloc(2, (256ULL << 20));
   uint64_t _lA = (uint64_t) rbuf + (8192ULL);
-  rring_init(rA, float, 2048 * 4, 8064, _lA, _rA);
+  rring_init(rA, float, 4 * 512 * 4, 8064, _lA, _rA);
 
   uint64_t _rB = (uint64_t) _disagg_alloc(2, (1ULL << 20));
   uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (256ULL << 20);
@@ -170,5 +155,8 @@ int main () {
   uint64_t end = microtime();
   printf("time: %.5f s\n", (float)(end-start)/1e6);
 
+  // for (int i = 0; i < 2; ++ i)
+  //   printf("%ld\n", C.shapes[i]);
+  // check_output_float(C._aligned_ptr, C_truth, shapeC, 2);  
   return 0;
 }

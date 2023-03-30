@@ -49,7 +49,7 @@ int main () {
   // remotalize a and b
   uint64_t _rA = (uint64_t) _disagg_alloc(2, (256ULL << 20));
   uint64_t _lA = (uint64_t) rbuf + (8192ULL);
-  rring_init(rA, float, 2048 * 4, 8064, _lA, _rA);
+  rring_init(rA, float, 524288 * 4, 64, _lA, _rA);
 
   uint64_t _rB = (uint64_t) _disagg_alloc(2, (1ULL << 20));
   uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (256ULL << 20);
@@ -89,5 +89,8 @@ int main () {
   uint64_t end = microtime();
   printf("time: %.5f s\n", (float)(end-start)/1e6);
 
+  for (int i = 0; i < 2; ++ i)
+    printf("%ld\n", C.shapes[i]);
+  check_output_float(C._aligned_ptr, C_truth, shapeC, 2);  
   return 0;
 }

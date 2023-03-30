@@ -5,7 +5,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <immintrin.h>
-#include "rring_cache.h"
+#include "cache.h"
+#include "rring.h"
 
 #define M 64512
 #define K 512
@@ -19,25 +20,27 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
   return buf + a * strides2[0] + b;
 }
 
-rring_init(rA, float, 2048 * 4, 8, 0, 8192);
-rring_init(rB, float, 512 * 512 * 4, 1, 0, 8192 + (1ULL << 30));
-rring_init(rC, float, 2048 * 4, 8, 0, 8192 + (1ULL << 30) + (1ULL << 20));
-
 void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_2 *B) {
+
+  uint64_t _rC = (uint64_t) _disagg_alloc(2, (256ULL << 20));
+  uint64_t _lC = (uint64_t) rbuf + (8192ULL) + (256ULL << 20) + (1ULL << 20);
+  rring_init(wrC, float, 2048 * 4, 8064, _lC, _rC);
+
   int64_t oshape[] = {M, N};
   int64_t num_ele = 1;
   for (int i = 0; i < 2; ++ i)
     num_ele *= oshape[i];
 
-  rring_outer_loop(rC, float, M * N) {
-    rring_inner_preloop(rC, float);
-    rring_sync_writeonly(rC);
-    rring_inner_loop(rC, i) {
-      _inner_rC[i] = 0;
+  rring_outer_loop(wrC, float, M * N) {
+    rring_inner_preloop(wrC, float);
+    rring_sync_writeonly(wrC);
+    rring_inner_loop(wrC, i) {
+      _inner_wrC[i] = 0;
     }
-    rring_inner_wb(rC);
+    rring_inner_wb(wrC);
   }
-  rring_cleanup_writeonly(rC);
+  rring_cleanup_writeonly(wrC);
+
 
   float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
 
@@ -45,7 +48,16 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
   __m256 ap;
   __m256 bv;
   __m256 mul;
-  __m256i ones = _mm256_set1_epi32(1);
+
+  uint64_t _rA = (uint64_t) A->_aligned_ptr;
+  uint64_t _lA = (uint64_t) rbuf + (8192ULL);
+  rring_init(rA, float, 2048 * 4, 8064, _lA, _rA);
+
+  uint64_t _rB = (uint64_t) B->_aligned_ptr;
+  uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (256ULL << 20);
+  rring_init(rB, float, 512 * 512 * 4, 1, _lB, _rB);
+
+  rring_init(rC, float, 2048 * 4, 8064, _lC, _rC);
 
   float *fixB;
   rring_outer_loop(rB, float, N * K) {
@@ -54,9 +66,9 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
     rring_sync(rB);
     rring_inner_loop(rB, dead) {
       fixB = _inner_rB;
+      break;
     }
   }
-  // printf("after get B\n");
   rring_outer_loop_with(rC, M * N);
   rring_outer_loop(rA, float, M * K) {
     rring_prefetch_with(rA, rC, 4);
@@ -88,11 +100,10 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
               }
             }
           }
-        }
-
-        // Store C [4x8]
-        for (int i = 0; i < 4; ++ i) {
-          _mm256_maskstore_ps(pin2(oC, m + i, n), ones, alloca[i]);
+          // Store C [4x8]
+          for (int i = 0; i < 4; ++ i) {
+            _mm256_store_ps(pin2(oC, m + i, n), alloca[i]);
+          }
         }
       }
       break;
@@ -106,9 +117,7 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
 
 int main () {
   init_client();
-  _lbase_rA = (uint64_t) rbuf + (8192ULL);
-  _lbase_rB = (uint64_t) rbuf + (8192ULL) + (1ULL << 30);
-  _lbase_rC = (uint64_t) rbuf + (8192ULL) + (1ULL << 30) + (1ULL << 20);
+  cache_init(); // use disagg_alloc
 
   int64_t shapeA[] = {M, K};
   float *bufA = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/A.dat", shapeA, 2);
@@ -116,6 +125,16 @@ int main () {
   int64_t shapeB[] = {K, N};
   float *bufB = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/B.dat", shapeB, 2);
 
+  // remotalize a and b
+  uint64_t _rA = (uint64_t) _disagg_alloc(2, (256ULL << 20));
+  uint64_t _lA = (uint64_t) rbuf + (8192ULL);
+  rring_init(rA, float, 2048 * 4, 8064, _lA, _rA);
+
+  uint64_t _rB = (uint64_t) _disagg_alloc(2, (1ULL << 20));
+  uint64_t _lB = (uint64_t) rbuf + (8192ULL) + (256ULL << 20);
+  rring_init(rB, float, 512 * 512 * 4, 1, _lB, _rB);
+
+  printf("%ld, %ld\n", _rA, _rB);
   rring_outer_loop(rA, float, M * K) {
     rring_inner_preloop(rA, float);
     rring_sync_writeonly(rA);
@@ -138,8 +157,8 @@ int main () {
   }
   rring_cleanup_writeonly(rB);
 
-  Tensor_float_2 A = make_tensor_float_2(bufA, shapeA);
-  Tensor_float_2 B = make_tensor_float_2(bufB, shapeB);
+  Tensor_float_2 A = make_tensor_float_2((float *)_rA, shapeA);
+  Tensor_float_2 B = make_tensor_float_2((float *)_rB, shapeB);
 
   Tensor_float_2 C;
   int64_t shapeC[] = {M, N};

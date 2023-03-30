@@ -54,11 +54,11 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
             }
           }
         }
-      }
 
-      // Store C [4x8]
-      for (int i = 0; i < 4; ++ i) {
-        _mm256_maskstore_ps(pin2(oC, m + i, n), ones, alloca[i]);
+        // Store C [4x8]
+        for (int i = 0; i < 4; ++ i) {
+          _mm256_maskstore_ps(pin2(oC, m + i, n), ones, alloca[i]);
+        }
       }
     }
   }

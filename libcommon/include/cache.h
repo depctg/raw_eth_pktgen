@@ -58,12 +58,12 @@ typedef unsigned cache_t;
 #define OPT_NUM_CACHE 16
 
 #ifndef __cache_access_handler 
-    // #define __cache_access_handler _cache_access_groupassoc
-    #define __cache_access_handler _cache_access_direct
+    #define __cache_access_handler _cache_access_groupassoc
+    // #define __cache_access_handler _cache_access_direct
 #endif
 #ifndef __cache_select 
-    // #define __cache_select _cache_select_groupassoc_lru
-    #define __cache_select _cache_select_directassoc
+    #define __cache_select _cache_select_groupassoc_lru
+    // #define __cache_select _cache_select_directassoc
 #endif
 
 /* Cache Line Spec */

@@ -149,11 +149,21 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
     arc_t *new_2 = C1R::get_mut<arc_t>(rnew + 2);
     cmp = (new_1->flow > new_2->flow) ? 2 : 3;
 
-    // arc_t *new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
     arc_t *new_cmp1 = cmp == 2 ? new_1 : new_2;
+
+#if 0
+    const int num_prefetch = 4;
+    int cur = 0;
+    uint64_t tag[num_prefetch];
+    int off[num_prefetch] = {0};
+    bool update[num_prefetch] = {0};
+#endif
 
     while( cmp <= net->max_residual_new_m && red_cost < new_cmp1->flow )
     {
+#if 0
+        cur = (cur + 1) % num_prefetch;
+#endif
 
         new_pos1->tail =     new_cmp1->tail;
         new_pos1->head =     new_cmp1->head;
@@ -171,6 +181,14 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
         new_pos1 = new_cmp1;
 
         cmp *= 2;
+
+#if 0
+        if (update[cur]) {
+            poll_qid(C1::Value::qid, C1::Op::token(off[cur]).seq);
+            update[cur] = false;
+        }
+#endif
+
         new_cmp1 = C1R::get_mut<arc_t>(rnew + cmp - 1);
         if( cmp + 1 <= net->max_residual_new_m ) {
             arc_t *new_cmp = C1R::get_mut<arc_t>(rnew + cmp);
@@ -180,7 +198,28 @@ void replace_weaker_arc( network_t *net, arc_t *rnew, node_t *tail, node_t *head
             }
         } 
 
+#if 0
+        // 2 -> 1, 4 -> 2, 8 -> 3, 16 -> 4
+        int pcmp = cmp * 16;
+        if(pcmp + 1 <= net->max_residual_new_m ) {
+            // prefetch
+            uint64_t tag = C1::Op::tag((uint64_t)(rnew + pcmp));
+            off[cur] = C1::select(tag);
+            // prefetch conflict? no conflict detecte
+            if (update[cur] = C1::Op::token(off[cur]).tag != tag) {
+                C1R::request(off[cur], tag);
+            }
+        }
+#endif
+
     }
+
+#if 0
+    // trailing prefetch...
+    for (int i = 0 ; i < 4; i++)
+        if (update[i])
+           poll_qid(C1::Value::qid, C1::Op::token(off[i]).seq);
+#endif
     
     return;
 }   
@@ -279,7 +318,15 @@ long price_out_impl( net )
 
     first_of_sparse_list = (arc_t *)NULL;
 
+    // offload?
+    // flush cache (256M?)
+    // flush net and data
+
+    // arc = arc + base;
+    // node = node + base;
+
     // 13225
+    // first_of_sparse_list: read
     for( ; i < trips; i++, arcout += 3)
     {
         arc_t *r_arcout = C1R::get_mut<arc_t>(arcout); 
@@ -302,6 +349,9 @@ long price_out_impl( net )
         arc_t *r_first = C1R::get<arc_t>(first_of_sparse_list);
         arcin = r_first->tail->arc_tmp;
         // 1 - 13189
+
+        // offload
+        // flush arc
         while( arcin )
         {   
             arc_t *r_arcin = C1R::get<arc_t>(arcin);
@@ -335,6 +385,7 @@ long price_out_impl( net )
 
             arcin = tail->arc_tmp;
         }
+
     }
 
     if( new_arcs )

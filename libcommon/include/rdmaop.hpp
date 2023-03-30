@@ -27,7 +27,8 @@ static inline void build_rdma_wr(int i, uint64_t wr_id,
     wr.sg_list = &sge;
     wr.num_sge = 1;
 
-    wr.wr.rdma.remote_addr = (uint64_t)(peermr.addr) + raddr;
+    // wr.wr.rdma.remote_addr = (uint64_t)(peermr.addr) + raddr;
+    wr.wr.rdma.remote_addr = raddr;
     wr.wr.rdma.rkey = peermr.rkey;
     wr.opcode = opcode;
 

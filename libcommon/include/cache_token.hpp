@@ -18,15 +18,18 @@ struct Token {
     inline bool valid() { return flags & 0x1; } 
     inline bool dirty() { return flags & 0x2; } 
     inline bool sync() { return flags & 0x4; } 
+    inline bool acquire() { return flags & 0x8; } 
 
     // since v = 0x01
     inline void set(uint8_t flag) { flags = flag; } 
     inline void add(uint8_t flag) { flags |= flag; } 
+    inline void sub(uint8_t flag) { flags &= ~flag; } 
     inline void clear() { flags = 0; } 
 
     static const uint8_t Valid = 0x1;
     static const uint8_t Dirty = 0x2;
     static const uint8_t Sync = 0x4;
+    static const uint8_t Acquire = 0x8;
 };
 
 extern Token tokens[NUM_TOKENS];

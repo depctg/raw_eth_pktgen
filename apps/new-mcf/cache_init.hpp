@@ -7,12 +7,14 @@
 #include "common.h"
 #include "cache.hpp"
 
-const int linesize = 4 * 1024;
-const int total_size = 256 * 1024 * 1024;
+const int linesize = 32 * 1024;
+const int total_size = 512 * 1024 * 1024;
 const int slots = total_size / linesize;
 const uint64_t c1_raddr = 0;
 
 using C1 = DirectCache<0,c1_raddr,0,slots,linesize,0>;
+using R = AcquireBuffer<C1, slots, 64, C1::Value::bytes, C1::Value::bytes>;
+
 using C1R = CacheReq<C1>;
 
 static inline void cache_init() {

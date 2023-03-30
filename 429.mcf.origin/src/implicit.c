@@ -198,6 +198,7 @@ long price_out_impl( net )
      network_t *net;
 #endif
 {
+    uint64_t price_start = getCurNs();
     long i;
     long trips;
     long new_arcs = 0;
@@ -256,12 +257,13 @@ long price_out_impl( net )
     }
 #endif
 
-        
+    uint64_t before_loop1 = getCurNs();    
     arcnew = net->stop_arcs;
     trips = net->n_trips;
 
     arcout = net->arcs;
     for( i = 0; i < trips && arcout[1].ident == FIXED; i++, arcout += 3 );
+    uint64_t after_loop1 = getCurNs();
 
     first_of_sparse_list = (arc_t *)NULL;
     for( ; i < trips; i++, arcout += 3 )
@@ -300,9 +302,7 @@ long price_out_impl( net )
                 {
                     insert_new_arc( arcnew, new_arcs, tail, head, 
                                     arc_cost, red_cost );
-		arc_t *a = arcnew + new_arcs;
-		printf("id: %ld: (%ld, %ld)\n",
-				a - net->arcs, a->tail->number, a->head->number );
+                    arc_t *a = arcnew + new_arcs;
                     new_arcs++;                 
                 }
                 else if( (cost_t)arcnew[0].flow > red_cost )
@@ -313,6 +313,8 @@ long price_out_impl( net )
             arcin = tail->arc_tmp;
         }
     }
+
+    uint64_t after_insert = getCurNs();
     
     if( new_arcs )
     {
@@ -344,13 +346,19 @@ long price_out_impl( net )
         net->m_impl += new_arcs;
         net->max_residual_new_m -= new_arcs;
     }
-    
+    uint64_t after_if_loops = getCurNs();
 
 #if defined AT_HOME
     wall_time += Get_Time();
     printf( "total time price_out_impl(): %0.0f\n", wall_time );
 #endif
 
+#ifdef PRICE_BREAK
+    printf("Before 283: %6.f us\n", (before_loop1 - price_start) / 1e3);
+    printf("Loop 1: %6.f us\n", (after_loop1 - before_loop1) / 1e3);
+    printf("Loop/while insert: %6.f us\n", (after_insert - after_loop1) / 1e3);
+    printf("Loops: %6.f us\n", (after_if_loops - after_insert) / 1e3); 
+#endif
 
     return new_arcs;
 }   

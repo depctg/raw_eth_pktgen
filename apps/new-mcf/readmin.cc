@@ -84,12 +84,13 @@ long read_min( net )
     assert( net->max_new_m >= 3 );
 
     
-    net->nodes      = (node_t *) calloc( net->n + 1, sizeof(node_t) );
+    // net->nodes      = (node_t *) calloc( net->n + 1, sizeof(node_t) );
     // net->dummy_arcs = (arc_t *)  calloc( net->n,   sizeof(arc_t) );
     // net->arcs       = (arc_t *)  calloc( net->max_m,   sizeof(arc_t) );
     // net->arcs       = (arc_t *)  calloc( 32 << 20,   sizeof(arc_t) );
     net->dummy_arcs = (arc_t *) C1R::alloc(sizeof(arc_t) * net->n);
     net->arcs = (arc_t *) C1R::alloc(sizeof(arc_t) * (32ULL << 20));
+    net->nodes      = (node_t *) (C1R::alloc( net->n + 1 * sizeof(node_t) ) - (uint64_t)peermr.addr + (uint64_t)_rbuf);
 
     // if( !( net->nodes && net->arcs && net->dummy_arcs ) )
     if( !( net->nodes ))

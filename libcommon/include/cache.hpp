@@ -56,6 +56,7 @@ template <uint64_t _buf_offset, int _slots, int _linesize, int _qid>
 struct CacheValues {
     static constexpr int linesize = _linesize;
     static constexpr int qid = _qid;
+    static constexpr int slots = _slots;
     static constexpr uint64_t bytes = _linesize * (uint64_t)_slots;
 };
 
@@ -63,6 +64,8 @@ template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int 
 struct DirectCache {
     using Op = CacheOp<offset, rbuf, buf, linesize, qid>;
     using Value = CacheValues<buf,slots,linesize,qid>;
+
+    static constexpr uint64_t raddr = rbuf;
 
     static inline int select(uint64_t vaddr) {
         int res = (vaddr / linesize) % slots;
@@ -101,9 +104,61 @@ struct SetAssocativeCache {
     }
 };
 
+// acquire buffer
+struct NoAcquireBuffer {
+    static constexpr bool enable = false;
+};
+
+template <typename C, int offset, int entries, uint64_t laddr, uint64_t raddr>
+struct AcquireBuffer {
+    static constexpr bool enable = true;
+    using Op = CacheOp<offset,raddr,laddr,C::Value::linesize,C::Value::qid>;
+
+    template <int i>
+    static inline void acquire(uint64_t vaddr) {
+        uint64_t tag = Op::tag(vaddr);
+        auto & token = Op::token(i);
+
+        int coffset = C::select(tag);
+        auto & ctoken = C::Op::token(i);
+
+#if 1
+        // check if already acquired..
+        if (ctoken.acquire())
+            printf("ERROR: Conflict Acquire!\n");
+#endif
+        ctoken.add(Token::Acquire);
+        ctoken.meta2 = i;
+        token.tag = tag;
+        token.meta2 = coffset;
+
+        // when we acquire we are sure we won't names
+        Op::rdma(0, i, tag, IBV_WR_RDMA_READ, NULL, true);
+        struct ibv_send_wr *badwr = NULL;
+        ibv_post_send(qp, _pwr, &badwr);
+    }
+
+    template <int i>
+    static inline void release() {
+        auto & token = Op::token(i);
+        int coffset = token.meta2;
+        auto & ctoken = C::Op::token(i);
+
+        ctoken.sub(Token::Acquire);
+
+        if (token.dirty()) {
+            Op::rdma(0, i, token.tag, IBV_WR_RDMA_WRITE, NULL, true);
+            struct ibv_send_wr *badwr = NULL;
+            ibv_post_send(qp, _pwr, &badwr);
+        }
+    }
+
+    // 1. could be quired by id -> using A::Op::paddr(i, vaddr)
+};
+
 // TODO: bool?
 // bool ignore
-template <typename C, typename Tlb = NoTlb,
+template <typename C, typename A = NoAcquireBuffer, typename Tlb = NoTlb,
          bool opt_writeback = true, bool opt_sync = false>
 struct CacheReq {
 
@@ -159,6 +214,7 @@ static int request(int offset, uint64_t tag, bool send) {
     return cache_request_impl(0, tag, offset, NULL, send);
 }
 
+
 // only work in mode
 template<typename T>
 static inline T * get(void * vaddr) {
@@ -174,7 +230,14 @@ static inline T * get(void * vaddr) {
     if (token.valid() && token.tag == tag) {
         // Tlb::update(token,tag);
         return ret;
+    } 
+
+    if constexpr (A::enable) {
+        if (token.acquire() && A::Op::token(token.meta2).tag == tag) {
+            return A::Op::template paddr<T>(token.meta2, (uint64_t)vaddr);
+        }
     }
+
     // TODO: flag for sync mode
 
     request_poll(off, tag);
@@ -197,21 +260,46 @@ static inline T * get_mut(void * vaddr) {
         token.add(Token::Dirty);
         return ret;
     }
-    // TODO: flag for sync mode
-    // } else if (opt_sync && token.sync()) {
-    // }
+
+    if constexpr (A::enable) {
+        auto & atoken = A::Op::token(token.meta2);
+        if (token.acquire() && atoken.tag == tag) {
+            atoken.add(Token::Dirty);
+            return A::Op::template paddr<T>(token.meta2, (uint64_t)vaddr);
+        }
+    }
 
     request_poll(off, tag);
-    // poll_qid(C::Value::qid, token.seq);
 
     token.add(Token::Dirty);
     return ret;
 }
 
 static inline void * alloc(size_t size) {
-    void * target = (void *)qi[C::Value::qid].addr;
+    void * target = (void *)(qi[C::Value::qid].addr + (uint64_t)peermr.addr);
+    // void * target = (void *)qi[C::Value::qid].addr;
     qi[C::Value::qid].addr += size;
     return target;
+}
+
+static void flush(uint64_t lower_bound, uint64_t upper_bound) {
+    int inflight = 0;
+    for (int i = 0; i < C::Value::slots; i++) {
+        auto &token = C::Op::token(i);
+        if (token.valid() && token.tag >= lower_bound && token.tag <= upper_bound) {
+            if (token.dirty()) {
+                C::Op::rdma(0, i, token.tag, IBV_WR_RDMA_WRITE, NULL, false);
+                struct ibv_send_wr *badwr = NULL;
+                ibv_post_send(qp, _pwr, &badwr);
+                if (++inflight > 32) {
+                    // poll
+                    poll_qid(C::Value::qid, qi[C::Value::qid].sid - 16);
+                }
+            }
+            token.clear();
+        }
+    }
+    // We will poll later
 }
 
 #if 0

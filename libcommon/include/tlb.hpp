@@ -8,6 +8,7 @@
 // TODO: use SIMD
 
 struct NoTlb {
+    // acquire buffer
     static inline bool lookup(uint64_t tag) { return false; }
     static inline void invalid(uint64_t tag) { }
     static inline void update(Token &token, uint64_t tag) { }

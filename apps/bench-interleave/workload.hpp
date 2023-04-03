@@ -15,32 +15,20 @@ typedef struct arc *arc_p;
 
 struct node
 {
-  cost_t potential; 
-  int orientation;
-  node_p child;
-  node_p pred;
-  node_p sibling;
-  node_p sibling_prev;     
-  arc_p basic_arc; 
+  node_p child, parent;
   arc_p firstout, firstin;
-  arc_p arc_tmp;
-  flow_t flow;
-  long depth; 
   int number;
-  int time;
 
-  char padding[24];
+  int payload[23];
 };
 
+int g_payload[7];
 
 struct arc
 {
-  cost_t cost;
   node_p tail, head;
-  int ident;
   arc_p nextout, nextin;
-  flow_t flow;
-  cost_t org_cost;
+  int payload[8];
 };
 
 int a = sizeof(arc_t);
@@ -74,3 +62,9 @@ void setup();
 void visit();
 void check();
 
+void computation(arc_p a, node_p n) {
+  for (int i = 0; i < 22; ++ i) {
+    n->payload[i] += a->payload[i % 8];
+  }
+  memcpy(g_payload, n->payload, sizeof(int) * 7);
+}

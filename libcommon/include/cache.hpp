@@ -36,7 +36,7 @@ struct CacheOp {
 
     // rdma
     // TODO: wrid
-    static inline void rdma(int i, int off, int tag, ibv_wr_opcode opcode,
+    static inline void rdma(int i, int off, uint64_t tag, ibv_wr_opcode opcode,
             ibv_send_wr * next, bool with_seq) {
         // COULD be an option. do this later
         uint64_t wrid = 0;
@@ -46,6 +46,7 @@ struct CacheOp {
             tokens[off+offset].seq = sid;
             wrid |= (sid << 16);
         }
+        // printf("rdma req: %lx, %ld, %lx\n", tag, off, rbuf + tag);
         build_rdma_wr(i, wrid, buf + off * linesize, rbuf + tag, 
                 linesize, opcode, next);
     };

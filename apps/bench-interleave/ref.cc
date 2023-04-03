@@ -12,7 +12,7 @@ void setup() {
   arc = (arc_t *) aligned_alloc(4096, sizeof(arc_t) * M_arc);
 
   for (int i = 0; i < N_node; ++ i) {
-    node[i].number = -i;
+    node[i].number = i;
     node[i].firstin = arc + nextRand(M_arc);
     node[i].firstout = arc + nextRand(M_arc);
   }
@@ -28,8 +28,11 @@ void visit() {
   {
     arc[i].nextout = arc[i].tail->firstout;
     arc[i].tail->firstout = arc + i;
+    computation(arc+i, arc[i].tail);
+
     arc[i].nextin = arc[i].head->firstin;
     arc[i].head->firstin = arc + i;
+    computation(arc+i, arc[i].head);
   }
 }
 
@@ -39,12 +42,13 @@ void check() {
 
 void do_work() {
   setup();
-
+  printf("after setup\n");
   uint64_t start = microtime();
   visit();
   uint64_t end = microtime();
 
   printf("Exec time %.5f s\n", (end - start)/1e6);
+  printf("Dont opt this %d\n", g_payload[5]);
   // check();
 }
 

@@ -11,22 +11,21 @@
 // node
 const uint64_t c1_line_size = (128ULL);
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (1024ULL << 20);
+const uint64_t c1_size = (504 << 20);
 const int c1_slots = c1_size / c1_line_size;
 
 // arc
 const uint64_t c2_line_size = (2ULL << 20);
 const uint64_t c2_raddr = 1024UL * 1024 * 1024;
-const uint64_t c2_size = (4096ULL << 20);
+const uint64_t c2_size = (32ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
 using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
-using C2 = DirectCache<c1_slots,c2_raddr,(1ULL<<30),c2_slots,c2_line_size,1>;
+using C2 = DirectCache<c1_slots,c2_raddr,C1::Value::bytes,c2_slots,c2_line_size,1>;
 
 using C1R = CacheReq<C1>;
 using C2R = CacheReq<C2>;
-
 
 // CLS 2MB
 const uint64_t eles = c2_line_size / sizeof(arc_t);
@@ -38,14 +37,14 @@ void setup() {
   node = (node_t *) C1R::alloc(sizeof(node_t) * N_node);
   arc = (arc_t *) C2R::alloc(sizeof(arc_t) * M_arc);
 
-  // for (int i = 0; i < N_node; ++ i) {
-  //   node_t *nodei = C1R::get_mut<node_t>(node + i);
-  //   nodei->number = -i;
-  //   nodei->firstin = arc + nextRand(M_arc);
-  //   nodei->firstout = arc + nextRand(M_arc);
-  // }
+  for (int i = 0; i < N_node; ++ i) {
+    node_t *nodei = C1R::get_mut<node_t>(node + i);
+    nodei->number = -i;
+    nodei->firstin = arc + nextRand(M_arc);
+    nodei->firstout = arc + nextRand(M_arc);
+  }
 
-  for (int j = 0; j < n_blocks; j++ ) {
+  for (int j = n_blocks - 1; j >= 0; j-- ) {
     // printf("%d, %lx\n", j, (uintptr_t) (arc + j*eles));
     arc_t *p = C2R::get_mut<arc_t>(arc + j * eles);
     for( int i = 0; i < eles; i++ ) { 
@@ -55,10 +54,45 @@ void setup() {
   }
 }
 
+const int n_ahead = 4;
+
 // TODO: node_t and arc_t
 void visit() {
+  int offs[n_ahead+1];
+  int tags[n_ahead+1];
+
+  // prologue
+  for (int i = 0; i < n_ahead; ++ i) {
+    tags[i] = C2::Op::tag((uint64_t)(arc + i * eles));
+    offs[i] = C2::select(tags[i]);
+    auto &token = C2::Op::token(offs[i]);
+    if (!token.valid() || token.tag != tags[i]) {
+      C2R::request(offs[i], tags[i]);
+    }
+  }
+
   for (int j = 0; j < n_blocks; j++ ) {
-    arc_t *p = C2R::get_mut<arc_t>(arc + j * eles);
+    // arc_t *p = C2R::get_mut<arc_t>(arc + j * eles);
+    int idx = j % (n_ahead + 1);
+
+    // prefetch
+    if (j < n_blocks - n_ahead) {
+      int idxn = (j + n_ahead) % (n_ahead + 1);
+      tags[idxn] = C2::Op::tag((uint64_t)(arc + (j+n_ahead) * eles));
+      offs[idxn] = C2::select(tags[idxn]);
+
+      auto &token = C2::Op::token(offs[idxn]);
+      if (!token.valid() || token.tag != tags[idxn]) {
+        C2R::request(offs[idxn], tags[idxn]);
+      }
+    }
+
+    // sync current
+    auto &token = C2::Op::token(offs[idx]);
+    token.add(Token::Dirty);
+    poll_qid(C2::Value::qid, token.seq);
+
+    arc_t *p = C2::Op::template paddr<arc_t>(offs[idx], (uint64_t)(arc + j * eles));
     for( int i = 0; i < eles; i++ ) {
         arc_t *arci = p + i;
         node_t *node_tail = C1R::get_mut<node_t>(arci->tail);

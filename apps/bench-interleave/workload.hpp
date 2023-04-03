@@ -49,13 +49,11 @@ int b = sizeof(node_t);
 node_t *node;
 arc_t *arc;
 
-#if 0
 #define N_node (8 << 20)
 #define M_arc (64 << 20)
-#endif
 
-#define N_node (8 << 10)
-#define M_arc (64 << 10)
+// #define N_node (8 << 10)
+// #define M_arc (64 << 10)
 
 static uint64_t seed = 0x23333;
 static uint64_t checksum = 0xdeadbeaf;

@@ -5,11 +5,18 @@
 #include "common.h"
 #include "workload.hpp"
 #include "unistd.h"
-#include "util.hpp"
+
+#define set_pref_check 328
+#define set_falt_check 329
+#define reset_swap_stat 330
 
 void setup() {
   node = (node_t *) aligned_alloc(4096, sizeof(node_t) * N_node);
   arc = (arc_t *) aligned_alloc(4096, sizeof(arc_t) * M_arc);
+  printf("node: %lu\n", (intptr_t) node);
+  printf("arc: %lu\n", (intptr_t) arc);
+  syscall(set_pref_check, (unsigned long) arc, (unsigned long) (arc + M_arc));
+  syscall(set_falt_check, (unsigned long) node, (unsigned long) (node + N_node));
 
   for (int i = 0; i < N_node; ++ i) {
     node[i].number = -i;
@@ -21,6 +28,7 @@ void setup() {
     arc[i].tail = node + nextRand(N_node);
     arc[i].head = node + nextRand(N_node);
   }
+  syscall(reset_swap_stat);
 }
 
 void visit() {
@@ -44,7 +52,7 @@ void do_work() {
   visit();
   uint64_t end = microtime();
 
-  printf("Exec time %.5f s\n", (end - start)/1e6);
+  printf("Exec time %lu us\n", end - start);
   // check();
 }
 

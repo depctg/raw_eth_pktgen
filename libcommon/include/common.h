@@ -27,7 +27,7 @@ extern "C" {
 /* size for local buffers */
 #define CQ_NUM_DESC 256
 
-#define RBUF_SIZE (4ULL << 30)
+#define RBUF_SIZE (8ULL << 30)
 #define MAX_POLL 64
 
 enum {
@@ -87,19 +87,6 @@ struct conn_info {
 struct conn_info * server_exchange_info(const char * server_url, struct ibv_mr *mr);
 struct conn_info * client_exchange_info(const char * server_url);
 
-static inline uint64_t getCurNs() {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    uint64_t t = ts.tv_sec*1000*1000*1000 + ts.tv_nsec;
-    return t;
-}
-
-static inline uint64_t microtime() {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    uint64_t t = ts.tv_sec*1000*1000 + ts.tv_nsec/1000;
-    return t;
-}
 
 #ifdef __cplusplus
 }

@@ -21,7 +21,7 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
 }
 
 const int A_line = 4 * 512 * 4;
-const int A_total_size = (8<< 20);
+const int A_total_size = (16 << 20);
 const int A_slots = A_total_size / A_line;
 const uint64_t A_raddr = 0;
 
@@ -95,6 +95,7 @@ void* _mlir_ciface_main_graph(void *data) {
   
   Tensor_float_2 output = make_tensor_float_2(oC, oshape);
   *(p->C) = output;
+  printf("thread 0 done\n");
   return NULL;
 }
 
@@ -146,6 +147,7 @@ void* _mlir_ciface_main_graph1(void *data) {
   
   Tensor_float_2 output = make_tensor_float_2(oC, oshape);
   *(p->C) = output;
+  printf("thread 1 done\n");
   return NULL;
 }
 
@@ -187,6 +189,8 @@ int main () {
   float *wB = CBR::get_mut<float>(rB);
   for (int64_t i = 0; i < K * N; ++ i)
     wB[i] = bufB[i];
+
+  printf("After push to remote\n");
 
   Tensor_float_2 A = make_tensor_float_2(rA, shapeA);
   Tensor_float_2 B = make_tensor_float_2(rB, shapeB);

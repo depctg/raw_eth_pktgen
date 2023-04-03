@@ -2,10 +2,11 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "common.h"
 #include "workload.hpp"
 #include "cache.h"
-#include "side_channel.h"
+#include "util.hpp"
 
 // batch, prefetch
 
@@ -67,28 +68,21 @@ void visit() {
   printf("%lu\n", k);
 }
 
-void check() {
-  uint64_t check_sum = 0;
-  for (int i = 0; i < M_arc; ++ i) {
-    cache_token_t tk_arc = cache_request((uint64_t) (arc + i)); 
-    arc_t *arci = (arc_t *) cache_access_mut(tk_arc);
+void do_work() {
+  setup();
+  printf("After setup\n");
+  uint64_t start = microtime();
+  visit();
+  uint64_t end = microtime();
 
-    cache_token_t tk_node_tail = cache_request((uint64_t) (arci->tail));
-    node_t *node_tail = (node_t *) cache_access_mut(tk_node_tail);
-
-    cache_token_t tk_node_head = cache_request((uint64_t) (arci->head));
-    node_t *node_head = (node_t *) cache_access_mut(tk_node_head);
-
-    check_sum += node_tail->number;
-    check_sum += node_head->number;
-  }
-  printf("Checksum = %lu\n", check_sum);
+  printf("Exec time %.5f s\n", (end - start)/1e6);
+  // check();
 }
 
 int main () {
   init_client();
   cache_init();
-  channel_init();
+  // channel_init();
 
   do_work();
   return 0;

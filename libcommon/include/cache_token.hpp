@@ -7,6 +7,8 @@
     #define NUM_TOKENS (16 * 1024 * 1024)
 #endif
 
+#define NUM_COUNTERS 1024
+
 struct Token {
     uint64_t tag;
     uint8_t flags;
@@ -30,5 +32,6 @@ struct Token {
 };
 
 extern Token tokens[NUM_TOKENS];
+extern uint64_t counters[NUM_COUNTERS];
 
 #endif

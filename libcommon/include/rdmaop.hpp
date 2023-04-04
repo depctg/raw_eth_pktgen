@@ -32,7 +32,6 @@ static inline void build_rdma_wr(int i, uint64_t wr_id,
     wr.opcode = opcode;
 
     wr.next = next;
-
     // printf("RDMA Request: [%lx] %lx %s %lx: %d\n", wr.wr_id, sge.addr,
     //         opcode == IBV_WR_RDMA_READ ? "<-" : "->",
     //         wr.wr.rdma.remote_addr, sge.length);
@@ -57,12 +56,12 @@ static inline void poll_qid(uint8_t qid, uint16_t seq) {
     while ((uint16_t)(qi[qid].rid - seq) > MAX_QUEUE_INFLIGHT) {
         int n = ibv_poll_cq(cq, MAX_POLL, wc);
         for (int i = 0; i < n; i++) {
-            // if (wc[i].status != 0) {
-            //     printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
-            //     printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
-            //     printf("%lx\n", peermr.addr);
-            //     exit(0);
-            // }
+            if (wc[i].status != 0) {
+                printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
+                printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
+                printf("raddr %lx\n", peermr.addr);
+                exit(0);
+            }
             /* if requires an queue update */
             if ((wc[i].wr_id & REQWR_OPT_QUEUE_UPDATE) &&
                 uint16_t(get_id(wc,i)->seq - qi[get_id(wc,i)->qid].rid)

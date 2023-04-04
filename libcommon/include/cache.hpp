@@ -11,6 +11,7 @@
 #include "tlb.hpp"
 #include "queue.h"
 
+
 // Common cache operations
 template <int offset, uint64_t rbuf, uint64_t buf, uint64_t linesize, int qid,
           uint16_t reqwr_opts = REQWR_OPT_QUEUE_UPDATE>
@@ -46,7 +47,7 @@ struct CacheOp {
             tokens[off+offset].seq = sid;
             wrid |= (sid << 16);
         }
-        // printf("rdma req: %lx, %ld, %lx\n", tag, off, rbuf + tag);
+        // printf("rdma req: %lx, %d, %lx\n", tag, off, rbuf + tag);
         build_rdma_wr(i, wrid, buf + off * linesize, rbuf + tag, 
                 linesize, opcode, next);
     };
@@ -78,27 +79,18 @@ struct SetAssocativeCache {
     using Value = CacheValues<buf,slots,linesize,qid>;
 
     static constexpr int waysize = linesize * num_ways;
-    static PQueue<uint8_t, num_ways> queues[slots] = {0}; 
 
     static inline int select(uint64_t vaddr) {
-        int wayslot = (vaddr / waysize) % (slots / num_ways) * num_ways;
-        auto pqueue = queues[wayslot];
-        int i, target = num_ways;
-        for (i = 0; i < num_ways; i++) {
+        int wayslot = (vaddr / linesize) % slots;
+        for (int i = 0; i < num_ways; i++) {
             auto &token = Op::token(wayslot + i);
-            if (token.valid()) {
-                if (token.tag == Op::tag(vaddr)) break;
-            } else
-                target = i;
+            if (token.valid() && token.tag == Op::tag(vaddr)) {
+                // Op::token(wayslot).pad0 = i;
+                return wayslot + i;
+            }
         }
-        if (i != num_ways) { // find a number
-            pqueue.repush(i);
-            return i;
-        } else { // eviction
-            if (target != num_ways)
-                return target;
-            else return pqueue.pop();
-        }
+        return wayslot;
+        // return wayslot + (++(Op::token(wayslot).pad0)) % num_ways;
     }
 };
 
@@ -161,7 +153,7 @@ static int request(int offset, uint64_t tag, bool send) {
 }
 
 // only work in mode
-template<typename T>
+template<typename T, int miss_counter = 0, int hit_counter = 0>
 static inline T * get(void * vaddr) {
     uint64_t tag = C::Op::tag((uint64_t)vaddr);
     // TODO: this is not thread safe
@@ -173,11 +165,12 @@ static inline T * get(void * vaddr) {
 
     auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
     if (token.valid() && token.tag == tag) {
+        if constexpr (hit_counter) counters[hit_counter]++;
         // Tlb::update(token,tag);
         return ret;
     }
-    // TODO: flag for sync mode
 
+    if constexpr (miss_counter) counters[miss_counter]++;
     request_poll(off, tag);
 
     // printf("Sync cache[%d] <%d|r:%d,s:%d>\n", C::Value::qid,
@@ -186,7 +179,7 @@ static inline T * get(void * vaddr) {
     return ret;
 }
 
-template<typename T>
+template<typename T, int miss_counter = 0, int hit_counter = 0>
 static inline T * get_mut(void * vaddr) {
     uint64_t tag = C::Op::tag((uint64_t)vaddr);
     int off = C::select(tag);
@@ -195,12 +188,11 @@ static inline T * get_mut(void * vaddr) {
     auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
 
     if (token.valid() && token.tag == tag) {
+        if constexpr (hit_counter) counters[hit_counter]++;
         token.add(Token::Dirty);
         return ret;
     }
-    // TODO: flag for sync mode
-    // } else if (opt_sync && token.sync()) {
-    // }
+    if constexpr (miss_counter) counters[miss_counter]++;
 
     request_poll(off, tag);
     // poll_qid(C::Value::qid, token.seq);

@@ -11,13 +11,13 @@
 // node
 const uint64_t c1_line_size = (128ULL);
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (1024ULL << 20);
+const uint64_t c1_size = (1002ULL << 20);
 const int c1_slots = c1_size / c1_line_size;
 
 // arc
 const uint64_t c2_line_size = (2ULL << 20);
 const uint64_t c2_raddr = 1024UL * 1024 * 1024;
-const uint64_t c2_size = (4096ULL << 20);
+const uint64_t c2_size = (2ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 

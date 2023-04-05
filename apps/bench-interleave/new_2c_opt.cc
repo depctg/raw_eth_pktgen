@@ -11,15 +11,15 @@
 #include "util.hpp"
 
 // node
-const uint64_t c1_line_size = (4096);
+const uint64_t c1_line_size = (16384);
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (510 << 20);
+const uint64_t c1_size = (1000ULL << 20);
 const int c1_slots = c1_size / c1_line_size;
 
 // arc
-const uint64_t c2_line_size = (4 << 10);
+const uint64_t c2_line_size = (2<< 20);
 const uint64_t c2_raddr = 1024UL * 1024 * 1024;
-const uint64_t c2_size = (2 << 20);
+const uint64_t c2_size = (24ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
@@ -46,12 +46,10 @@ void setup() {
     nodei->firstout = arc + dist2(g);
   }
 
-  std::vector<uint64_t> node_list;
-  node_list.reserve(N_node);
   for (uint64_t i = 0; i < N_node; ++ i) {
     node_list[i] = i;
   }
-  shuffle(node_list.begin(), node_list.end(), std::default_random_engine(seed));
+  std::shuffle(node_list, node_list + N_node, g);
 
   for (int j = n_blocks - 1; j >= 0; j-- ) {
     // printf("%d, %lx\n", j, (uintptr_t) (arc + j*eles));
@@ -63,7 +61,7 @@ void setup() {
   }
 }
 
-const int n_ahead = 8;
+const int n_ahead = 11;
 
 // TODO: node_t and arc_t
 void visit() {

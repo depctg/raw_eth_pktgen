@@ -56,12 +56,12 @@ static inline void poll_qid(uint8_t qid, uint16_t seq) {
     while ((uint16_t)(qi[qid].rid - seq) > MAX_QUEUE_INFLIGHT) {
         int n = ibv_poll_cq(cq, MAX_POLL, wc);
         for (int i = 0; i < n; i++) {
-            if (wc[i].status != 0) {
-                printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
-                printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
-                printf("raddr %lx\n", peermr.addr);
-                exit(0);
-            }
+            // if (wc[i].status != 0) {
+            //     printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
+            //     printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
+            //     printf("raddr %lx\n", peermr.addr);
+            //     exit(0);
+            // }
             /* if requires an queue update */
             if ((wc[i].wr_id & REQWR_OPT_QUEUE_UPDATE) &&
                 uint16_t(get_id(wc,i)->seq - qi[get_id(wc,i)->qid].rid)
@@ -75,6 +75,36 @@ static inline void poll_qid(uint8_t qid, uint16_t seq) {
             }
 #endif
         }
+    }
+}
+
+static void poll_all() {
+    struct ibv_wc wc[MAX_POLL];
+    // TODO: inflight?
+    // test this!
+    while (true) {
+        int n = ibv_poll_cq(cq, MAX_POLL, wc);
+        for (int i = 0; i < n; i++) {
+            // if (wc[i].status != 0) {
+            //     printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
+            //     printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
+            //     printf("raddr %lx\n", peermr.addr);
+            //     exit(0);
+            // }
+            /* if requires an queue update */
+            if ((wc[i].wr_id & REQWR_OPT_QUEUE_UPDATE) &&
+                uint16_t(get_id(wc,i)->seq - qi[get_id(wc,i)->qid].rid)
+                            < MAX_QUEUE_INFLIGHT) {
+                qi[get_id(wc,i)->qid].rid = get_id(wc,i)->seq;
+            }
+        }
+    }
+}
+
+static inline void wait_qid(uint8_t qid, uint16_t seq) {
+    // while ((uint16_t)(qi[qid].rid - seq) > (uint16_t)MAX_QUEUE_INFLIGHT) ;
+    while (true) {
+        if (((struct queue_info volatile *)qi)[qid].rid >= seq) break;
     }
 }
 

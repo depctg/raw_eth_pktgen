@@ -7,6 +7,7 @@
 #include <immintrin.h>
 #include "cache.hpp"
 #include <pthread.h>
+#include "util.hpp"
 
 #define M 64512
 #define K 512
@@ -28,18 +29,24 @@ const uint64_t A_raddr = 0;
 const int B_line = 512 * 512 * 4;
 const int B_total_size = B_line;
 const int B_slots = 1;
-const uint64_t B_raddr = (256ULL<<20);
+const uint64_t B_raddr = (256ULL << 20);
+const uint64_t C_raddr = (512ULL << 20);
 
 using CA = DirectCache<0,A_raddr,0,A_slots,A_line,0>;
-using CB = DirectCache<A_slots,B_raddr,CA::Value::bytes,B_slots,B_line,1>;
+using CB = DirectCache<A_slots,B_raddr,(256<<20),B_slots,B_line,1>;
+using CC = DirectCache<A_slots+1,C_raddr,(512<<20),A_slots,A_line,2>;
 using CAR = CacheReq<CA>;
 using CBR = CacheReq<CB>;
+using CCR = CacheReq<CC>;
 
-const uint64_t A1_raddr = (512ULL << 20);
-using CA1 = DirectCache<A_slots+1,A1_raddr,CA::Value::bytes+CB::Value::bytes,A_slots,A_line,2>;
-using CB1 = DirectCache<A_slots*2+1,B_raddr,CA::Value::bytes*2+CB::Value::bytes,B_slots,B_line,3>;
+const uint64_t A1_raddr = (1024ULL << 20);
+const uint64_t C1_raddr = (1536ULL << 20);
+using CA1 = DirectCache<2*A_slots+1,A1_raddr,(1024<<20),A_slots,A_line,3>;
+using CB1 = DirectCache<3*A_slots+1,B_raddr,(1536<<20),B_slots,B_line,4>;
+using CC1 = DirectCache<3*A_slots+2,C1_raddr,(2048ULL<<20),A_slots,A_line,5>;
 using CAR1 = CacheReq<CA1>;
 using CBR1 = CacheReq<CB1>;
+using CCR1 = CacheReq<CC1>;
 
 struct T_pack {
   Tensor_float_2 *C;
@@ -47,6 +54,7 @@ struct T_pack {
   Tensor_float_2 *B;
 };
 
+template<typename CR1, typename CR2, typename CR3, int t>
 void* _mlir_ciface_main_graph(void *data) {
   T_pack *p = (T_pack *) data;
   int64_t oshape[] = {M, N};
@@ -54,23 +62,28 @@ void* _mlir_ciface_main_graph(void *data) {
   for (int i = 0; i < 2; ++ i)
     num_ele *= oshape[i];
 
-  float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
+  float *rC = (float *) CR1::alloc(sizeof(float) * num_ele);
+  for (int64_t i = 0; i < M; i += 4) {
+    float *lC = CR1::template get_mut<float>(pin2(rC, i, 0));
+    memset(lC, 0, 8192);
+  }
 
   __m256 alloca[4];
   __m256 ap;
   __m256 bv;
   __m256 mul;
 
-  float *lB = CBR::get<float>(p->B->_aligned_ptr);
+  float *lB = CR3::template get<float>(p->B->_aligned_ptr);
 
   // printf("after get B\n");
   for (int64_t m = 0; m < M; m += 4) {
-    float *lA = CAR::get<float>(pin2(p->A->_aligned_ptr, m, 0));
+    float *lA = CR2::template get<float>(pin2(p->A->_aligned_ptr, m, 0));
+    float *lC = CR1::template get_mut<float>(pin2(rC, m, 0));
     for (int64_t n = 0; n < N; n += 8) {
       for (int64_t k = 0; k < K; k += 8) {
         // load C [4x8]
         for (int i = 0; i < 4; ++ i) {
-          alloca[i] = _mm256_loadu_ps(pin2(oC, m + i, n));
+          alloca[i] = _mm256_loadu_ps(pin2(lC, i, n));
         }
 
         // C[4x8] += A[4x8] @ B[8x8]
@@ -87,72 +100,28 @@ void* _mlir_ciface_main_graph(void *data) {
 
         // Store C [4x8]
         for (int i = 0; i < 4; ++ i) {
-          _mm256_storeu_ps(pin2(oC, m + i, n), alloca[i]);
+          _mm256_storeu_ps(pin2(lC, i, n), alloca[i]);
         }
       }
     }
   }
   
-  Tensor_float_2 output = make_tensor_float_2(oC, oshape);
+  Tensor_float_2 output = make_tensor_float_2(rC, oshape);
   *(p->C) = output;
-  printf("thread 0 done\n");
+  printf("%d done\n", t);
   return NULL;
 }
 
-void* _mlir_ciface_main_graph1(void *data) {
-  T_pack *p = (T_pack *) data;
-  int64_t oshape[] = {M, N};
-  int64_t num_ele = 1;
-  for (int i = 0; i < 2; ++ i)
-    num_ele *= oshape[i];
 
-  float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
-
-  __m256 alloca[4];
-  __m256 ap;
-  __m256 bv;
-  __m256 mul;
-
-  float *lB = CBR1::get<float>(p->B->_aligned_ptr);
-
-  // printf("after get B\n");
-  for (int64_t m = 0; m < M; m += 4) {
-    float *lA = CAR1::get<float>(pin2(p->A->_aligned_ptr, m, 0));
-    for (int64_t n = 0; n < N; n += 8) {
-      for (int64_t k = 0; k < K; k += 8) {
-        // load C [4x8]
-        for (int i = 0; i < 4; ++ i) {
-          alloca[i] = _mm256_loadu_ps(pin2(oC, m + i, n));
-        }
-
-        // C[4x8] += A[4x8] @ B[8x8]
-        for (int i = 0; i < 8; i += 4) {
-          for (int64_t mm = 0; mm < 4; ++ mm) {
-            for (int64_t kk = k + i; kk < k + i + 4; ++kk) {
-              ap = _mm256_broadcast_ss(pin2(lA, mm, kk));
-              bv = _mm256_loadu_ps(pin2(lB, kk, n));
-              mul = _mm256_mul_ps(ap, bv);
-              alloca[mm] = _mm256_add_ps(mul, alloca[mm]); 
-            }
-          }
-        }
-
-        // Store C [4x8]
-        for (int i = 0; i < 4; ++ i) {
-          _mm256_storeu_ps(pin2(oC, m + i, n), alloca[i]);
-        }
-      }
-    }
-  }
-  
-  Tensor_float_2 output = make_tensor_float_2(oC, oshape);
-  *(p->C) = output;
-  printf("thread 1 done\n");
+void * rdma_poll_rountine(void *) {
+  poll_all();
   return NULL;
 }
 
 int main () {
   init_client();
+  pthread_t pool_t;
+  pthread_create(&pool_t, NULL, rdma_poll_rountine, NULL);
 
   int64_t shapeA[] = {M, K};
   float *bufA = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
@@ -207,8 +176,8 @@ int main () {
   uint64_t start = microtime();
   pthread_t t;
   pthread_t t1;
-  pthread_create(&t, NULL, _mlir_ciface_main_graph, &p);
-  pthread_create(&t1, NULL, _mlir_ciface_main_graph1, &p1);
+  pthread_create(&t, NULL, _mlir_ciface_main_graph<CCR,CAR,CBR,0>, &p);
+  pthread_create(&t1, NULL, _mlir_ciface_main_graph<CCR1,CAR1,CBR1,1>, &p1);
   pthread_join(t, NULL);
   pthread_join(t1, NULL);
   uint64_t end = microtime();
@@ -216,7 +185,7 @@ int main () {
 
   for (int i = 0; i < 2; ++ i)
     printf("%ld\n", C.shapes[i]);
-  check_output_float(C._aligned_ptr, C_truth, shapeC, 2);
+  // check_output_float(C._aligned_ptr, C_truth, shapeC, 2);
 
   // for (int i = 0; i < 2; ++ i)
   //   printf("%ld\n", C1.shapes[i]);

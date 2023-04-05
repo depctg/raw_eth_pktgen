@@ -22,7 +22,7 @@ struct node
   int payload[23];
 };
 
-int g_payload[7];
+int g_payload[23];
 
 struct arc
 {
@@ -49,7 +49,9 @@ static uint64_t checksum = 0xdeadbeaf;
 static std::mt19937 g(seed);
 // static std::uniform_int_distribution<int> dist1(0, N_node-1);
 static std::normal_distribution<> dist1(N_node/2, N_node/8);
+
 static std::uniform_int_distribution<int> dist2(0, M_arc-1);
+uint64_t node_list[N_node];
 
 static inline int nextRand() {
   long idx = std::round(dist1(g));
@@ -66,5 +68,10 @@ void computation(arc_p a, node_p n) {
   for (int i = 0; i < 22; ++ i) {
     n->payload[i] += a->payload[i % 8];
   }
-  memcpy(g_payload, n->payload, sizeof(int) * 7);
+  int id = n->number;
+  for (int i = 0; i < 4; ++ i) {
+    id = node_list[id];
+  }
+  n->payload[22] = id;
+  memcpy(g_payload, n->payload, sizeof(int) * 23);
 }

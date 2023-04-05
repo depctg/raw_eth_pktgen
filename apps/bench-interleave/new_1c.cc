@@ -13,7 +13,7 @@
 const uint64_t line_size = (4UL << 10);
 
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (1024ULL << 20);
+const uint64_t c1_size = (1024ULL<< 20);
 const int c1_slots = c1_size / line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
@@ -31,17 +31,15 @@ void setup() {
 
   for (int i = 0; i < N_node; ++ i) {
     node_t *nodei = C1R::get_mut<node_t>(node + i);
-    nodei->number = -i;
+    nodei->number = i;
     nodei->firstin = arc + dist2(g);
     nodei->firstout = arc + dist2(g);
   }
 
-  std::vector<uint64_t> node_list;
-  node_list.reserve(N_node);
   for (uint64_t i = 0; i < N_node; ++ i) {
     node_list[i] = i;
   }
-  shuffle(node_list.begin(), node_list.end(), std::default_random_engine(seed));
+  std::shuffle(node_list, node_list + N_node, g);
 
   for (int j = M_arc - 1; j >= 0; j-- ) {
     // printf("%d, %lx\n", j, (uintptr_t) (arc + j*eles));
@@ -85,12 +83,12 @@ void visit() {
 
   for (int i = 0; i < M_arc; ++ i) {
     arc_t *arci = C1R::get_mut<arc_t>(arc + i);
-    // node_t *node_tail = C1R::get_mut<node_t, 3, 4>(arci->tail);
+    // node_t *node_tail = C1R::get_mut<node_t,3,4>(arci->tail);
     // arci->nextout = node_tail->firstout;
     // node_tail->firstout = arc + i;
     // computation(arci, node_tail);
 
-    node_t *node_head = C1R::get_mut<node_t, 3, 4>(arci->head);
+    node_t *node_head = C1R::get_mut<node_t>(arci->head);
     arci->nextin = node_head->firstin;
     node_head->firstin = arc + i;
     computation(arci, node_head);
@@ -111,9 +109,17 @@ void do_work() {
   // check();
 }
 
+void * rdma_poll_rountine(void *) {
+  poll_all();
+  return NULL;
+}
+
+
 int main () {
   t0 = microtime();
   init_client();
+  pthread_t pool_t;
+  pthread_create(&pool_t, NULL, rdma_poll_rountine, NULL);
 
   do_work();
   return 0;

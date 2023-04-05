@@ -72,6 +72,7 @@ struct DirectCache {
     }
 };
 
+static uint32_t settick;
 template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int qid,
           int num_ways>
 struct SetAssocativeCache {
@@ -79,18 +80,40 @@ struct SetAssocativeCache {
     using Value = CacheValues<buf,slots,linesize,qid>;
 
     static constexpr int waysize = linesize * num_ways;
+    static constexpr int waymask = ~(num_ways - 1);
 
     static inline int select(uint64_t vaddr) {
-        int wayslot = (vaddr / linesize) % slots;
+#if 0
+        int wayslot = ((vaddr / linesize) % slots) & waymask;
+        auto &token0 = Op::token(wayslot);
+        int min = token0.meta2, t = wayslot;
         for (int i = 0; i < num_ways; i++) {
             auto &token = Op::token(wayslot + i);
-            if (token.valid() && token.tag == Op::tag(vaddr)) {
-                // Op::token(wayslot).pad0 = i;
-                return wayslot + i;
-            }
+            if (token.valid() && token.tag == vaddr) {
+                t = wayslot + i;
+                break;
+            } 
+            if (token.meta2 < min) { min = token.meta2, t = wayslot + i; } 
         }
-        return wayslot;
-        // return wayslot + (++(Op::token(wayslot).pad0)) % num_ways;
+        
+        // LRU
+        Op::token(t).meta2 = settick++;
+        return t;
+#endif
+        int wayslot = ((vaddr / linesize) % slots) & waymask;
+        auto &token0 = Op::token(wayslot);
+        int min = token0.pad0, t = wayslot;
+        for (int i = 0; i < num_ways; i++) {
+            auto &token = Op::token(wayslot + i);
+            if (token.valid() && token.tag == vaddr) {
+                token.pad0++;
+                return wayslot + i;
+            } 
+            if (token.pad0 < min) { min = token.pad0, t = wayslot + i; } 
+        }
+        
+        Op::token(t).pad0 = 1;
+        return t;
     }
 };
 
@@ -124,7 +147,10 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
     if (send) {
         // should already updated in RDMA function
         int ret = ibv_post_send(qp, req, &badwr);
-        // dprintf("RDMA post send ret %d", ret); 
+        // if (ret != 0) {
+        //     printf("RDMA post send ret %d\n", ret); 
+        //     exit(ret);
+        // }
     }
 
     // update tag
@@ -140,8 +166,9 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
 }
 
 static void request_poll(int offset, uint64_t tag) {
-    cache_request_impl(0, tag, offset, NULL, true);
-    poll_qid(C::Value::qid, C::Op::token(offset).seq);
+    cache_request_impl(C::Value::qid * 2, tag, offset, NULL, true);
+    // poll_qid(C::Value::qid, C::Op::token(offset).seq);
+    wait_qid(C::Value::qid, C::Op::token(offset).seq);
 }
 
 static int request(int offset, uint64_t tag) {

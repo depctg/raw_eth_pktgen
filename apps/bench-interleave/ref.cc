@@ -10,7 +10,7 @@
 #include "unistd.h"
 #include "util.hpp"
 
-#define CHECK_NODE_DIST 1
+#define CHECK_NODE_DIST 0
 
 uint64_t head_dist[M_arc];
 uint64_t tail_dist[M_arc];
@@ -20,23 +20,25 @@ void setup() {
   arc = (arc_t *) aligned_alloc(4096, sizeof(arc_t) * M_arc);
 
   for (int i = 0; i < N_node; ++ i) {
-    node[i].number = -i;
+    node[i].number = i;
     node[i].firstin = arc +  dist2(g);
     node[i].firstout = arc + dist2(g);
   }
 
-  std::vector<uint64_t> node_list;
-  node_list.reserve(N_node);
+  // node_list.reserve(N_node);
   for (uint64_t i = 0; i < N_node; ++ i) {
     node_list[i] = i;
   }
-  shuffle(node_list.begin(), node_list.end(), std::default_random_engine(seed));
+  std::shuffle(&node_list[0], node_list + N_node, g);
 
   for (int i = 0; i < M_arc; ++ i) {
     uint64_t ti = node_list[nextRand()];
-    tail_dist[i] = ti;
     uint64_t hi = node_list[nextRand()];
+
+#if CHECK_NODE_DIST
+    tail_dist[i] = ti;
     head_dist[i] = hi;
+#endif
 
     arc[i].tail = node + ti;
     arc[i].head = node + hi;
@@ -46,9 +48,9 @@ void setup() {
 void visit() {
   for( int i = 0; i < M_arc; i++ )
   {
-    arc[i].nextout = arc[i].tail->firstout;
-    arc[i].tail->firstout = arc + i;
-    computation(arc+i, arc[i].tail);
+    // arc[i].nextout = arc[i].tail->firstout;
+    // arc[i].tail->firstout = arc + i;
+    // computation(arc+i, arc[i].tail);
 
     arc[i].nextin = arc[i].head->firstin;
     arc[i].head->firstin = arc + i;
@@ -85,12 +87,16 @@ int main () {
 #if CHECK_NODE_DIST
   printf("Dumping head tail distributions\n");
   FILE *hf = fopen("head_dist.txt", "wb");
-  fwrite(head_dist, sizeof(uint64_t), M_arc, hf);
+  fwrite(head_dist, sizeof(uint64_t), N_node, hf);
   fclose(hf);
 
-  FILE *tf = fopen("tail_dist.txt", "wb");
-  fwrite(tail_dist, sizeof(uint64_t), M_arc, tf);
-  fclose(tf);
+  // FILE *tf = fopen("tail_dist.txt", "wb");
+  // fwrite(tail_dist, sizeof(uint64_t), N_node, tf);
+  // fclose(tf);
+
+  FILE *lf = fopen("node_list.txt", "wb");
+  fwrite(node_list, sizeof(uint64_t), N_node, lf);
+  fclose(lf);
 #endif
   return 0;
 }

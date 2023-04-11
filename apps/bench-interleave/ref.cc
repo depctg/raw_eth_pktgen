@@ -52,9 +52,12 @@ void visit() {
     // arc[i].tail->firstout = arc + i;
     // computation(arc+i, arc[i].tail);
 
-    arc[i].nextin = arc[i].head->firstin;
-    arc[i].head->firstin = arc + i;
-    computation(arc+i, arc[i].head);
+    // arc[i].nextin = arc[i].head->firstin;
+    // arc[i].head->firstin = arc + i;
+    // computation(arc+i, arc[i].head);
+    arc_t *arci = arc + i;
+    int n = arci->head - node;
+    g_payload[n & 23] = n;
   }
 }
 

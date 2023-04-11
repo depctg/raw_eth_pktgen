@@ -27,7 +27,7 @@ extern "C" {
 /* size for local buffers */
 #define CQ_NUM_DESC 256
 
-#define RBUF_SIZE (8ULL << 30)
+#define RBUF_SIZE (12ULL << 30)
 #define MAX_POLL 64
 
 enum {

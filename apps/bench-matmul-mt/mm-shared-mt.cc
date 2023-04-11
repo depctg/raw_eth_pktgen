@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <immintrin.h>
 #include "cache.hpp"
+#include "rdmaop.hpp"
 #include <pthread.h>
 #include "util.hpp"
 
@@ -21,17 +22,19 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
   return buf + a * strides2[0] + b;
 }
 
-const int A_line = 4 * 512 * 4;
-const int A_total_size = (256 << 20);
+const uint64_t A_line = 4 * 512 * 4;
+const uint64_t A_total_size = (320ULL << 20);
 const int A_slots = A_total_size / A_line;
 const uint64_t A_raddr = 0;
-const uint64_t C_raddr = (512ULL << 20);
+
+const uint64_t C_raddr = (4096ULL << 20);
 
 using CA = DirectCache<0,A_raddr,0,A_slots,A_line,0>;
-using CC = DirectCache<A_slots,C_raddr,CA::Value::bytes,A_slots,A_line,1>;
+using CC = DirectCache<A_slots,C_raddr,(4096ULL<<20),A_slots,A_line,1>;
 
 using CAR = CacheReq<CA,true>;
 using CCR = CacheReq<CC,true>;
+
 
 template<typename CR1, typename CR2>
 void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_2 *B) {
@@ -39,12 +42,13 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
   int64_t num_ele = 1;
   for (int i = 0; i < 2; ++ i)
     num_ele *= oshape[i];
-
-  // float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
   float *rC = (float *) CR1::alloc(sizeof(float) * num_ele);
+
+
   for (int64_t i = 0; i < M; i += 4) {
     float *lC = CR1::template get_mut<float>(pin2(rC, i, 0));
     memset(lC, 0, 8192);
+    CR1::release(pin2(rC, i, 0));
   }
 
   __m256 alloca[4];
@@ -83,11 +87,33 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
         }
       }
     }
+    CR1::release(pin2(rC, m, 0));
+    CR2::release(pin2(A->_aligned_ptr, m, 0));
   }
   
   Tensor_float_2 output = make_tensor_float_2(rC, oshape);
   *C = output;
 }
+
+constexpr int num_thread = 5;
+constexpr int N_input = 5; // multiple times of thread
+constexpr int workload = N_input / num_thread;
+
+struct T_pack {
+  Tensor_float_2 *C;
+  Tensor_float_2 *A;
+  Tensor_float_2 *B;
+};
+
+template<typename CR1, typename CR2>
+void *run(void *data) {
+  T_pack *p = (T_pack *) data;
+  for (int i = 0; i < workload; ++i) {
+    _mlir_ciface_main_graph<CR1,CR2>(p->C + i, p->A + i, p->B);
+  }
+  return NULL;
+}
+
 
 void * rdma_poll_rountine(void *) {
   poll_all();
@@ -95,49 +121,72 @@ void * rdma_poll_rountine(void *) {
 }
 
 int main () {
+  // far mem setup
   init_client();
   pthread_t pool_t;
   pthread_create(&pool_t, NULL, rdma_poll_rountine, NULL);
 
+  // assign workload
+  float *bufA[N_input];
+  float *rA[N_input];
+  float *bufB;
 
   int64_t shapeA[] = {M, K};
-  float *bufA = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
-
   int64_t shapeB[] = {K, N};
-  float *bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
+  int64_t shapeC[] = {M, N};
 
-  float *rA = (float *) CAR::alloc(sizeof(float) * M * K);
+  for (int i = 0; i < N_input; ++ i) {
+    bufA[i] = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
+    rA[i] = (float *) CAR::alloc(sizeof(float) * M * K);
+  }
+  bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
 
-  for (int64_t m = 0; m < M; m += 4) {
-    float *wA = CAR::get_mut<float>(pin2(rA, m, 0));
-    for (int64_t i = 0; i < 4; ++ i) {
-      for (int64_t j = 0; j < N; ++ j) {
-        *pin2(wA, i, j) = *pin2(bufA, m+i, j);
+  // push input
+  for (int k = 0; k < num_thread; ++ k) {
+    for (int64_t m = 0; m < M; m += 4) {
+      float *wA = CAR::get_mut<float>(pin2(rA[k], m, 0));
+      for (int64_t i = 0; i < 4; ++ i) {
+        for (int64_t j = 0; j < N; ++ j) {
+          *pin2(wA, i, j) = *pin2(bufA[k], m+i, j);
+        }
       }
+      CAR::release(pin2(rA[k], m, 0));
     }
   }
 
-  Tensor_float_2 A = make_tensor_float_2(rA, shapeA);
-  Tensor_float_2 B = make_tensor_float_2(bufB, shapeB);
-  printf("After setup\n");
+  printf("After push to remote\n");
 
-  Tensor_float_2 C;
-  int64_t shapeC[] = {M, N};
-  float *C_truth = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/C.dat", shapeC, 2);
+  Tensor_float_2 A[num_thread][workload];
+  Tensor_float_2 C[num_thread][workload];
+  Tensor_float_2 B = make_tensor_float_2(bufB, shapeB);
+  T_pack p[num_thread];
+  for (int i = 0; i < num_thread; ++ i) {
+    for (int j = 0; j < workload; ++ j) {
+      A[i][j] = make_tensor_float_2(rA[i * workload + j], shapeA);
+      C[i][j] = make_tensor_float_2(NULL, shapeC);
+    }
+    p[i].A = A[i];
+    p[i].B = &B;
+    p[i].C = C[i];
+  }
 
   uint64_t start = microtime();
-  _mlir_ciface_main_graph<CCR,CAR>(&C, &A, &B);
+  pthread_t t[num_thread];
+  for (int i = 0; i < num_thread; ++ i) {
+    pthread_create(t+i, NULL, run<CAR,CCR>, p+i);
+  }
+  for (int i = 0; i < num_thread; ++ i) {
+    pthread_join(t[i], NULL);
+  }
   uint64_t end = microtime();
   printf("time: %.5f s\n", (float)(end-start)/1e6);
 
-  float *C_pred = (float *) malloc(sizeof(float) * M * N);
-  for (int i = 0; i < M; i += 4) {
-    float *lC = CCR::get<float>(pin2(C._aligned_ptr, i, 0));
-    memcpy(pin2(C_pred, i, 0), lC, CC::Value::linesize);
-  }
-
   for (int i = 0; i < 2; ++ i)
-    printf("%ld\n", C.shapes[i]);
-  check_output_float(C_pred, C_truth, shapeC, 2);
+    printf("%ld\n", p->C[0].shapes[i]);
+  // check_output_float(C._aligned_ptr, C_truth, shapeC, 2);
+
+  // for (int i = 0; i < 2; ++ i)
+  //   printf("%ld\n", C1.shapes[i]);
+  // check_output_float(C1._aligned_ptr, C_truth, shapeC, 2);
   return 0;
 }

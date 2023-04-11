@@ -3,6 +3,9 @@
 
 #include <infiniband/verbs.h>
 #include <stdint.h>
+#include <map>
+#include <unordered_map>
+#include <set>
 
 #include "common.h"
 #include "rdmaop.hpp"
@@ -100,6 +103,7 @@ struct SetAssocativeCache {
         Op::token(t).meta2 = settick++;
         return t;
 #endif
+        // LFU
         int wayslot = ((vaddr / linesize) % slots) & waymask;
         auto &token0 = Op::token(wayslot);
         int min = token0.pad0, t = wayslot;
@@ -117,9 +121,65 @@ struct SetAssocativeCache {
     }
 };
 
+#if 1
+
+struct pageinfo {
+    int stamp;
+    int off;
+    bool operator< (const pageinfo& a) const {
+        return this->stamp < a.stamp;
+    } 
+};
+
+static std::set<pageinfo> plist{};
+static std::map<uint64_t, std::set<pageinfo>::iterator> pgtable{};
+static int lrutick = 0;
+static uint64_t sid = 0;
+
+template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int qid>
+struct FullLRUCache {
+    using Op = CacheOp<offset, rbuf, buf, linesize, qid>;
+    using Value = CacheValues<buf,slots,linesize,qid>;
+
+    // vaddr is tag 
+    static inline int select(uint64_t vaddr) {
+        lrutick ++;
+        const auto &l = pgtable.find(vaddr);
+        int off = -1;
+        if (l != pgtable.end()) {
+            off = l->second->off;
+            plist.erase(l->second);
+            auto [it, ok] = plist.insert({lrutick, off});
+            l->second = it;
+        } else {
+            // populate the initial slots first
+            // DO NOT early eviction
+            if (sid < slots) {
+                // insert new
+                off = sid ++;
+                auto [it, ok] = plist.insert({lrutick, off});
+                pgtable[vaddr] = it;
+            } else {
+                // Evict from global LRU
+                const auto &vic = plist.begin();
+                auto &tvic = Op::token(vic->off);
+                pgtable.erase(tvic.tag);
+                off = vic->off;
+                auto [it, ok] = plist.insert({lrutick, off});
+                pgtable[vaddr] = it;
+                plist.erase(vic);
+            }
+        }
+        return off;
+    }
+};
+#endif
+
+#define C_PART 0
 // TODO: bool?
 // bool ignore
-template <typename C, typename Tlb = NoTlb,
+template <typename C, bool need_mt = false,
+         typename Tlb = NoTlb,
          bool opt_writeback = true, bool opt_sync = false>
 struct CacheReq {
 
@@ -131,12 +191,30 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
     req = _pwr + wr_offset;
     C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_READ, NULL, send);
 
+#if C_PART
+    if (tag <= 0x40000000UL)
+       (volatile uint64_t *)counters[512]++;
+    else {
+       (volatile uint64_t *)counters[513]++;
+    }
+#endif
+
     if constexpr (opt_writeback) {
         // only enable if we want write back
         if (token.dirty()) { // build req 0 (write)
             C::Op::rdma(wr_offset + 1, offset, token.tag,
                     IBV_WR_RDMA_WRITE, req, false);
             req = _pwr + wr_offset + 1;
+
+            // if counter_512...
+#if C_PART
+            if (token.tag <= 0x40000000UL) {
+               (volatile uint64_t *)counters[512]--;
+            }
+            else {
+                (volatile uint64_t *)counters[513]--;
+            }
+#endif
 
             // update b
             Tlb::invalid(tag);
@@ -167,8 +245,8 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
 
 static void request_poll(int offset, uint64_t tag) {
     cache_request_impl(C::Value::qid * 2, tag, offset, NULL, true);
-    // poll_qid(C::Value::qid, C::Op::token(offset).seq);
-    wait_qid(C::Value::qid, C::Op::token(offset).seq);
+    poll_qid(C::Value::qid, C::Op::token(offset).seq);
+    // wait_qid(C::Value::qid, C::Op::token(offset).seq);
 }
 
 static int request(int offset, uint64_t tag) {
@@ -188,7 +266,7 @@ static inline T * get(void * vaddr) {
         // return Tlb::offset();
 
     int off = C::select(tag);
-    auto &token = C::Op::token(off);
+    Token &token = C::Op::token(off);
 
     auto ret = C::Op::template paddr<T>(off, (uint64_t)vaddr);
     if (token.valid() && token.tag == tag) {
@@ -198,6 +276,7 @@ static inline T * get(void * vaddr) {
     }
 
     if constexpr (miss_counter) counters[miss_counter]++;
+    if constexpr (need_mt) pthread_spin_lock(&token.lock);
     request_poll(off, tag);
 
     // printf("Sync cache[%d] <%d|r:%d,s:%d>\n", C::Value::qid,
@@ -220,12 +299,19 @@ static inline T * get_mut(void * vaddr) {
         return ret;
     }
     if constexpr (miss_counter) counters[miss_counter]++;
-
+    if constexpr (need_mt) pthread_spin_lock(&token.lock);
     request_poll(off, tag);
     // poll_qid(C::Value::qid, token.seq);
 
     token.add(Token::Dirty);
     return ret;
+}
+
+static inline void release(void * vaddr) {
+    uint64_t tag = C::Op::tag((uint64_t)vaddr);
+    int off = C::select(tag);
+    auto &token = C::Op::token(off);
+    pthread_spin_unlock(&token.lock);
 }
 
 static inline void * alloc(size_t size) {

@@ -13,7 +13,7 @@
 const uint64_t line_size = (4UL << 10);
 
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (1024ULL<< 20);
+const uint64_t c1_size = (512<< 20);
 const int c1_slots = c1_size / line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
@@ -21,6 +21,7 @@ const int c1_slots = c1_size / line_size;
 using C1 = FullLRUCache<0,c1_raddr,0,c1_slots,line_size,0>;
 
 using C1R = CacheReq<C1>;
+uint64_t *nano_get_lat;
 
 // CLS 4K
 const uint64_t eles = line_size / sizeof(arc_t);
@@ -31,6 +32,7 @@ void setup() {
   arc = (arc_t *) C1R::alloc(sizeof(arc_t) * M_arc);
 
   printf("node: %p, arc: %p\n", node, arc);
+  nano_get_lat = (uint64_t *) aligned_alloc(4096, 2 * M_arc * sizeof(uint64_t));
 
   for (int i = 0; i < N_node; ++ i) {
     node_t *nodei = C1R::get_mut<node_t>(node + i);
@@ -50,48 +52,21 @@ void setup() {
     p->tail = node + node_list[nextRand()];
     p->head = node + node_list[nextRand()];
   }
-#if 0
-  for (int j = n_blocks - 1; j >= 0; j-- ) {
-    // printf("%d, %lx\n", j, (uintptr_t) (arc + j*eles));
-    arc_t *p = C1R::get_mut<arc_t>(arc + j * eles);
-    for( int i = 0; i < eles; i++ ) { 
-      p[i].tail = node + dist1(g);
-      p[i].head = node + dist1(g);
-    }
-  }
-#endif
 }
 
 // TODO: node_t and arc_t
 // add prefetch ?
 
 void visit() {
-#if 0
-  for (int j = 0; j < n_blocks; j++ ) {
-    arc_t *p = C1R::get_mut<arc_t>(arc + j * eles);
-    for( int i = 0; i < eles; i++ ) {
-        arc_t *arci = p + i;
-        node_t *node_tail = C1R::get_mut<node_t>(arci->tail);
-        arci->nextout = node_tail->firstout;
-        node_tail->firstout = arc + j * eles + i;
-        computation(arci, node_tail);
-
-        node_t *node_head = C1R::get_mut<node_t>(arci->head);
-        arci->nextin = node_head->firstin;
-        node_head->firstin = arc + j * eles + i;
-        computation(arci, node_head);
-    }
-  }
-#endif
-
   for (int i = 0; i < M_arc; ++ i) {
-    arc_t *arci = C1R::get_mut<arc_t,1,2>(arc + i);
-    // node_t *node_tail = C1R::get_mut<node_t,3,4>(arci->tail);
-    // arci->nextout = node_tail->firstout;
-    // node_tail->firstout = arc + i;
-    // computation(arci, node_tail);
+    uint64_t arc_get_start = getCurNs(); 
+    arc_t *arci = C1R::get_mut<arc_t>(arc + i); 
+    uint64_t arc_get_end = getCurNs();
+    node_t *node_head = C1R::get_mut<node_t>(arci->head);
+    uint64_t node_get_end = getCurNs();
+    nano_get_lat[i * 2] = arc_get_end - arc_get_start;
+    nano_get_lat[i * 2 + 1] = node_get_end - arc_get_end;
 
-    node_t *node_head = C1R::get_mut<node_t,3,4>(arci->head);
     arci->nextin = node_head->firstin;
     node_head->firstin = arc + i;
     computation(arci, node_head);
@@ -110,6 +85,11 @@ void do_work() {
   printf("Dont opt this %d\n", g_payload[5]);
   printf("arc miss/hit = %lu, %lu\n", counters[1], counters[2]);
   printf("node miss/hit = %lu, %lu\n", counters[3], counters[4]);
+
+  printf("Dump get latency\n");
+  FILE *lf = fopen("lru_get_lat.txt", "wb");
+  fwrite(nano_get_lat, sizeof(uint64_t), 2*M_arc, lf);
+  fclose(lf);
   // check();
 }
 

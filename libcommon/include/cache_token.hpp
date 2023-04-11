@@ -2,9 +2,10 @@
 #define _CACHE_TOKEN_HPP_
 
 #include <stdint.h>
+#include <pthread.h>
 
 #ifndef NUM_TOKENS
-    #define NUM_TOKENS (16 * 1024 * 1024)
+    #define NUM_TOKENS (32 * 1024 * 1024)
 #endif
 
 #define NUM_COUNTERS 1024
@@ -14,7 +15,13 @@ struct Token {
     uint8_t flags;
     uint8_t pad0;
     uint16_t seq;
-    uint32_t meta2;
+    // uint32_t meta2;
+    pthread_spinlock_t lock;
+
+    // ctor
+    Token(): tag(0), flags(0), pad0(0), seq(0) {
+        pthread_spin_init(&lock, 0);
+    }
     
     // methods
     inline bool valid() { return flags & 0x1; } 

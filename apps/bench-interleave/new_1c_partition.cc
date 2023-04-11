@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <random>
 #include <algorithm>    // std::shuffle
+#include <chrono>
+#include <thread>
 
 #include "common.h"
 #include "workload.hpp"
@@ -113,10 +115,21 @@ void do_work() {
   // check();
 }
 
+void * dump_mem_partition(void *) {
+  while (true) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    fprintf(stderr, "%lu - %lu\n", 
+    ((volatile uint64_t *)counters)[512], 
+    ((volatile uint64_t *)counters)[513]);
+  }
+}
 
 int main () {
   t0 = microtime();
   init_client();
+
+  pthread_t part_t;
+  pthread_create(&part_t, NULL, dump_mem_partition, NULL);
 
   do_work();
   return 0;

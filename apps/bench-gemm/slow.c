@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include <immintrin.h>
 #include "common.h"
-#include <pthread.h>
-#include "util.hpp"
 
 #define M 64512
 #define K 512
@@ -35,6 +33,7 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
   __m256 ap;
   __m256 bv;
   __m256 mul;
+  __m256i ones = _mm256_set1_epi32(1);
 
   for (int64_t m = 0; m < M; m += 4) {
     for (int64_t n = 0; n < N; n += 8) {
@@ -55,11 +54,11 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
             }
           }
         }
+      }
 
-        // Store C [4x8]
-        for (int i = 0; i < 4; ++ i) {
-          _mm256_storeu_ps(pin2(oC, m + i, n), alloca[i]);
-        }
+      // Store C [4x8]
+      for (int i = 0; i < 4; ++ i) {
+        _mm256_maskstore_ps(pin2(oC, m + i, n), ones, alloca[i]);
       }
     }
   }
@@ -67,68 +66,24 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
   *C = output;
 }
 
-
-constexpr int num_thread = 1;
-constexpr int N_input = 2; // multiple times of thread
-
-struct T_pack {
-  Tensor_float_2 *C;
-  Tensor_float_2 *A;
-  Tensor_float_2 *B;
-};
-
-void *run(void *data) {
-  T_pack *p = (T_pack *) data;
-  for (int i = 0; i < N_input / num_thread; ++i) {
-    _mlir_ciface_main_graph(p->C + i, p->A + i, p->B);
-  }
-  return NULL;
-}
-
 int main () {
-  float *bufA[N_input];
-  float *bufB;
-
   int64_t shapeA[] = {M, K};
+  float *bufA = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/A.dat", shapeA, 2);
+
   int64_t shapeB[] = {K, N};
-  int64_t shapeC[] = {M, N};
+  float *bufB = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/B.dat", shapeB, 2);
 
-  for (int i = 0; i < N_input; ++ i) {
-    bufA[i] = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
-  }
-  bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
-
-  Tensor_float_2 A[num_thread][N_input / num_thread];
-  Tensor_float_2 C[num_thread][N_input / num_thread];
+  Tensor_float_2 A = make_tensor_float_2(bufA, shapeA);
   Tensor_float_2 B = make_tensor_float_2(bufB, shapeB);
-  T_pack p[num_thread];
 
-  for (int i = 0; i < num_thread; ++ i) {
-    for (int j = 0; j < N_input / num_thread; ++ j) {
-      A[i][j] = make_tensor_float_2(bufA[i*N_input/num_thread + j], shapeA);
-      C[i][j] = make_tensor_float_2(NULL, shapeC);
-    }
-    p[i].A = A[i];
-    p[i].B = &B;
-    p[i].C = C[i];
-  }
-  printf("After setup\n");
+  Tensor_float_2 C;
+  int64_t shapeC[] = {M, N};
+  float *C_truth = read_tensor_float("/users/Zijian/raw_eth_pktgen/apps/bench-gemm/C.dat", shapeC, 2);
 
-  // float *C_truth = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/C.dat", shapeC, 2);
-
-  pthread_t t[num_thread];
   uint64_t start = microtime();
-  for (int i = 0; i < num_thread; ++ i) {
-    pthread_create(t+i, NULL, run, p+i);
-  }
-  for (int i = 0; i < num_thread; ++ i) {
-    pthread_join(t[i], NULL);
-  }
+  _mlir_ciface_main_graph(&C, &A, &B);
   uint64_t end = microtime();
   printf("time: %.5f s\n", (float)(end-start)/1e6);
 
-  for (int i = 0; i < 2; ++ i)
-    printf("%ld\n", p->C[0].shapes[i]);
-  // check_output_float(p[0].C->_aligned_ptr, C_truth, shapeC, 2);  
   return 0;
 }

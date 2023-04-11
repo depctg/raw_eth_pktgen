@@ -35,6 +35,8 @@ using CA5 = DirectCache<10*A_slots,10*A_total_size,10*A_local_size,A_slots,A_lin
 using CAR5 = CacheReq<CA5>;
 using CA6 = DirectCache<12*A_slots,12*A_total_size,12*A_local_size,A_slots,A_line,12>;
 using CAR6 = CacheReq<CA6>;
+using CA7 = DirectCache<14*A_slots,14*A_total_size,14*A_local_size,A_slots,A_line,14>;
+using CAR7 = CacheReq<CA7>;
 using CC0 = DirectCache<1*A_slots,1*A_total_size,1*A_local_size,A_slots,A_line,1>;
 using CCR0 = CacheReq<CC0>;
 using CC1 = DirectCache<3*A_slots,3*A_total_size,3*A_local_size,A_slots,A_line,3>;
@@ -49,6 +51,8 @@ using CC5 = DirectCache<11*A_slots,11*A_total_size,11*A_local_size,A_slots,A_lin
 using CCR5 = CacheReq<CC5>;
 using CC6 = DirectCache<13*A_slots,13*A_total_size,13*A_local_size,A_slots,A_line,13>;
 using CCR6 = CacheReq<CC6>;
+using CC7 = DirectCache<15*A_slots,15*A_total_size,15*A_local_size,A_slots,A_line,15>;
+using CCR7 = CacheReq<CC7>;
 
 struct T_pack {
   Tensor_float_2 *C;
@@ -61,7 +65,11 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
   return buf + a * strides2[0] + b;
 }
 
-template<typename CR1, typename CR2, int t>
+const int n_ahead = 4;
+const uint64_t n_blocks = M / 4;
+
+template<typename C1, typename C2,
+         typename CR1, typename CR2, int t>
 void* _mlir_ciface_main_graph(void *data) {
   T_pack *p = (T_pack *) data;
   int64_t oshape[] = {M, N};
@@ -71,8 +79,37 @@ void* _mlir_ciface_main_graph(void *data) {
 
   // float *oC = (float *) aligned_alloc(4096, sizeof(float) * num_ele);
   float *rC = (float *) CR1::alloc(sizeof(float) * num_ele);
-  for (int64_t i = 0; i < M; i += 4) {
-    float *lC = CR1::template get_mut<float>(pin2(rC, i, 0));
+  // for (int64_t i = 0; i < M; i += 4) {
+  //   float *lC = CR1::template get_mut<float>(pin2(rC, i, 0));
+  //   memset(lC, 0, 8192);
+  // }
+  int C_offs[n_ahead+1];
+  uint64_t C_tags[n_ahead+1];
+
+  // prologue
+  for (int i = 0; i < n_ahead; ++ i) {
+    C_tags[i] = C1::Op::tag((uint64_t)(pin2(rC, i*4, 0)));
+    C_offs[i] = C1::select(C_tags[i]);
+    CR1::request(C_offs[i], C_tags[i]);
+  }
+  for (int i = 0; i < n_blocks; ++i) {
+    // prefetch
+    if (i < n_blocks - n_ahead) {
+      int idxn = (i + n_ahead) % (n_ahead + 1);
+      C_tags[idxn] = C1::Op::tag((uint64_t)(pin2(rC, (i+n_ahead)*4, 0)));
+      C_offs[idxn] = C1::select(C_tags[idxn]);
+
+      CR1::request(C_offs[idxn], C_tags[idxn]);
+    }
+
+    //sync current
+    int idx = i % (n_ahead + 1);
+    auto &token = C1::Op::token(C_offs[idx]);
+    token.add(Token::Dirty);
+    wait_qid(C1::Value::qid, token.seq);
+
+    // work
+    float *lC = C1::Op::template paddr<float>(C_offs[idx], (uint64_t)pin2(rC, i*4, 0));
     memset(lC, 0, 8192);
   }
 
@@ -82,11 +119,47 @@ void* _mlir_ciface_main_graph(void *data) {
   __m256 mul;
 
   float *lB = p->B->_aligned_ptr;
+  float *rA = p->A->_aligned_ptr;
 
-  // printf("after get B\n");
-  for (int64_t m = 0; m < M; m += 4) {
-    float *lA = CR2::template get<float>(pin2(p->A->_aligned_ptr, m, 0));
-    float *lC = CR1::template get_mut<float>(pin2(rC, m, 0));
+  int A_offs[n_ahead+1];
+  uint64_t A_tags[n_ahead+1];
+
+  // prologue
+  for (int h = 0; h < n_ahead; ++ h) {
+    C_tags[h] = C1::Op::tag((uint64_t)(pin2(rC, h*4, 0)));
+    C_offs[h] = C1::select(C_tags[h]);
+    CR1::request(C_offs[h], C_tags[h]);
+
+    A_tags[h] = C2::Op::tag((uint64_t)(pin2(rA, h*4, 0)));
+    A_offs[h] = C2::select(A_tags[h]);
+    CR2::request(A_offs[h], A_tags[h]);
+  } 
+
+  for (int64_t b = 0; b < n_blocks; ++ b) {
+    // prefetch
+    if (b < n_blocks - n_ahead) {
+      int idxn = (b + n_ahead) % (n_ahead + 1);
+      C_tags[idxn] = C1::Op::tag((uint64_t)(pin2(rC, (b+n_ahead)*4, 0)));
+      C_offs[idxn] = C1::select(C_tags[idxn]);
+      CR1::request(C_offs[idxn], C_tags[idxn]);
+
+      A_tags[idxn] = C2::Op::tag((uint64_t)(pin2(rA, (b+n_ahead)*4, 0)));
+      A_offs[idxn] = C2::select(A_tags[idxn]);
+      CR2::request(A_offs[idxn], A_tags[idxn]);
+    }
+    //sync current
+    int idx = b % (n_ahead + 1);
+    auto &token = C1::Op::token(C_offs[idx]);
+    token.add(Token::Dirty);
+    wait_qid(C1::Value::qid, token.seq);
+
+    token = C2::Op::token(A_offs[idx]);
+    wait_qid(C2::Value::qid, token.seq);
+
+    // work
+    float *lC = C1::Op::template paddr<float>(C_offs[idx], (uint64_t)pin2(rC, b*4, 0));
+    float *lA = C2::Op::template paddr<float>(A_offs[idx], (uint64_t)pin2(rA, b*4, 0));
+
     for (int64_t n = 0; n < N; n += 8) {
       for (int64_t k = 0; k < K; k += 8) {
         // load C [4x8]
@@ -126,6 +199,7 @@ void * rdma_poll_rountine(void *) {
 }
 
 int main () {
+  uint64_t ts = microtime();
   init_client();
   pthread_t pool_t;
   pthread_create(&pool_t, NULL, rdma_poll_rountine, NULL);
@@ -144,6 +218,7 @@ int main () {
   float *rA4 = (float *) CAR4::alloc(sizeof(float) * M * K);
   float *rA5 = (float *) CAR5::alloc(sizeof(float) * M * K);
   float *rA6 = (float *) CAR6::alloc(sizeof(float) * M * K);
+  float *rA7 = (float *) CAR7::alloc(sizeof(float) * M * K);
 
   for (int64_t m = 0; m < M; m += 4) {
     float *wA0 = CAR0::get_mut<float>(pin2(rA0, m, 0));
@@ -153,6 +228,7 @@ int main () {
     float *wA4 = CAR4::get_mut<float>(pin2(rA4, m, 0));
     float *wA5 = CAR5::get_mut<float>(pin2(rA5, m, 0));
     float *wA6 = CAR6::get_mut<float>(pin2(rA6, m, 0));
+    float *wA7 = CAR7::get_mut<float>(pin2(rA7, m, 0));
     for (int64_t i = 0; i < 4; ++ i) {
       for (int64_t j = 0; j < N; ++ j) {
         *pin2(wA0, i, j) = *pin2(bufA, m+i, j);
@@ -162,6 +238,7 @@ int main () {
         *pin2(wA4, i, j) = *pin2(bufA, m+i, j);
         *pin2(wA5, i, j) = *pin2(bufA, m+i, j);
         *pin2(wA6, i, j) = *pin2(bufA, m+i, j);
+        *pin2(wA7, i, j) = *pin2(bufA, m+i, j);
       }
     }
   }
@@ -197,18 +274,23 @@ pthread_t t5;
   Tensor_float_2 C6;
   T_pack p6 = {&C6, &A6, &B};
 pthread_t t6;
+  Tensor_float_2 A7 = make_tensor_float_2(rA7, shapeA);
+  Tensor_float_2 C7;
+  T_pack p7 = {&C7, &A7, &B};
+pthread_t t7;
 
   int64_t shapeC[] = {M, N};
   float *C_truth = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/C.dat", shapeC, 2);
 
   uint64_t start = microtime();
-  pthread_create(&t0, NULL, _mlir_ciface_main_graph<CCR0,CAR0,0>, &p0);
-pthread_create(&t1, NULL, _mlir_ciface_main_graph<CCR1,CAR1,1>, &p1);
-pthread_create(&t2, NULL, _mlir_ciface_main_graph<CCR2,CAR2,2>, &p2);
-pthread_create(&t3, NULL, _mlir_ciface_main_graph<CCR3,CAR3,3>, &p3);
-pthread_create(&t4, NULL, _mlir_ciface_main_graph<CCR4,CAR4,4>, &p4);
-pthread_create(&t5, NULL, _mlir_ciface_main_graph<CCR5,CAR5,5>, &p5);
-pthread_create(&t6, NULL, _mlir_ciface_main_graph<CCR6,CAR6,6>, &p6);
+  pthread_create(&t0, NULL, _mlir_ciface_main_graph<CC0,CA0,CCR0,CAR0,0>, &p0);
+pthread_create(&t1, NULL, _mlir_ciface_main_graph<CC1,CA1,CCR1,CAR1,1>, &p1);
+pthread_create(&t2, NULL, _mlir_ciface_main_graph<CC2,CA2,CCR2,CAR2,2>, &p2);
+pthread_create(&t3, NULL, _mlir_ciface_main_graph<CC3,CA3,CCR3,CAR3,3>, &p3);
+pthread_create(&t4, NULL, _mlir_ciface_main_graph<CC4,CA4,CCR4,CAR4,4>, &p4);
+pthread_create(&t5, NULL, _mlir_ciface_main_graph<CC5,CA5,CCR5,CAR5,5>, &p5);
+pthread_create(&t6, NULL, _mlir_ciface_main_graph<CC6,CA6,CCR6,CAR6,6>, &p6);
+pthread_create(&t7, NULL, _mlir_ciface_main_graph<CC7,CA7,CCR7,CAR7,7>, &p7);
 pthread_join(t0, NULL);
 pthread_join(t1, NULL);
 pthread_join(t2, NULL);
@@ -216,7 +298,9 @@ pthread_join(t3, NULL);
 pthread_join(t4, NULL);
 pthread_join(t5, NULL);
 pthread_join(t6, NULL);
+pthread_join(t7, NULL);
   uint64_t end = microtime();
+  printf("run at: %.5f s\n", (float)(start-ts)/1e6);
   printf("time: %.5f s\n", (float)(end-start)/1e6);
 
   for (int i = 0; i < 2; ++ i)

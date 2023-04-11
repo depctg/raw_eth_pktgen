@@ -78,7 +78,7 @@ static inline void poll_qid(uint8_t qid, uint16_t seq) {
     }
 }
 
-static void poll_all() {
+static inline void poll_all() {
     struct ibv_wc wc[MAX_POLL];
     // TODO: inflight?
     // test this!

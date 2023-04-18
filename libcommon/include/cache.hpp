@@ -6,6 +6,10 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <list>
+#include <sparsehash/dense_hash_map>
+#include <tsl/robin_map.h>
+#include <tsl/unordered_dense.h>
 
 #include "common.h"
 #include "rdmaop.hpp"
@@ -131,8 +135,15 @@ struct pageinfo {
     } 
 };
 
-static std::set<pageinfo> plist{};
-static std::map<uint64_t, std::set<pageinfo>::iterator> pgtable{};
+using google::dense_hash_map;
+static std::list<pageinfo> plist{};
+// static std::unordered_map<uint64_t, decltype(plist)::iterator> pgtable{};
+// static dense_hash_map<uint64_t, decltype(plist)::iterator> pgtable;
+static tsl::robin_map<uint64_t, decltype(plist)::iterator, ankerl::unordered_dense::hash<uint64_t>> pgtable;
+constexpr uint64_t num_entry = (1ULL << 30) / 64;
+// static decltype(plist)::iterator pgtable_ary[num_entry];
+
+
 static int lrutick = 0;
 static uint64_t sid = 0;
 
@@ -140,7 +151,7 @@ template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int 
 struct FullLRUCache {
     using Op = CacheOp<offset, rbuf, buf, linesize, qid>;
     using Value = CacheValues<buf,slots,linesize,qid>;
-
+#if 1
     // vaddr is tag 
     static inline int select(uint64_t vaddr) {
         lrutick ++;
@@ -148,32 +159,72 @@ struct FullLRUCache {
         int off = -1;
         if (l != pgtable.end()) {
             off = l->second->off;
-            plist.erase(l->second);
-            auto [it, ok] = plist.insert({lrutick, off});
-            l->second = it;
+            plist.splice(plist.cbegin(), plist, l->second);
+            // l->second = plist.begin();
         } else {
             // populate the initial slots first
             // DO NOT early eviction
             if (sid < slots) {
                 // insert new
                 off = sid ++;
-                auto [it, ok] = plist.insert({lrutick, off});
+                auto it = plist.insert(plist.cbegin(), {lrutick, off});
                 pgtable[vaddr] = it;
             } else {
                 // Evict from global LRU
-                const auto &vic = plist.begin();
+                const auto &vic = std::prev(plist.end());
                 auto &tvic = Op::token(vic->off);
                 pgtable.erase(tvic.tag);
+                // auto out = pgtable.extract(tvic.tag);
                 off = vic->off;
-                auto [it, ok] = plist.insert({lrutick, off});
-                pgtable[vaddr] = it;
-                plist.erase(vic);
+                plist.splice(plist.cbegin(), plist, vic);
+                // vic->stamp = lrutick;
+                // out.key() = vaddr;
+                // pgtable.insert(std::move(out));
+                pgtable[vaddr] = vic;
             }
         }
         return off;
     }
+
+#endif
+#if 0
+        static inline int select(uint64_t vaddr) {
+        lrutick ++;
+        uint64_t idx = vaddr / linesize;
+        const auto &l = pgtable_ary[idx];
+        int off = -1;
+        if (l != plist.end()) {
+            off = l->off;
+            plist.splice(plist.cbegin(), plist, l);
+            // l->second = plist.begin();
+        } else {
+            // populate the initial slots first
+            // DO NOT early eviction
+            if (sid < slots) {
+                // insert new
+                off = sid ++;
+                auto it = plist.insert(plist.cbegin(), {lrutick, off});
+                pgtable[idx] = it;
+            } else {
+                // Evict from global LRU
+                auto vic = std::prev(plist.end());
+                auto &tvic = Op::token(vic->off);
+                pgtable[tvic.tag / linesize] = plist.end();
+                off = vic->off;
+                // auto it = plist.insert(plist.cbegin(), {lrutick, off});
+                plist.splice(plist.cbegin(), plist, vic);
+                vic->stamp = lrutick;
+
+                pgtable[idx] = vic;
+                // plist.erase(vic);
+            }
+        }
+        return off;
+    }
+#endif
 };
 #endif
+
 
 #define C_PART 0
 // TODO: bool?

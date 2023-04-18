@@ -11,7 +11,7 @@
 #include "util.hpp"
 
 // node
-const uint64_t c1_line_size = (128);
+const uint64_t c1_line_size = (8192);
 const uint64_t c1_raddr = 0;
 const uint64_t c1_size = (1000ULL << 20);
 const int c1_slots = c1_size / c1_line_size;
@@ -25,6 +25,7 @@ const int c2_slots = c2_size / c2_line_size;
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
 using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
 // using C1 = SetAssocativeCache<0,c1_raddr,0,c1_slots,c1_line_size,0,4>;
+// using C1 = FullLRUCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
 using C2 = DirectCache<c1_slots,c2_raddr,(1ULL<<30),c2_slots,c2_line_size,1>;
 
 using C1R = CacheReq<C1>;
@@ -39,6 +40,9 @@ void setup() {
   printf("size arc:  %lu\n", sizeof(arc_t));
   node = (node_t *) C1R::alloc(sizeof(node_t) * N_node);
   arc = (arc_t *) C2R::alloc(sizeof(arc_t) * M_arc);
+  // for (uint64_t i = 0; i < num_entry; ++ i) {
+  //   pgtable_ary[i] = plist.end();
+  // }
 
   for (int i = 0; i < N_node; ++ i) {
     node_t *nodei = C1R::get_mut<node_t>(node + i);
@@ -110,7 +114,7 @@ void visit() {
         // node_tail->firstout = arc + j * eles + i;
         // computation(arci, node_tail);
 
-        node_t *node_head = C1R::get_mut<node_t>(arci->head);
+        node_t *node_head = C1R::get_mut<node_t,3,4>(arci->head);
         arci->nextin = node_head->firstin;
         node_head->firstin = arc + j * eles + i;
         computation(arci, node_head);

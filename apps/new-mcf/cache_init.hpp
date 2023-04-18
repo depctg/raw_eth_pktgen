@@ -7,15 +7,16 @@
 #include "common.h"
 #include "cache.hpp"
 
-const int linesize = 4 * 1024;
-const int total_size = 512 * 1024 * 1024;
+const uint64_t linesize = 128;
+const uint64_t total_size = 1548 * 1024 * 1024;
 const int slots = total_size / linesize;
 const uint64_t c1_raddr = 0;
 
 // using C1 = DirectCache<0,c1_raddr,0,slots,linesize,0>;
+using C1 = FullLRUCache<0,c1_raddr,0,slots,linesize,0>;
 
 const int num_ways = 2;
-using C1 = SmallSetAssocCache<0,c1_raddr,0,slots,linesize,0,num_ways>;
+// using C1 = SmallSetAssocCache<0,c1_raddr,0,slots,linesize,0,num_ways>;
 
 using C1R = CacheReq<C1>;
 

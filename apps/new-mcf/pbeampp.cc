@@ -18,15 +18,11 @@ Copyright (c) 2003-2005 Andreas Loebel.
 /*  LAST EDIT: Sun Nov 21 16:22:04 2004 by Andreas Loebel (boss.local.de)  */
 /*  $Id: pbeampp.c,v 1.10 2005/02/17 19:42:32 bzfloebe Exp $  */
 
-
+#include "pbeampp.h"
+#include "cache_init.hpp"
 
 #define K 300
 #define B  50
-
-
-
-#include "pbeampp.h"
-#include "cache_init.hpp"
 
 #ifdef _PROTO_
 int bea_is_dual_infeasible( arc_t *arc, cost_t red_cost )

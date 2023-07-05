@@ -10,7 +10,7 @@
 
 // total num_eles approx 128 * 1024 * 1024
 const size_t sall_nb = 512 * 1024;
-const size_t sall_n_block = 256;  // 82.3 MB/block (all steps) 
+const size_t sall_n_block = 287;  // 82.3 MB/block (all steps) 
 
 // total 30 GB -> local X * 30
 rring_init(rvid,       int,        sall_nb * sizeof(int),        sall_n_block, 0, 8192);
@@ -107,9 +107,9 @@ void step2_get_data_by_sel (const char *name, F &sel_func, std::vector<T>& newve
     rring_outer_loop_with(rvid, col_s);
     rring_outer_loop_with(rpsgcnt, col_s);
     rring_outer_loop(rids, size_t, col_s) {
-        rring_prefetch_with(rids, rvid, 8);
-        rring_prefetch_with(rids, rpsgcnt, 8);
-        rring_prefetch(rids, 8);
+        rring_prefetch_with(rids, rvid, 16);
+        rring_prefetch_with(rids, rpsgcnt, 16);
+        rring_prefetch(rids, 16);
 
         rring_inner_preloop(rvid, int);
         rring_inner_preloop(rpsgcnt, int);

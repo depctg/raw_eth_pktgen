@@ -553,7 +553,7 @@ _lbase_rids = (uint64_t) rbuf + (19ULL << 30);
     printf("total amount\n");
 }
 #endif
-
+    printf("after setup\n");
     std::chrono::time_point<std::chrono::steady_clock> times[10];
     times[0] = std::chrono::steady_clock::now();
     print_number_vendor_ids_and_unique();

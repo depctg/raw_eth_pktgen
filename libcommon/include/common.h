@@ -44,7 +44,7 @@ extern "C" {
 
 /* size for local buffers */
 #define SEND_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
-#define RECV_BUF_SIZE ((4ULL << 30) + (4ULL << 20))
+#define RECV_BUF_SIZE ((24ULL << 30) + (4ULL << 20))
 
 #define MAX_POLL 64
 

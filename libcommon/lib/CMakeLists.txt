@@ -15,7 +15,7 @@ add_library(common OBJECT
                                      common.c>>
     common_util.c
     apps/fromMLIR/assem.c
-
+    memref.cpp
     offloads.c
     ${offload_SRC}
     )

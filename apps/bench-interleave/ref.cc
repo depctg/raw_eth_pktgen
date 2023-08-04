@@ -58,6 +58,7 @@ void visit() {
     arc_t *arci = arc + i;
     int n = arci->head - node;
     g_payload[n & 23] = n;
+    arci->payload[0] = n;
   }
 }
 

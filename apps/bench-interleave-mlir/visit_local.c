@@ -15,12 +15,12 @@ void visit(arc_p as) {
     // arc[i].tail->firstout = arc + i;
     // computation(arc+i, arc[i].tail);
     arc_t ai = as[i];
-    node_t ni = *ai.head;
-    computation(&ai, &ni, i);
+    // node_t ni = *ai.head;
+    // computation(&ai, &ni, i);
 
-    // arc_t *arci = arc + i;
-    // int n = arci->head - node;
-    // g_payload[n & 23] = n;
+    int n = ai.head - node;
+    g_payload[n & 23] = n;
+    as[i].payload[0] = n;
   }
 }
 

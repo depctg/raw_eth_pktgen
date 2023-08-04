@@ -24,18 +24,18 @@ uint64_t tail_dist[M_arc];
 // node
 const uint64_t c1_line_size = (128);
 const uint64_t c1_raddr = 0;
-const uint64_t c1_size = (1000<< 20);
+const uint64_t c1_size = (1024ULL << 20);
 const int c1_slots = c1_size / c1_line_size;
 
 // arc
 const uint64_t c2_line_size = (2 << 20);
 const uint64_t c2_raddr = 1024UL * 1024 * 1024;
-const uint64_t c2_size = (24ULL<< 20);
+const uint64_t c2_size = (24ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
-using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
-// using C1 = SetAssocativeCache<0,c1_raddr,0,c1_slots,c1_line_size,0,4>;
+// using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
+using C1 = SetAssocativeCache<0,c1_raddr,0,c1_slots,c1_line_size,0,4>;
 // using C1 = FullLRUCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
 using C2 = DirectCache<c1_slots,c2_raddr,(1ULL<<30),c2_slots,c2_line_size,1>;
 
@@ -54,6 +54,7 @@ int cache_request_impl_1(int qid, uint64_t tag, int offset, bool send);
 int cache_request_impl_2(int qid, uint64_t tag, int offset, bool send);
 void poll_qid1(int offset, uint16_t seq);
 void poll_qid2(int offset, uint16_t seq);
+int select_1(uint64_t tag);
 }
 
 void setup() {
@@ -89,8 +90,8 @@ void setup() {
 }
 
 void computation(arc_p a, node_p n, int i) {
-  if (i % 500000 == 0)
-    printf("%d\n", i);
+  // if (i % 500000 == 0)
+  //   printf("%d\n", i);
   a->nextin = n->firstin;
   n->firstin = arc + i;
   for (int i = 0; i < 22; ++ i) {
@@ -125,4 +126,8 @@ void poll_qid1(int offset, uint16_t seq) {
 
 void poll_qid2(int offset, uint16_t seq) {
   poll_qid(offset, seq);
+}
+
+int select_1(uint64_t tag) {
+  return C1::select(tag);
 }

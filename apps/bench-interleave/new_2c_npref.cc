@@ -11,15 +11,15 @@
 #include "util.hpp"
 
 // node
-const uint64_t c1_line_size = (128ULL);
+const uint64_t c1_line_size = (16384ULL);
 const uint64_t c1_raddr = 0;
 const uint64_t c1_size = (1024ULL << 20);
 const int c1_slots = c1_size / c1_line_size;
 
 // arc
-const uint64_t c2_line_size = (2ULL << 20);
+const uint64_t c2_line_size = (256);
 const uint64_t c2_raddr = 1024UL * 1024 * 1024;
-const uint64_t c2_size = (4096ULL << 20);
+const uint64_t c2_size = (24ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
@@ -75,10 +75,12 @@ void visit() {
       // arci->nextout = node_tail->firstout;
       // node_tail->firstout = arc + j * eles + i;
       // computation(arci, node_tail);
+
       // node_t *node_head = C1R::get_mut<node_t>(arci->head);
       // arci->nextin = node_head->firstin;
       // node_head->firstin = arc + j * eles + i;
       // computation(arci, node_head);
+
       int n = arci->head - node;
       g_payload[n & 23] = n;
     }

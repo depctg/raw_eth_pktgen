@@ -77,32 +77,7 @@ void cache_init() {
         printf("Set CACHE_CFG env to path to the configuration file\n");
         exit(1);
     }
-    FILE *cache_cfg = fopen(cfg_path, "r");
-    if (!cache_cfg) {
-        printf("Cannot open configuration file %s\n", cfg_path);
-        exit(1);
-    }
 
-    while (1) {
-        int cid; 
-        uint64_t cache_size;
-        uint64_t remote_usage_limit;
-        unsigned line_size;
-
-        int h = fgetc(cache_cfg);
-        if (h == '#') {
-            fscanf(cache_cfg, "%*[^\n]\n");
-            continue;
-        } else if (h == EOF)
-            break;
-
-        if (fscanf(cache_cfg, " %d %lu %lu %u\n", &cid, &cache_size, &remote_usage_limit, &line_size) == EOF) break;
-        cache_size = align_with_pow2(cache_size);
-        line_size = align_with_pow2(line_size);
-        cache_create(cache_size, line_size, remote_usage_limit);
-        printf("Regist cache %d, size %lu, line size %u bytes\n", cid, cache_size, line_size);
-    }
-    fclose(cache_cfg);
     init_cache_stats();
 }
 

@@ -3,36 +3,7 @@
 
 #include <vector>
 #include <stdint.h>
-#include "app.h"
 #include "common.h"
-#include "rring_cache.h"
-
-// #define NIDX 107957636
-#define NIDX (1024 * 1024 * 128)
-#define fullsize (30ULL >> 30)
-#define cache_ratio (0.9)
-
-#define rvid_ofst       (1024ULL * 1024 * 2)
-#define rpickdate_ofst  (rvid_ofst + sizeof(int) * NIDX) 
-#define rdropdate_ofst  (rpickdate_ofst + sizeof(SimpleTime) * NIDX)
-#define rpsgcnt_ofst    (rdropdate_ofst + sizeof(SimpleTime) * NIDX) 
-#define rtripdist_ofst  (rpsgcnt_ofst + sizeof(int) * NIDX)   
-#define rplon_ofst      (rtripdist_ofst + sizeof(double) * NIDX)
-#define rplat_ofst      (rplon_ofst + sizeof(double) * NIDX)
-#define rrateid_ofst    (rplat_ofst + sizeof(double) * NIDX)
-#define rflag_ofst      (rrateid_ofst + sizeof(int) * NIDX)
-#define rdlon_ofst      (rflag_ofst + sizeof(char) * NIDX)
-#define rdlat_ofst      (rdlon_ofst + sizeof(double) * NIDX)
-#define rptype_ofst     (rdlat_ofst + sizeof(double) * NIDX)
-#define rfare_ofst      (rptype_ofst + sizeof(int) * NIDX)
-#define rextra_ofst     (rfare_ofst + sizeof(double) * NIDX)
-#define rmta_ofst       (rextra_ofst + sizeof(double) * NIDX)
-#define rtip_ofst       (rmta_ofst + sizeof(double) * NIDX)
-#define rtolls_ofst     (rtip_ofst + sizeof(double) * NIDX)
-#define rimpv_ofst      (rtolls_ofst + sizeof(double) * NIDX)
-#define rtotal_ofst     (rimpv_ofst + sizeof(double) * NIDX)
-#define rids_ofst       (rtotal_ofst + sizeof(double) * NIDX)
-#define rhaversine_ofst (rids_ofst + sizeof(size_t) * NIDX)
 
 template <typename T>
 struct rvector {
@@ -40,11 +11,6 @@ struct rvector {
   T * end;
   T * tail;
 };
-
-static inline uint64_t remoteAddr(void *p) {
-  virt_addr_t vaddr = { .ser = (uint64_t)p };
-  return vaddr.addr + RPC_RET_LIMIT;
-}
 
 template<typename T>
 rvector<T> createFromBase(uint64_t addr, size_t size, size_t cap) {
@@ -93,7 +59,30 @@ void remotelize(std::vector<T> &v, bool write = true) {
     rv->end = rv->head + s;
     rv->tail = rv->head + c;
 #endif
+}
 
+template <typename T, typename C, typename CR>
+void new_remotelize(std::vector<T> &v, bool write = true) {
+  rvector<T> * rv = (rvector<T> *) &v;
+  size_t s = v.size();
+  size_t c = v.capacity();
+  T *vaddr = (T*) CR::alloc(sizeof(T) * c);
+  if (write) {
+    uint64_t n_blocks = C::Value::bytes / C::Value::linesize;
+    int eles = C::Value::linesize / sizeof(T);
+    for (uint64_t j = 0; j < n_blocks; ++ j) {
+      T *base = CR::template get_mut<T>(vaddr + j * eles);
+      for (int i = 0; i < eles; ++ i) {
+        base[i] = rv->head[j * eles + i];
+      }
+    }
+  }
+  v.clear();
+  v.shrink_to_fit();
+
+  rv->head = vaddr;
+  rv->end = rv->head + s;
+  rv->tail = rv->head + c;
 }
 
 

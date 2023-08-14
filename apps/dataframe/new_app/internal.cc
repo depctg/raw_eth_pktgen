@@ -8,8 +8,7 @@
 using namespace hmdf;
 
 static StdDataFrame<uint64_t> df;
-
-
+// /mnt/data/df_csv/yellow_tripdata_2016-01.csv
 
 void * load_data()
 {   
@@ -82,6 +81,7 @@ std::vector<T>& get_column(const char * name) {
 template<typename T>
 void load_column(const char *name, std::vector<T> &&vec) {
     df.load_column(name, std::move(vec), nan_policy::dont_pad_with_nans);
+    remotelize(df.get_column<T>(name));
 }
 
 template std::vector<char> &       get_column<char>(const char *);
@@ -133,6 +133,22 @@ bool step4_firstTime(int i) {
 }
 
 void load_trip_timestamp() {
+    // StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration.csv", "duration"); 
+    StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day.csv", "pickup_day");
+    StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month.csv", "pickup_month");
+    
+    // auto duration_vec = duration_csv.get_column<uint64_t>("duration");
+    auto pickup_day_vec = day_csv.get_column<short>("pickup_day");
+    auto pickup_month_vec = month_csv.get_column<short>("pickup_month");
+
+    // printf("sizes %lu %lu %lu\n", duration_vec.size(), pickup_day_vec.size(), pickup_month_vec.size());
+
+    // load_column("duration", std::move(duration_vec));
+    load_column("pickup_day", std::move(pickup_day_vec));
+    load_column("pickup_month", std::move(pickup_month_vec));
+}
+
+void load_duration_trip_timestamp() {
     StdDataFrame<uint64_t> duration_csv = read_csv<-1,uint64_t>("/mnt/data/duration.csv", "duration"); 
     StdDataFrame<uint64_t> day_csv = read_csv<-1, short>("/mnt/data/pickup_day.csv", "pickup_day");
     StdDataFrame<uint64_t> month_csv = read_csv<-1, short>("/mnt/data/pickup_month.csv", "pickup_month");
@@ -141,9 +157,11 @@ void load_trip_timestamp() {
     auto pickup_day_vec = day_csv.get_column<short>("pickup_day");
     auto pickup_month_vec = month_csv.get_column<short>("pickup_month");
 
-    df.load_column("duration", std::move(duration_vec));
-    df.load_column("pickup_day", std::move(pickup_day_vec));
-    df.load_column("pickup_month", std::move(pickup_month_vec));
+    // printf("sizes %lu %lu %lu\n", duration_vec.size(), pickup_day_vec.size(), pickup_month_vec.size());
+
+    load_column("duration", std::move(duration_vec));
+    load_column("pickup_day", std::move(pickup_day_vec));
+    load_column("pickup_month", std::move(pickup_month_vec));
 }
 
 void step7_do_process(const char* key_col_name) {
@@ -154,6 +172,26 @@ void step7_do_process(const char* key_col_name) {
     df_key_duration.load_data(std::move(copy_index),
                               std::make_pair(key_col_name, std::move(copy_key_col)),
                               std::make_pair("duration", std::move(copy_key_duration)));
+
+    StdDataFrame<uint64_t> groupby_key =
+        df_key_duration.groupby<GroupbyMedian, short, short, uint64_t>(GroupbyMedian(),
+                                                                       key_col_name);
+    auto& key_vec      = groupby_key.get_column<short>(key_col_name);
+    auto& duration_vec = groupby_key.get_column<uint64_t>("duration");   
+
+    for (uint64_t i = 0; i < key_vec.size(); i++) {
+        std::cout << static_cast<int>(key_vec[i]) << " " << duration_vec[i] << std::endl;
+    }
+}
+
+void step7_process_after_copy(const char *key_col_name,
+                                     std::vector<size_t> &index,
+                                     std::vector<short> &key_col,
+                                     std::vector<uint64_t> &duration) {
+    StdDataFrame<uint64_t> df_key_duration;
+    df_key_duration.load_data(std::move(index),
+                              std::make_pair(key_col_name, std::move(key_col)),
+                              std::make_pair("duration", std::move(duration)));
 
     StdDataFrame<uint64_t> groupby_key =
         df_key_duration.groupby<GroupbyMedian, short, short, uint64_t>(GroupbyMedian(),

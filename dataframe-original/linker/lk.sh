@@ -16,9 +16,11 @@ function build_step1() {
 
 function mlir_step_local() {
   set -x
-  cgeist -S -std=c++14 app/main_step$1.cc -I include -emit-llvm -o out/step$1.ll
-  objs=/home/wuklab/AIFM/aifm/DataFrame/original/build/CMakeFiles/main_step$1.dir/app/internal.cc.o
-  clang-b++ -O3 -lpthread out/step$1.ll $objs /home/wuklab/AIFM/aifm/DataFrame/original/build/lib/libDataFrame.a -o out/step$1 
+  cgeist -S -std=c++14 app/main_step$1.cc -I include -emit-llvm -o out/step$1.mlir
+  pldisagg --emit-llvm -cse --canonicalize out/step$1.mlir -o out/step$1.llvm.mlir
+  mlir-translate --mlir-to-llvmir out/step$1.llvm.mlir -o out/step$1.ll
+  objs=/home/wuklab/projects/pl-zijian/raw_eth_pktgen/dataframe-original/build/CMakeFiles/main_step$1.dir/app/internal.cc.o
+  clang-16 -O3 -lpthread -lstdc++ out/step$1.ll $objs /home/wuklab/AIFM/aifm/DataFrame/original/build/lib/libDataFrame.a -o out/step$1 
   set +x
   echo "Link Complete"
 }

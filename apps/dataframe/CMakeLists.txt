@@ -5,7 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Produce cmpile_commands.json
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fconcepts-ts")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
 
 # We use:
 # - InstallBasicPackageFiles
@@ -237,6 +237,9 @@ target_link_libraries(main_step1_ofld common DataFrame Threads::Threads)
 
 add_executable(main_step1_nc app/main_step1_nc.cc app/internal.cc)
 target_link_libraries(main_step1_nc common DataFrame Threads::Threads)
+
+add_executable(rstep1 new_app/step1.cc new_app/internal.cc)
+target_link_libraries(rstep1 common DataFrame Threads::Threads)
 
 add_executable(main_step2 app/main_step2.cc app/internal.cc)
 target_link_libraries(main_step2 common DataFrame Threads::Threads)

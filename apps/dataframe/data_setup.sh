@@ -14,7 +14,7 @@ links=(https://s3.amazonaws.com/nyc-tlc/csv_backup/yellow_tripdata_2016-01.csv \
 
 head=yellow_tripdata_2016-01.csv
 
-cd /mnt/data/df_csv
+cd /mnt/hdd/df_csv
 
 for link in "${links[@]}"
 do

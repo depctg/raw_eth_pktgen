@@ -60,7 +60,7 @@ enum {
     TRANS_TYPE_SHM_EXECUTOR,
 };
 
-extern void *sbuf, *rbuf;
+extern void *sbuf, *rbuf, *_rbuf;
 extern struct ibv_qp *qp;
 extern struct ibv_cq *cq;
 extern struct ibv_mr *smr, *rmr;

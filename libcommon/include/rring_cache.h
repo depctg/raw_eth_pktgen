@@ -88,7 +88,7 @@ static inline void rring_poll_readonly(size_t *r, size_t t, size_t *tags, size_t
         int n = ibv_poll_cq(cq, 16, wc);
         for (int i = 0; i < n; i++) {
             if (wc[i].status != 0) {
-                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+                // printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
             }
             if (wc[i].wr_id > *r) {
                 int id = wc[i].wr_id;
@@ -107,7 +107,7 @@ static inline void rring_poll_writeonly(size_t *s, size_t t) {
         int n = ibv_poll_cq(cq, 32, wc);
         for (int i = 0; i < n; i++) {
             if (wc[i].status != 0) {
-                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+                // printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
             }
             if (wc[i].wr_id > *s)
                 *s = wc[i].wr_id;
@@ -121,7 +121,7 @@ static inline void rring_clean_writeonly(size_t *s, size_t t) {
         for (int i = 0; i < n; i++) {
 #ifdef RRING_DEBUG
             if (wc[i].status != 0) {
-                printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
+                // printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
             }
 #endif
             if (wc[i].wr_id > *s)

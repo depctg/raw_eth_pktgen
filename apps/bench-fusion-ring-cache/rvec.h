@@ -8,7 +8,6 @@
 #include "side_channel.h"
 #include "cache.h"
 #include "common.h"
-#include "rring_cache.h"
 
 
 template <typename T>
@@ -27,6 +26,7 @@ static inline uint64_t remoteAddr(void *p) {
 
 #define access_block_size (2ULL << 9)
 
+#if 0
 template <typename T>
 void remotelize(unsigned cid, std::vector<T> &v) {
     rvector<T> * rv = (rvector<T> *) &v;
@@ -67,5 +67,7 @@ void remotelize(unsigned cid, std::vector<T> &v) {
     rv->end = rv->head + s;
     rv->tail = rv->head + c;
 }
+
+#endif
 
 #endif

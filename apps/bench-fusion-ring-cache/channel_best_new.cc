@@ -3,14 +3,17 @@
 #include "rvec.h"
 #include <cstdlib>
 #include "workload.hpp"
-#include "rring_cache.h"
+#include "app.h"
+#include "rring.h"
 
 using namespace std;
 
-rring_init(rids, size_t, (2 << 20), 204, 0, 8192);
-rring_init(rvec, size_t, (2 << 20), 204, 0, 8192 + (4ULL << 30));
+rring_init(rids, size_t, (2 << 20), 2048, 0, 8192);
+rring_init(rvec, size_t, (2 << 20), 2048, 0, 8192 + (4ULL << 30));
 
 void post_setup() { return; }
+
+const int n_ahead = 16;
 
 template<typename I, typename D, typename V1, typename V2, typename V3>
 void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &visitor2, V3 &visitor3)  {
@@ -29,15 +32,36 @@ void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &vis
   visitor2.pre();
   visitor3.pre();
 
+  // prologue
+  for (int i = 0; i < n_ahead; ++ i) {
+    rdma(_lbase_rvec + (i % _nblocks_rvec) * _bsize_rvec,
+         _bsize_rvec, 
+         _rbase_rvec + i * _bsize_rvec, 0, IBV_WR_RDMA_READ);
+    rdma(_lbase_rids + (i % _nblocks_rids) * _bsize_rids,
+        _bsize_rids, 
+        _rbase_rids + i * _bsize_rids, i + 1, IBV_WR_RDMA_READ);
+  }
+  
+  // outer loop
   rring_outer_loop_with(rvec, min_s);
   rring_outer_loop(rids, uint64_t, min_s) {
-    rring_prefetch_with(rids, rvec, 16);
-    rring_prefetch(rids, 16);
+    // rring_prefetch_with(rids, rvec, n_ahead);
+    // rring_prefetch(rids, n_ahead);
+    if (_t_rids + n_ahead < _tlim_rids) {
+      size_t _ip = (_t_rids + n_ahead);
+      rdma(_lbase_rvec + (_ip % _nblocks_rvec) * _bsize_rvec,
+          _bsize_rvec, 
+          _rbase_rvec + _ip * _bsize_rvec, 0, IBV_WR_RDMA_READ);
+      rdma(_lbase_rids + (_ip % _nblocks_rids) * _bsize_rids,
+          _bsize_rids, 
+          _rbase_rids + _ip * _bsize_rids, _ip + 1, IBV_WR_RDMA_READ);
+    }
 
     rring_inner_preloop(rids, uint64_t);
     rring_inner_preloop(rvec, uint64_t);
 
-    rring_sync(rids);
+    // rring_sync(rids);
+    rring_poll_readonly(&_r_rids, _t_rids + 1);
 
     rring_inner_loop(rids, j) {
       visitor1 (_inner_rids[j], _inner_rvec[j]);

@@ -231,7 +231,7 @@ target_link_libraries(main DataFrame)
 # Build the app step by step
 add_executable(main_step1 app/main_step1.cc app/internal.cc)
 target_link_libraries(main_step1 DataFrame Threads::Threads)
-target_include_directories(main_step1 PRIVATE "/home/wuklab/projects/pl-zijian/raw_eth_pktgen/libcommon/include")
+# target_include_directories(main_step1 PRIVATE "/home/wuklab/projects/pl-zijian/raw_eth_pktgen/libcommon/include")
 
 add_executable(main_step2 app/main_step2.cc app/internal.cc)
 target_link_libraries(main_step2 DataFrame Threads::Threads)

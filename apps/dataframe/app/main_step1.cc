@@ -2,9 +2,6 @@
 #include <chrono>
 #include "internal.h"
 #include "rvector.h"
-#include "cache.h"
-#include "common.h"
-#include "offload.h"
 
 template<typename T>
 size_t get_col_unique_values(const std::vector<T> & vec) {
@@ -13,26 +10,10 @@ size_t get_col_unique_values(const std::vector<T> & vec) {
     std::vector<T>              result;
     result.reserve(N);
 
-    // for (size_t i = 0; i < N; i++)  {
-    //     T e = vec[i];
-    //     if (step1_firstTime(e))
-    //         result.push_back(e);
-    // }
-    void *p = (void *)&vec[0];
-    // printf("%lu\n", remoteAddr(p));
-    rring_init(vids, int, (2 << 20), 32, (size_t) ((char*)rbuf + (8 << 20)), remoteAddr(p));
-
-    rring_outer_loop(vids, int, N) {
-
-        rring_prefetch(vids, 4);
-        rring_inner_preloop(vids, int);
-        rring_sync(vids);
-
-        rring_inner_loop(vids, j) {
-            T e = _inner_vids[j];
-            if (step1_firstTime(e))
-                result.push_back(e);
-        }
+    for (size_t i = 0; i < N; i++)  {
+        T e = vec[i];
+        if (step1_firstTime(e))
+            result.push_back(e);
     }
     return(result.size());
 }
@@ -53,8 +34,6 @@ void print_number_vendor_ids_and_unique()
 
 int main()
 {
-    init_client();
-    cache_init();
     std::chrono::time_point<std::chrono::steady_clock> times[10];
     void * df  = load_data();
     times[0] = std::chrono::steady_clock::now();

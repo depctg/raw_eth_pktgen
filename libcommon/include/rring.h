@@ -10,7 +10,8 @@ static struct ibv_wc wc[64];
   const size_t _bsize_##rn = bsize, _bn_##rn = bsize / sizeof(T); \
   const size_t _nblocks_##rn = nblocks; \
   size_t _h_##rn = 0, _t_##rn = 0, _r_##rn = 0, _s_##rn=0; \
-  const uint64_t _lbase_##rn = (uint64_t)(lbase), _rbase_##rn = (uint64_t)(rbase)
+  uint64_t _lbase_##rn = (uint64_t)(lbase); \
+  const uint64_t _rbase_##rn = (uint64_t)(rbase)
 
 #define rring_outer_loop(rn,T,lim) \
   _h_##rn = _t_##rn = _r_##rn = _s_##rn=0; \
@@ -80,9 +81,11 @@ static inline void rring_poll_writeonly(size_t *s, size_t t) {
     do {
         int n = ibv_poll_cq(cq, 32, wc);
         for (int i = 0; i < n; i++) {
+#if 1
             if (wc[i].status != 0) {
                 printf("ERROR %d, %ld\n", wc[i].status, wc[i].wr_id);
             }
+#endif
             if (wc[i].wr_id > *s)
                 *s = wc[i].wr_id;
         }

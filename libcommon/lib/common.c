@@ -11,7 +11,7 @@
 #include "app.h"
 
 /* global data */
-void *sbuf, *rbuf;
+void *sbuf, *rbuf, *_rbuf;
 struct ibv_qp *qp;
 struct ibv_cq *cq;
 struct ibv_mr *smr, *rmr;
@@ -92,6 +92,7 @@ int init(int type, const char * server_url) {
     const size_t align = 1024 * 4;
     sbuf = aligned_alloc(align, SEND_BUF_SIZE);
     rbuf = aligned_alloc(align, RECV_BUF_SIZE);
+    _rbuf = rbuf;
     // sbuf = mmap(NULL, SEND_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
     // rbuf = mmap(NULL, RECV_BUF_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 

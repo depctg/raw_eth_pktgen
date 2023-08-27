@@ -1,9 +1,8 @@
 #include <vector>
 #include <cstdio>
-#include "rvec.h"
 #include <cstdlib>
-#include "offload.h"
 #include "common.h"
+#include "util.hpp"
 #include "pattern_generator.hpp"
 
 using namespace std;

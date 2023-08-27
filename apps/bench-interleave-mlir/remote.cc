@@ -34,8 +34,8 @@ const uint64_t c2_size = (24ULL << 20);
 const int c2_slots = c2_size / c2_line_size;
 
 // token offset, raddr offset, laddr offset, slots, slot size bytes, id 
-// using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
-using C1 = SetAssocativeCache<0,c1_raddr,0,c1_slots,c1_line_size,0,4>;
+using C1 = DirectCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
+// using C1 = SetAssocativeCache<0,c1_raddr,0,c1_slots,c1_line_size,0,4>;
 // using C1 = FullLRUCache<0,c1_raddr,0,c1_slots,c1_line_size,0>;
 using C2 = DirectCache<c1_slots,c2_raddr,(1ULL<<30),c2_slots,c2_line_size,1>;
 
@@ -106,18 +106,24 @@ void computation(arc_p a, node_p n, int i) {
 }
 
 node_p _cache_1_get(void *vaddr) {
-  return C1R::get<node_t>(vaddr);
+  return C1R::get_mut<node_t>(vaddr);
 }
 arc_p _cache_2_get(void *vaddr) {
-  return C2R::get<arc_t>(vaddr);
+  return C2R::get_mut<arc_t>(vaddr);
 }
 
 int cache_request_impl_1(int qid, uint64_t tag, int offset, bool send) {
-  return C1R::cache_request_impl(qid, tag, offset, NULL, send);
+  int off = C1R::cache_request_impl(qid, tag, offset, NULL, send);
+  auto &token = C1::Op::token(off);
+  token.add(Token::Dirty);
+  return off;
 }
 
 int cache_request_impl_2(int qid, uint64_t tag, int offset, bool send) {
-  return C2R::cache_request_impl(qid, tag, offset, NULL, send);  
+  int off = C2R::cache_request_impl(qid, tag, offset, NULL, send);
+  auto &token = C2::Op::token(off);
+  token.add(Token::Dirty);
+  return off;
 }
 
 void poll_qid1(int offset, uint16_t seq) {

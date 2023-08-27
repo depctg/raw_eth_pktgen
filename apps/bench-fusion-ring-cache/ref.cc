@@ -5,7 +5,9 @@
 
 using namespace std;
 
-void post_setup() { return; }
+void post_setup() {
+  return;
+}
 
 template<typename I, typename D, typename V1, typename V2, typename V3>
 void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &visitor2, V3 &visitor3) {
@@ -16,19 +18,25 @@ void visit (std::vector<I>& indices_, std::vector<D>& vec, V1 &visitor1, V2 &vis
 
   visitor1.pre();
   for (; i < min_s; ++i) {
-    visitor1 (indices_[i], vec[i]);
+    size_t ie = indices_[i];
+    uint64_t de = vec[i];
+    visitor1 (ie, de);
   }
   visitor1.post();
 
   visitor2.pre();
   for (i = 0; i < min_s; ++i) {
-    visitor2 (indices_[i], vec[i]);
+    size_t ie = indices_[i];
+    uint64_t de = vec[i];
+    visitor2 (ie, de);
   }
   visitor2.post();
 
   visitor3.pre();
   for (i = 0; i < min_s; ++i) {
-    visitor3 (indices_[i], vec[i]);
+    size_t ie = indices_[i];
+    uint64_t de = vec[i];
+    visitor3 (ie, de);
   }
   visitor3.post();
 

@@ -53,6 +53,9 @@ struct CacheOp {
             uint32_t sid = ++qi[qid].sid;
             tokens[off+offset].seq = sid;
             wrid |= (sid << 16);
+            if constexpr (reqwr_opts & REQWR_OPT_META_UPDATE) {
+                wrid |= ((off + offset) << 32);
+            }
         }
         // printf("rdma req: %lx, %d, %lx\n", tag, off, rbuf + tag);
         build_rdma_wr(i, wrid, buf + off * linesize, rbuf + tag, 
@@ -68,9 +71,9 @@ struct CacheValues {
     static constexpr uint64_t bytes = _linesize * (uint64_t)_slots;
 };
 
-template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int qid>
+template <int offset, uint64_t rbuf, uint64_t buf, int slots, int linesize, int qid, uint16_t reqwr_opts = REQWR_OPT_QUEUE_UPDATE>
 struct DirectCache {
-    using Op = CacheOp<offset, rbuf, buf, linesize, qid>;
+    using Op = CacheOp<offset, rbuf, buf, linesize, qid, reqwr_opts>;
     using Value = CacheValues<buf,slots,linesize,qid>;
 
     static inline int select(uint64_t vaddr) {
@@ -242,14 +245,7 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
     req = _pwr + wr_offset;
     C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_READ, NULL, send);
 
-#if C_PART
-    if (tag <= 0x40000000UL)
-       (volatile uint64_t *)counters[512]++;
-    else {
-       (volatile uint64_t *)counters[513]++;
-    }
-#endif
-
+    // option 1: turn off opt_writeback
     if constexpr (opt_writeback) {
         // only enable if we want write back
         if (token.dirty()) { // build req 0 (write)
@@ -258,17 +254,13 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
             req = _pwr + wr_offset + 1;
 
             // if counter_512...
-#if C_PART
-            if (token.tag <= 0x40000000UL) {
-               (volatile uint64_t *)counters[512]--;
-            }
-            else {
-                (volatile uint64_t *)counters[513]--;
-            }
-#endif
 
             // update b
             Tlb::invalid(tag);
+	    // Should poll here, make sure the data is copied
+	    // Or use inline
+
+        // option 2: wait write wr here
         }
     }
 
@@ -294,6 +286,17 @@ static inline int cache_request_impl(int wr_offset, uint64_t tag, int offset,
     return offset;
 }
 
+static inline int cache_evict_impl(int wr_offset, uint64_t tag, int offset, ibv_send_wr *req) {
+    auto &token = C::Op::token(offset);
+
+    struct ibv_send_wr *badwr = NULL;
+    req = _pwr + wr_offset;
+    C::Op::rdma(wr_offset, offset, tag, IBV_WR_RDMA_WRITE, NULL, false);
+    int ret = ibv_post_send(qp, req, &badwr);
+    token.remove(Token::Dirty);
+    return offset;
+}
+
 static void request_poll(int offset, uint64_t tag) {
     cache_request_impl(C::Value::qid * 2, tag, offset, NULL, true);
     poll_qid(C::Value::qid, C::Op::token(offset).seq);
@@ -306,6 +309,10 @@ static int request(int offset, uint64_t tag) {
 
 static int request(int offset, uint64_t tag, bool send) {
     return cache_request_impl(0, tag, offset, NULL, send);
+}
+
+static inline int evict(int offset, uint64_t tag) {
+    return cache_evict_impl(0, tag, offset, NULL);
 }
 
 // only work in mode

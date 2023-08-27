@@ -25,10 +25,10 @@ extern "C" {
 #define PORT_NUM 1
 
 /* size for local buffers */
-#define CQ_NUM_DESC 256
+#define CQ_NUM_DESC 512
 
-#define RBUF_SIZE (12ULL << 30)
-#define MAX_POLL 64
+#define RBUF_SIZE (16ULL << 30)
+#define MAX_POLL 512
 
 enum {
     TRANS_TYPE_UDP = 0,

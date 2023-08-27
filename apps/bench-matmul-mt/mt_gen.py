@@ -1,5 +1,5 @@
 num_thread = 8
-n_ahead = 4
+n_ahead = 2
 
 A_rsize = (130 << 20)
 A_local = (64 << 20)
@@ -231,10 +231,10 @@ int main () {{
 
 
   int64_t shapeA[] = {{M, K}};
-  float *bufA = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
+  float *bufA = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/A.dat", shapeA, 2);
 
   int64_t shapeB[] = {{K, N}};
-  float *bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
+  float *bufB = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/B.dat", shapeB, 2);
 
 {setup_str}
 
@@ -251,8 +251,8 @@ int main () {{
   
 {prepare_str}
 
-  int64_t shapeC[] = {{M, N}};
-  float *C_truth = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/C.dat", shapeC, 2);
+  // int64_t shapeC[] = {{M, N}};
+  // float *C_truth = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/C.dat", shapeC, 2);
 
   uint64_t start = microtime();
   {run}

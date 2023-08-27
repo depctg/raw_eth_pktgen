@@ -136,10 +136,10 @@ int main () {
   int64_t shapeC[] = {M, N};
 
   for (int i = 0; i < N_input; ++ i) {
-    bufA[i] = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
+    bufA[i] = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/A.dat", shapeA, 2);
     rA[i] = (float *) CAR::alloc(sizeof(float) * M * K);
   }
-  bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
+  bufB = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/B.dat", shapeB, 2);
 
   // push input
   for (int k = 0; k < num_thread; ++ k) {

@@ -37,7 +37,7 @@ static inline float *pin2(float *buf, int64_t a, int64_t b) {
   return buf + a * strides2[0] + b;
 }
 
-const int n_ahead = 4;
+const int n_ahead = 2;
 const uint64_t n_blocks = M / 4;
 
 template<typename C1, typename C2,
@@ -209,10 +209,10 @@ int main () {
 
 
   int64_t shapeA[] = {M, K};
-  float *bufA = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
+  float *bufA = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/A.dat", shapeA, 2);
 
   int64_t shapeB[] = {K, N};
-  float *bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
+  float *bufB = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/B.dat", shapeB, 2);
 
   float *rA0 = (float *) CAR0::alloc(sizeof(float) * M * K);
 

@@ -58,5 +58,4 @@ extern bool step4_firstTime(int i);
 extern void load_trip_timestamp();
 
 extern void step7_do_process(const char* key_col_name);
-
 #endif

@@ -5,163 +5,6 @@
 #include <unordered_set>
 #include <vector>
 #include "internal.h"
-#include "cache.hpp"
-
-//----------------- Cache CFGS ----------------//
-extern "C" {
-int cache_request_impl_1(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_2(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_3(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_4(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_5(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_6(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_7(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_8(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_9(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_10(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_11(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_12(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_13(int qid, uint64_t tag, int offset, bool send);
-int cache_request_impl_14(int qid, uint64_t tag, int offset, bool send);
-
-void poll_qid1(int offset, uint16_t seq);
-void poll_qid2(int offset, uint16_t seq);
-void poll_qid3(int offset, uint16_t seq);
-void poll_qid4(int offset, uint16_t seq);
-void poll_qid5(int offset, uint16_t seq);
-void poll_qid6(int offset, uint16_t seq);
-void poll_qid7(int offset, uint16_t seq);
-void poll_qid8(int offset, uint16_t seq);
-void poll_qid9(int offset, uint16_t seq);
-void poll_qid10(int offset, uint16_t seq);
-void poll_qid11(int offset, uint16_t seq);
-void poll_qid12(int offset, uint16_t seq);
-void poll_qid13(int offset, uint16_t seq);
-void poll_qid14(int offset, uint16_t seq);
-}
-
-// total num_eles approx 128 * 1024 * 1024
-const size_t s1_nb = 1024; // 85 bytes * 512 * 1024 one block
-const size_t s1_n_block = 36864; // 24 -> 1G
-
-// token offset, raddr offset, laddr offset, slots, slot size bytes, id 
-using rvid  = DirectCache<0,0,0,s1_n_block,s1_nb * sizeof(int),0>;
-using rpick = DirectCache<s1_n_block,(1<<30),(1<<30),s1_n_block,s1_nb * sizeof(SimpleTime),1>;
-using rdrop = DirectCache<2*s1_n_block,(2ULL<<30),(2ULL<<30),s1_n_block,s1_nb * sizeof(SimpleTime),2>;
-using rpsg  = DirectCache<3*s1_n_block,(3ULL<<30),(3ULL<<30),s1_n_block,s1_nb * sizeof(int),3>;
-using rplon = DirectCache<4*s1_n_block,(4ULL<<30),(4ULL<<30),s1_n_block,s1_nb * sizeof(double),4>;
-using rplat = DirectCache<5*s1_n_block,(5ULL<<30),(5ULL<<30),s1_n_block,s1_nb * sizeof(double),5>;
-using rfwd  = DirectCache<6*s1_n_block,(6ULL<<30),(6ULL<<30),s1_n_block,s1_nb * sizeof(char),6>;
-using rdlon = DirectCache<7*s1_n_block,(7ULL<<30),(7ULL<<30),s1_n_block,s1_nb * sizeof(double),7>;
-using rdlat = DirectCache<8*s1_n_block,(8ULL<<30),(8ULL<<30),s1_n_block,s1_nb * sizeof(double),8>;
-using ridx  = DirectCache<9*s1_n_block,(9ULL<<30),(9ULL<<30),s1_n_block,s1_nb * sizeof(size_t),9>;
-using rdur  = DirectCache<10*s1_n_block,(10ULL<<30),(10ULL<<30),s1_n_block,s1_nb * sizeof(uint64_t),10>;
-using rhvs  = DirectCache<11*s1_n_block,(11ULL<<30),(11ULL<<30),s1_n_block,s1_nb * sizeof(double),11>;
-using rpday = DirectCache<12*s1_n_block,(12ULL<<30),(12ULL<<30),s1_n_block,s1_nb * sizeof(short),12>;
-using rpmon = DirectCache<13*s1_n_block,(13ULL<<30),(13ULL<<30),s1_n_block,s1_nb * sizeof(short),13>;
-
-
-using rvid_R = CacheReq<rvid>;
-using rpick_R = CacheReq<rpick>;
-using rdrop_R = CacheReq<rdrop>;
-using rpsg_R = CacheReq<rpsg>;
-using rplon_R = CacheReq<rplon>;
-using rplat_R = CacheReq<rplat>;
-using rfwd_R = CacheReq<rfwd>;
-using rdlon_R = CacheReq<rdlon>;
-using rdlat_R = CacheReq<rdlat>;
-using ridx_R = CacheReq<ridx>;
-using rdur_R = CacheReq<rdur>;
-using rhvs_R = CacheReq<rhvs>;
-using rpday_R = CacheReq<rpday>;
-using rpmon_R = CacheReq<rpmon>;
-
-int cache_request_impl_1(int qid, uint64_t tag, int offset, bool send) {
-  return rfwd_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_2(int qid, uint64_t tag, int offset, bool send) {
-  return rpsg_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_3(int qid, uint64_t tag, int offset, bool send) {
-  return rpmon_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_4(int qid, uint64_t tag, int offset, bool send) {
-  return rpday_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_5(int qid, uint64_t tag, int offset, bool send) {
-  return ridx_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_6(int qid, uint64_t tag, int offset, bool send) {
-  return rhvs_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_7(int qid, uint64_t tag, int offset, bool send) {
-  return rdlat_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_8(int qid, uint64_t tag, int offset, bool send) {
-  return rdlon_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_9(int qid, uint64_t tag, int offset, bool send) {
-  return rplat_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_10(int qid, uint64_t tag, int offset, bool send) {
-  return rplon_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_11(int qid, uint64_t tag, int offset, bool send) {
-  return rdur_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_12(int qid, uint64_t tag, int offset, bool send) {
-  return rvid_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_13(int qid, uint64_t tag, int offset, bool send) {
-  return rpick_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-int cache_request_impl_14(int qid, uint64_t tag, int offset, bool send) {
-  return rdrop_R::cache_request_impl(qid, tag, offset, NULL, send);
-}
-
-void poll_qid1(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid2(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid3(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid4(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid5(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid6(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid7(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid8(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid9(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid10(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid11(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid12(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid13(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-void poll_qid14(int offset, uint16_t seq) {
-  poll_qid(offset, seq);
-}
-//----------------- END ----------------//
 
 using namespace hmdf;
 
@@ -285,6 +128,7 @@ void vec_set_size(std::vector<T> &v, size_t s) {
 template void vec_set_size<uint64_t>(std::vector<uint64_t> &v, size_t s);
 template void vec_set_size<double>(std::vector<double> &v, size_t s);
 
+
 static std::unordered_set<int> step1_set;
 bool step1_firstTime(int i) {
     const auto insert_ret = step1_set.emplace(i);
@@ -319,16 +163,14 @@ void prepare_duration()
     auto& dropoff_time_vec = *drop_date_col;
     std::vector<uint64_t> &duration_vec = *duration_col;
     size_t N = pickup_time_vec.size();
-
     for (uint64_t i = 0; i < N; i++) {
-        auto pickup_time_second = rpick_R::get<SimpleTime>(&pickup_time_vec[i])->to_second();
-        auto dropoff_time_second = rdrop_R::get<SimpleTime>(&dropoff_time_vec[i])->to_second();
+        auto pickup_time_second  = pickup_time_vec[i].to_second();
+        auto dropoff_time_second = dropoff_time_vec[i].to_second();
         // can directly change pointers.
-        uint64_t *dur_p = rdur_R::get_mut<uint64_t>(&duration_vec[i]);
         if (dropoff_time_second < pickup_time_second)
-            dur_p[0] = 0;
+            duration_vec[i] = 0;
         else
-            dur_p[0] = dropoff_time_second - pickup_time_second;
+            duration_vec[i] = dropoff_time_second - pickup_time_second;
     }
     vec_set_size(duration_vec, N);
 }
@@ -411,16 +253,13 @@ void step7_process_after_copy(const char *key_col_name,
     }
 }
 
-
 static std::vector<uint64_t> _duration_col;
 static std::vector<double> _haversine_col;
 
 #define STEP_7 0
 
 void ext_setup() {
-    init_client();
-
-    (void) load_data();
+    (void)load_data();
     // used for step 7 only
     load_duration_trip_timestamp();
 
@@ -446,33 +285,4 @@ void ext_setup() {
 
     pick_day_col = &df.get_column<short>("pickup_day");
     pick_month_col = &df.get_column<short>("pickup_month");
-
-    new_remotelize<int, rvid, rvid_R>(*vendor_id_col, true);
-    printf("VendorID remote\n");
-    new_remotelize<SimpleTime, rpick, rpick_R>(*pick_date_col, true);
-    printf("Pick remote\n");
-    new_remotelize<SimpleTime, rdrop, rdrop_R>(*drop_date_col, true);
-    printf("Drop remote\n");
-    new_remotelize<int, rpsg, rpsg_R>(*psg_cnt_col, true);
-    printf("Psg cnt remote\n");
-    new_remotelize<double, rplon, rplon_R>(*pick_long_col, true);
-    printf("Pick longitude remote\n");
-    new_remotelize<double, rplat, rplat_R>(*pick_lat_col, true);
-    printf("Pick latitude remote\n");
-    new_remotelize<char, rfwd, rfwd_R>(*store_fwd_col, true);
-    printf("Store fwd remote\n");
-    new_remotelize<double, rdlon, rdlon_R>(*drop_long_col, true);
-    printf("Drop longitude remote\n");
-    new_remotelize<double, rdlat, rdlat_R>(*drop_lat_col, true);
-    printf("Drop latitude remote\n");
-    new_remotelize<size_t, ridx, ridx_R>(*index_col, true);
-    printf("Index remote\n");
-    new_remotelize<uint64_t, rdur, rdur_R>(*duration_col, STEP_7);
-    printf("Duration remote\n");
-    new_remotelize<double, rhvs, rhvs_R>(*haversine_col, false);
-    printf("Haversine remote\n");
-    new_remotelize<short, rpday, rpday_R>(*pick_day_col, true);
-    printf("Pickup day\n");
-    new_remotelize<short, rpmon, rpmon_R>(*pick_month_col, true);
-    printf("Pickup month\n");
 }

@@ -68,8 +68,8 @@ void _mlir_ciface_main_graph(Tensor_float_2 *C, Tensor_float_2 *A, Tensor_float_
 }
 
 
-constexpr int num_thread = 1;
-constexpr int N_input = 2; // multiple times of thread
+constexpr int num_thread = 8;
+constexpr int N_input = 8; // multiple times of thread
 
 struct T_pack {
   Tensor_float_2 *C;
@@ -94,9 +94,9 @@ int main () {
   int64_t shapeC[] = {M, N};
 
   for (int i = 0; i < N_input; ++ i) {
-    bufA[i] = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/A.dat", shapeA, 2);
+    bufA[i] = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/A.dat", shapeA, 2);
   }
-  bufB = read_tensor_float("/users/Zijian/new_runtime/cpy_new_rt/apps/bench-matmul-new/B.dat", shapeB, 2);
+  bufB = read_tensor_float("/users/Zijian/new_rt/apps/bench-matmul-mt/B.dat", shapeB, 2);
 
   Tensor_float_2 A[num_thread][N_input / num_thread];
   Tensor_float_2 C[num_thread][N_input / num_thread];

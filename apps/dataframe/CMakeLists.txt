@@ -238,8 +238,14 @@ target_link_libraries(main_step1_ofld common DataFrame Threads::Threads)
 add_executable(main_step1_nc app/main_step1_nc.cc app/internal.cc)
 target_link_libraries(main_step1_nc common DataFrame Threads::Threads)
 
-add_executable(rstep1 new_app/step1.cc new_app/internal.cc)
-target_link_libraries(rstep1 common DataFrame Threads::Threads)
+add_executable(step1_ref new_app/step1.cc new_app/internal_ref.cc)
+target_link_libraries(step1_ref common DataFrame Threads::Threads)
+
+add_executable(step1_remote new_app/step1_remote.cc new_app/internal.cc)
+target_link_libraries(step1_remote common DataFrame Threads::Threads)
+
+add_executable(step1_mlir new_app/internal.cc)
+target_link_libraries(step1_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/step1/lower.o)
 
 add_executable(main_step2 app/main_step2.cc app/internal.cc)
 target_link_libraries(main_step2 common DataFrame Threads::Threads)
@@ -250,6 +256,15 @@ target_link_libraries(main_step2_ofld common DataFrame Threads::Threads)
 add_executable(main_step2_nc app/main_step2_nc.cc app/internal.cc)
 target_link_libraries(main_step2_nc common DataFrame Threads::Threads)
 
+add_executable(step2_ref new_app/step2.cc new_app/internal_ref.cc)
+target_link_libraries(step2_ref common DataFrame Threads::Threads)
+
+add_executable(step2_remote new_app/step2_remote.cc new_app/internal.cc)
+target_link_libraries(step2_remote common DataFrame Threads::Threads)
+
+add_executable(step2_mlir new_app/internal.cc)
+target_link_libraries(step2_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/step2/lower.o)
+
 add_executable(main_step3 app/main_step3.cc app/internal.cc)
 target_link_libraries(main_step3 common DataFrame Threads::Threads)
 
@@ -258,6 +273,15 @@ target_link_libraries(main_step3_ofld common DataFrame Threads::Threads)
 
 add_executable(main_step3_nc app/main_step3_nc.cc app/internal.cc)
 target_link_libraries(main_step3_nc common DataFrame Threads::Threads)
+
+add_executable(step3_ref new_app/step3.cc new_app/internal_ref.cc)
+target_link_libraries(step3_ref common DataFrame Threads::Threads)
+
+add_executable(step3_remote new_app/step3_remote.cc new_app/internal.cc)
+target_link_libraries(step3_remote common DataFrame Threads::Threads)
+
+add_executable(step3_mlir new_app/internal.cc)
+target_link_libraries(step3_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/fuse/lower.o)
 
 add_executable(main_step4 app/main_step4.cc app/internal.cc)
 target_link_libraries(main_step4 common DataFrame Threads::Threads)
@@ -268,6 +292,16 @@ target_link_libraries(main_step4_ofld common DataFrame Threads::Threads)
 add_executable(main_step4_nc app/main_step4_nc.cc app/internal.cc)
 target_link_libraries(main_step4_nc common DataFrame Threads::Threads)
 
+add_executable(step4_ref new_app/step4.cc new_app/internal_ref.cc)
+target_link_libraries(step4_ref common DataFrame Threads::Threads)
+
+add_executable(step4_remote new_app/step4_remote.cc new_app/internal.cc)
+target_link_libraries(step4_remote common DataFrame Threads::Threads)
+
+add_executable(step4_mlir new_app/internal.cc)
+target_link_libraries(step4_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/step4/lower.o)
+
+
 add_executable(main_step5 app/main_step5.cc app/internal.cc)
 target_link_libraries(main_step5 common DataFrame Threads::Threads)
 
@@ -276,6 +310,16 @@ target_link_libraries(main_step5_ofld common DataFrame Threads::Threads)
 
 add_executable(main_step5_nc app/main_step5_nc.cc app/internal.cc)
 target_link_libraries(main_step5_nc common DataFrame Threads::Threads)
+
+add_executable(step5_ref new_app/step5.cc new_app/internal_ref.cc)
+target_link_libraries(step5_ref common DataFrame Threads::Threads)
+
+add_executable(step5_remote new_app/step5_remote.cc new_app/internal.cc)
+target_link_libraries(step5_remote common DataFrame Threads::Threads)
+
+add_executable(step5_mlir new_app/internal.cc)
+target_link_libraries(step5_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/step5/lower.o)
+
 
 # add_executable(step6_gen app/step6_generator.cc app/internal.cc)
 # target_link_libraries(step6_gen common DataFrame Threads::Threads)
@@ -292,6 +336,15 @@ target_link_libraries(main_step7_ofld common DataFrame Threads::Threads)
 add_executable(main_step7_nc app/main_step7_nc.cc app/internal.cc)
 target_link_libraries(main_step7_nc common DataFrame Threads::Threads)
 
+add_executable(step7_ref new_app/step7.cc new_app/internal_ref.cc)
+target_link_libraries(step7_ref common DataFrame Threads::Threads)
+
+add_executable(step7_remote new_app/step7_remote.cc new_app/internal.cc)
+target_link_libraries(step7_remote common DataFrame Threads::Threads)
+
+add_executable(step7_mlir new_app/internal.cc)
+target_link_libraries(step7_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/step7/lower.o)
+
 # Make offloads do not relie on common
 # add_executable(dataframe_offloads app/offloads.cc)
 # target_link_libraries(dataframe_offloads DataFrame Threads::Threads)
@@ -301,6 +354,15 @@ target_link_libraries(main_allsteps common DataFrame Threads::Threads)
 
 add_executable(main_allsteps_ofld app/main_stepall_ofld.cc app/internal.cc)
 target_link_libraries(main_allsteps_ofld common DataFrame Threads::Threads)
+
+add_executable(allstep_ref new_app/all_step.cc new_app/internal_ref.cc)
+target_link_libraries(allstep_ref common DataFrame Threads::Threads)
+
+add_executable(allstep_ref_mlir new_app/internal_ref.cc)
+target_link_libraries(allstep_ref_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/allstep/lower_local.o)
+
+add_executable(allstep_mlir new_app/internal.cc)
+target_link_libraries(allstep_mlir common DataFrame Threads::Threads /users/Zijian/Disagg-mlir/tools/disagg/example/dataframe/allstep/lower.o)
 
 # Build the test binary
 # add_executable(dataframe_tester  test/dataframe_tester.cc)

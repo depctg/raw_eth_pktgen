@@ -99,14 +99,14 @@ void calculate_trip_duration(StdDataFrame<uint64_t>& df)
 
     // Used in step 7
 
-    // FILE *fd;
-    // printf("duration size: %lu\n", duration_vec.size());
-    // fd = fopen("/mnt/data/duration.csv", "w+");
-    // fprintf(fd, "duration\n");
-    // for (auto d : duration_vec) {
-    //     fprintf(fd, "%lu\n", d);
-    // }
-    // fclose(fd);
+    FILE *fd;
+    printf("duration size: %lu\n", duration_vec.size());
+    fd = fopen("/mnt/data/duration.csv", "w+");
+    fprintf(fd, "duration\n");
+    for (auto d : duration_vec) {
+        fprintf(fd, "%lu\n", d);
+    }
+    fclose(fd);
 
     df.load_column("duration", std::move(duration_vec), nan_policy::dont_pad_with_nans);
     MaxVisitor<uint64_t> max_visitor;
@@ -215,24 +215,24 @@ void analyze_trip_timestamp(StdDataFrame<uint64_t>& df)
         *month_it = time.month_;
     }
 
-    // FILE *f1;
-    // f1 = fopen("/mnt/data/pickup_day.csv", "w+");
-    // printf("pickup_day size: %lu\n", pickup_day_vec.size());
-    // fprintf(f1, "pickup_day\n");
+    FILE *f1;
+    f1 = fopen("/mnt/data/pickup_day.csv", "w+");
+    printf("pickup_day size: %lu\n", pickup_day_vec.size());
+    fprintf(f1, "pickup_day\n");
 
-    // for (auto day : pickup_day_vec) {
-    //     fprintf(f1, "%d\n", (int)day);
-    // }
-    // fclose(f1);
+    for (auto day : pickup_day_vec) {
+        fprintf(f1, "%d\n", (int)day);
+    }
+    fclose(f1);
 
-    // FILE *f2;
-    // printf("pickup_month size: %lu\n", pickup_month_vec.size());
-    // f2 = fopen("/mnt/data/pickup_month.csv", "w+");
-    // fprintf(f2, "pickup_month\n");
-    // for (auto month : pickup_month_vec) {
-    //     fprintf(f2, "%d\n", (int)month);
-    // }
-    // fclose(f2);
+    FILE *f2;
+    printf("pickup_month size: %lu\n", pickup_month_vec.size());
+    f2 = fopen("/mnt/data/pickup_month.csv", "w+");
+    fprintf(f2, "pickup_month\n");
+    for (auto month : pickup_month_vec) {
+        fprintf(f2, "%d\n", (int)month);
+    }
+    fclose(f2);
 
     df.load_column("pickup_hour", std::move(pickup_hour_vec), nan_policy::dont_pad_with_nans);
     df.load_column("pickup_day", std::move(pickup_day_vec), nan_policy::dont_pad_with_nans);

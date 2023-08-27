@@ -2,6 +2,18 @@
 #include <unordered_set>
 #include <chrono>
 #include "internal.h"
+#include "cache.hpp"
+
+//----------------- Cache CFGS ----------------//
+// total num_eles approx 128 * 1024 * 1024
+const size_t s1_nb = 512 * 1024;
+const size_t s1_n_block = 32;
+
+// token offset, raddr offset, laddr offset, slots, slot size bytes, id 
+using rvid = DirectCache<0,0,0,s1_n_block,s1_nb * sizeof(int),0>;
+using rvid_R = CacheReq<rvid>;
+
+//----------------- END ----------------//
 
 size_t get_vid_unique_values() {
     auto &vec = *vendor_id_col;
@@ -18,7 +30,6 @@ size_t get_vid_unique_values() {
 
     return(result.size());
 }
-
 
 void print_number_vendor_ids_and_unique()
 {

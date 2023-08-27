@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "queue.h"
+#include "cache_token.hpp"
 
 #define NUM_RDMA_BATCH_WR (32)
 #define NUM_RDMA_BATCH_SGE (32 * 4)
@@ -71,7 +72,8 @@ static inline void poll_qid(uint8_t qid, uint16_t seq) {
 #if 0
             /* if requires an meta update */
             if (wc[i].wr_id & REQWR_OPT_META_UPDATE) {
-                // we won't do any meta update for now
+                // current set-assoc does not favor non-dirty slots
+                tokens[get_id(wc, i)->meta].set(Token::Valid);
             }
 #endif
         }
@@ -97,6 +99,27 @@ static inline void poll_all() {
                             < MAX_QUEUE_INFLIGHT) {
                 qi[get_id(wc,i)->qid].rid = get_id(wc,i)->seq;
             }
+        }
+    }
+}
+
+static inline void drain_queue() {
+    struct ibv_wc wc[MAX_POLL];
+    // TODO: inflight?
+    // test this!
+    int n = ibv_poll_cq(cq, MAX_POLL, wc);
+    for (int i = 0; i < n; i++) {
+        // if (wc[i].status != 0) {
+        //     printf("ERROR %d, %lx\n", wc[i].status, wc[i].wr_id);
+        //     printf("opcode %d, %u\n", wc[i].opcode, wc[i].byte_len);
+        //     printf("raddr %lx\n", peermr.addr);
+        //     exit(0);
+        // }
+        /* if requires an queue update */
+        if ((wc[i].wr_id & REQWR_OPT_QUEUE_UPDATE) &&
+            uint16_t(get_id(wc,i)->seq - qi[get_id(wc,i)->qid].rid)
+                        < MAX_QUEUE_INFLIGHT) {
+            qi[get_id(wc,i)->qid].rid = get_id(wc,i)->seq;
         }
     }
 }

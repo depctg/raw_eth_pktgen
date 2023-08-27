@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <stdint.h>
-#include "common.h"
+#include <cstdio>
 
 template <typename T>
 struct rvector {
@@ -68,8 +68,8 @@ void new_remotelize(std::vector<T> &v, bool write = true) {
   size_t c = v.capacity();
   T *vaddr = (T*) CR::alloc(sizeof(T) * c);
   if (write) {
-    uint64_t n_blocks = C::Value::bytes / C::Value::linesize;
     int eles = C::Value::linesize / sizeof(T);
+    uint64_t n_blocks = s / eles;
     for (uint64_t j = 0; j < n_blocks; ++ j) {
       T *base = CR::template get_mut<T>(vaddr + j * eles);
       for (int i = 0; i < eles; ++ i) {

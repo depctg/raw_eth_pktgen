@@ -31,6 +31,7 @@ struct Token {
     // since v = 0x01
     inline void set(uint8_t flag) { flags = flag; } 
     inline void add(uint8_t flag) { flags |= flag; } 
+    inline void remove(uint8_t flag) { flags &= (~flag); } 
     inline void clear() { flags = 0; } 
 
     static const uint8_t Valid = 0x1;
